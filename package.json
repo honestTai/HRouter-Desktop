@@ -15,9 +15,24 @@
     "test:unit": "vitest run",
     "test:unit:watch": "vitest watch"
   },
-  "keywords": [],
-  "author": "Jason Young",
+  "keywords": [
+    "hrouter",
+    "claude-code",
+    "codex",
+    "gemini-cli",
+    "grok",
+    "tauri"
+  ],
+  "author": "HRouter Contributors",
   "license": "MIT",
+  "homepage": "https://www.honesttai.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/honestTai/HRouter-Desktop.git"
+  },
+  "bugs": {
+    "url": "https://github.com/honestTai/HRouter-Desktop/issues"
+  },
   "packageManager": "pnpm@10.12.3",
   "devDependencies": {
     "@tauri-apps/cli": "^2.8.0",

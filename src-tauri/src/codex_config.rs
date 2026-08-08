@@ -4416,7 +4416,16 @@ model_catalog_json = "cc-switch-model-catalog.json"
         #[cfg(unix)]
         std::os::unix::fs::symlink(&outside_dir, base_dir.join("link")).expect("symlink");
         #[cfg(windows)]
-        std::os::windows::fs::symlink_dir(&outside_dir, base_dir.join("link")).expect("symlink");
+        if let Err(error) = std::os::windows::fs::symlink_dir(&outside_dir, base_dir.join("link")) {
+            // Windows requires Developer Mode or SeCreateSymbolicLinkPrivilege
+            // for this operation. Keep the security assertion active wherever
+            // links can be created, while allowing contributor machines without
+            // that OS privilege to run the rest of the suite.
+            if error.raw_os_error() == Some(1314) {
+                return;
+            }
+            panic!("symlink: {error}");
+        }
 
         let config_text = r#"model_catalog_json = "link/cc-switch-model-catalog.json"
 "#;

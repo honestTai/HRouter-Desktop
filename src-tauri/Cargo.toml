@@ -2,9 +2,9 @@
 name = "hrouter"
 version = "0.2.0"
 description = "HRouter configuration manager for AI coding agents"
-authors = ["Jason Young"]
+authors = ["HRouter Contributors"]
 license = "MIT"
-repository = "https://github.com/farion1231/cc-switch"
+repository = "https://github.com/honestTai/HRouter-Desktop"
 edition = "2021"
 rust-version = "1.85.0"
 
