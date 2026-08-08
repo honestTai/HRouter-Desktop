@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">HRouter</title>
+  <desc id="desc">HRouter logo - a bold green H on a dark rounded square.</desc>
+  <defs>
+    <linearGradient id="hr-bg" x1="72" y1="44" x2="442" y2="478" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1A2230"/>
+      <stop offset=".55" stop-color="#10161F"/>
+      <stop offset="1" stop-color="#0A0E14"/>
+    </linearGradient>
+    <radialGradient id="hr-ambient" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(168 92) rotate(51) scale(342 382)">
+      <stop stop-color="#3E68B0" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#3E68B0" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hr-brand" x1="156" y1="128" x2="356" y2="384" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5FF0A0"/>
+      <stop offset="1" stop-color="#22C96B"/>
+    </linearGradient>
+    <filter id="hr-shadow" x="-25%" y="-25%" width="150%" height="165%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#03170B" flood-opacity=".45"/>
+    </filter>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="120" fill="url(#hr-bg)"/>
+  <rect x="16" y="16" width="480" height="480" rx="120" fill="url(#hr-ambient)"/>
+  <rect x="16.75" y="16.75" width="478.5" height="478.5" rx="119.25" fill="none" stroke="#A5BFFF" stroke-opacity=".14" stroke-width="1.5"/>
+  <g fill="url(#hr-brand)" filter="url(#hr-shadow)">
+    <rect x="146" y="128" width="62" height="256" rx="20"/>
+    <rect x="304" y="128" width="62" height="256" rx="20"/>
+    <rect x="146" y="225" width="220" height="62" rx="20"/>
+  </g>
+</svg>

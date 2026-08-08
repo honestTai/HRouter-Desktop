@@ -34,7 +34,13 @@ import type {
 import { useUpdate } from "@/contexts/UpdateContext";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
-import appIcon from "@/assets/icons/app-icon.png";
+import appIcon from "@/assets/icons/hrouter.svg";
+import {
+  PRODUCT_NAME,
+  PRODUCT_UPDATES_ENABLED,
+  PRODUCT_WEBSITE,
+  UPSTREAM_SOURCE_URL,
+} from "@/config/brand";
 import { APP_ICON_MAP } from "@/config/appConfig";
 import type { AppId } from "@/lib/api/types";
 import { extractErrorMessage } from "@/utils/errorUtils";
@@ -836,9 +842,9 @@ export function AboutSection({ isPortable }: AboutSectionProps) {
           <div className="flex items-center gap-8">
             <div className="flex flex-col items-center gap-2">
               <div className="flex items-center gap-2">
-                <img src={appIcon} alt="CC Switch" className="h-5 w-5" />
+                <img src={appIcon} alt={PRODUCT_NAME} className="h-5 w-5" />
                 <h4 className="text-lg font-semibold text-foreground">
-                  CC Switch
+                  {PRODUCT_NAME}
                 </h4>
               </div>
               <div className="flex items-center gap-2">
@@ -867,7 +873,7 @@ export function AboutSection({ isPortable }: AboutSectionProps) {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => settingsApi.openExternal("https://ccswitch.io")}
+              onClick={() => settingsApi.openExternal(PRODUCT_WEBSITE)}
               className="h-8 gap-1.5 text-xs"
             >
               <Globe className="h-3.5 w-3.5" />
@@ -877,57 +883,57 @@ export function AboutSection({ isPortable }: AboutSectionProps) {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() =>
-                settingsApi.openExternal(
-                  "https://github.com/farion1231/cc-switch",
-                )
-              }
+              onClick={() => settingsApi.openExternal(UPSTREAM_SOURCE_URL)}
               className="h-8 gap-1.5 text-xs"
             >
               <Github className="h-3.5 w-3.5" />
               {t("settings.github")}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleOpenReleaseNotes}
-              className="h-8 gap-1.5 text-xs"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              {t("settings.releaseNotes")}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleCheckUpdate}
-              disabled={isChecking || isDownloading}
-              className="h-8 gap-1.5 text-xs"
-            >
-              {isDownloading ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  {t("settings.updating")}
-                </>
-              ) : hasUpdate ? (
-                <>
-                  <Download className="h-3.5 w-3.5" />
-                  {t("settings.updateTo", {
-                    version: updateInfo?.availableVersion ?? "",
-                  })}
-                </>
-              ) : isChecking ? (
-                <>
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                  {t("settings.checking")}
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  {t("settings.checkForUpdates")}
-                </>
-              )}
-            </Button>
+            {PRODUCT_UPDATES_ENABLED && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleOpenReleaseNotes}
+                className="h-8 gap-1.5 text-xs"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                {t("settings.releaseNotes")}
+              </Button>
+            )}
+            {PRODUCT_UPDATES_ENABLED && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleCheckUpdate}
+                disabled={isChecking || isDownloading}
+                className="h-8 gap-1.5 text-xs"
+              >
+                {isDownloading ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    {t("settings.updating")}
+                  </>
+                ) : hasUpdate ? (
+                  <>
+                    <Download className="h-3.5 w-3.5" />
+                    {t("settings.updateTo", {
+                      version: updateInfo?.availableVersion ?? "",
+                    })}
+                  </>
+                ) : isChecking ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    {t("settings.checking")}
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    {t("settings.checkForUpdates")}
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
 

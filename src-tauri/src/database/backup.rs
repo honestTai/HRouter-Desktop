@@ -13,7 +13,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
 
-const CC_SWITCH_SQL_EXPORT_HEADER: &str = "-- CC Switch SQLite 导出";
+const CC_SWITCH_SQL_EXPORT_HEADER: &str = "-- HRouter SQLite 导出";
 
 /// Bound combined INSERT batches while still amortizing statement parsing.
 /// A row larger than this cap is emitted alone because it cannot be split.
@@ -232,8 +232,8 @@ impl Database {
 
         Err(AppError::localized(
             "backup.sql.invalid_format",
-            "仅支持导入由 CC Switch 导出的 SQL 备份文件。",
-            "Only SQL backups exported by CC Switch are supported.",
+            "仅支持导入由 HRouter 导出的 SQL 备份文件。",
+            "Only SQL backups exported by HRouter are supported.",
         ))
     }
 
@@ -373,7 +373,7 @@ impl Database {
 
     /// 生成一致性快照备份，返回备份文件路径（不存在主库时返回 None）
     pub(crate) fn backup_database_file(&self) -> Result<Option<PathBuf>, AppError> {
-        let db_path = get_app_config_dir().join("cc-switch.db");
+        let db_path = get_app_config_dir().join(crate::config::APP_DATABASE_FILE_NAME);
         if !db_path.exists() {
             return Ok(None);
         }
@@ -469,7 +469,7 @@ impl Database {
             .unwrap_or(0);
 
         output.push_str(&format!(
-            "-- CC Switch SQLite 导出\n-- 生成时间: {timestamp}\n-- user_version: {user_version}\n"
+            "-- HRouter SQLite 导出\n-- 生成时间: {timestamp}\n-- user_version: {user_version}\n"
         ));
         output.push_str("PRAGMA foreign_keys=OFF;\n");
         output.push_str(&format!("PRAGMA user_version={user_version};\n"));
@@ -836,9 +836,9 @@ mod tests {
             // Prevent the Windows legacy-HOME fallback without mutating HOME:
             // an existing default DB keeps get_app_config_dir() anchored under
             // CC_SWITCH_TEST_HOME and makes import exercise its safety backup.
-            let config_dir = temp_dir.path().join(".cc-switch");
+            let config_dir = temp_dir.path().join(".hrouter");
             std::fs::create_dir_all(&config_dir).expect("create isolated config directory");
-            std::fs::File::create(config_dir.join("cc-switch.db"))
+            std::fs::File::create(config_dir.join("hrouter.db"))
                 .expect("create isolated database sentinel");
             let guard = Self {
                 previous_test_home,
