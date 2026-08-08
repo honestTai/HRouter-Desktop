@@ -12,7 +12,7 @@
 
 - 每个 Agent 只展示 HRouter 供应商，输入 HRouter Key 即可开始配置。
 - 同一个 Agent 可以保存多个 HRouter Key 配置并快速切换。
-- 从 `https://www.honesttai.com/v1/models` 实时获取当前 Key 可用模型。
+- 使用当前 Key 实时获取可用模型。
 - 自动预填默认模型和模型映射，保存前仍可手动调整。
 - 支持 Claude Code、Claude Desktop、Codex、Gemini CLI、Grok Build、OpenCode、OpenClaw 和 Hermes。
 - 自动查询近 30 天用量：订阅 Key 显示总额度、已用和剩余；按量 Key 显示消费与余额。
@@ -28,16 +28,6 @@
 6. 确认模型绑定后保存并启用配置。
 
 安装包尚未发布时，可以按照下面的开发说明从源码运行。
-
-## HRouter 接口
-
-| 用途 | 地址 |
-| --- | --- |
-| HRouter 主站 | `https://www.honesttai.com` |
-| OpenAI / Codex / Grok Base URL | `https://www.honesttai.com/v1` |
-| Claude / Gemini Base URL | `https://www.honesttai.com` |
-| 实时模型列表 | `https://www.honesttai.com/v1/models` |
-| 用量与计费 | `https://www.honesttai.com/v1/usage?days=30` |
 
 ## 从源码运行
 
