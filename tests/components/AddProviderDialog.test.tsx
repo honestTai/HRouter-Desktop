@@ -26,8 +26,8 @@ vi.mock("@/components/ui/dialog", () => ({
 
 let mockFormValues: ProviderFormValues;
 
-vi.mock("@/components/providers/forms/ProviderForm", () => ({
-  ProviderForm: ({
+vi.mock("@/components/providers/forms/HRouterProviderForm", () => ({
+  HRouterProviderForm: ({
     onSubmit,
   }: {
     onSubmit: (values: ProviderFormValues) => void;
@@ -42,24 +42,36 @@ vi.mock("@/components/providers/forms/ProviderForm", () => ({
   ),
 }));
 
-describe("AddProviderDialog", () => {
+describe("AddProviderDialog HRouter 专用入口", () => {
   beforeEach(() => {
     mockFormValues = {
-      name: "Test Provider",
-      websiteUrl: "https://provider.example.com",
-      settingsConfig: JSON.stringify({ env: {}, config: {} }),
+      name: "HRouter",
+      websiteUrl: "https://www.honesttai.com",
+      notes: "Claude Code · HRouter Key 自动配置",
+      settingsConfig: JSON.stringify({
+        env: {
+          ANTHROPIC_BASE_URL: "https://www.honesttai.com",
+          ANTHROPIC_AUTH_TOKEN: "sk-test",
+          ANTHROPIC_MODEL: "claude-sonnet",
+        },
+      }),
+      icon: "hrouter",
+      iconColor: "#10b981",
+      presetCategory: "aggregator",
       meta: {
-        custom_endpoints: {
-          "https://api.new-endpoint.com": {
-            url: "https://api.new-endpoint.com",
-            addedAt: 1,
-          },
+        providerType: "hrouter",
+        usage_script: {
+          enabled: true,
+          language: "javascript",
+          code: "({ request: {}, extractor: function () { return {}; } })",
+          apiKey: "sk-test",
+          baseUrl: "https://www.honesttai.com",
         },
       },
     };
   });
 
-  it("使用 ProviderForm 返回的自定义端点", async () => {
+  it("提交 HRouter 配置并保留自动用量查询", async () => {
     const handleSubmit = vi.fn().mockResolvedValue(undefined);
     const handleOpenChange = vi.fn();
 
@@ -71,99 +83,63 @@ describe("AddProviderDialog", () => {
         onSubmit={handleSubmit}
       />,
     );
-
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "common.add",
-      }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "添加 HRouter" }));
 
     await waitFor(() => expect(handleSubmit).toHaveBeenCalledTimes(1));
-
     const submitted = handleSubmit.mock.calls[0][0];
-    expect(submitted.meta?.custom_endpoints).toEqual(
-      mockFormValues.meta?.custom_endpoints,
-    );
+    expect(submitted.meta?.providerType).toBe("hrouter");
+    expect(submitted.meta?.usage_script?.apiKey).toBe("sk-test");
+    expect(submitted.settingsConfig.env.ANTHROPIC_MODEL).toBe("claude-sonnet");
     expect(handleOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it("在缺少自定义端点时回退到配置中的 baseUrl", async () => {
+  it("为 OpenCode 保留可添加多个配置所需的 providerKey", async () => {
     const handleSubmit = vi.fn().mockResolvedValue(undefined);
-
     mockFormValues = {
-      name: "Base URL Provider",
-      websiteUrl: "",
-      settingsConfig: JSON.stringify({
-        env: { ANTHROPIC_BASE_URL: "https://claude.base" },
-        config: {},
-      }),
+      ...mockFormValues,
+      providerKey: "hrouter-team-a",
     };
 
     render(
       <AddProviderDialog
         open
         onOpenChange={vi.fn()}
-        appId="claude"
+        appId="opencode"
         onSubmit={handleSubmit}
       />,
     );
-
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "common.add",
-      }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "添加 HRouter" }));
 
     await waitFor(() => expect(handleSubmit).toHaveBeenCalledTimes(1));
-
-    const submitted = handleSubmit.mock.calls[0][0];
-    expect(submitted.meta?.custom_endpoints).toEqual({
-      "https://claude.base": {
-        url: "https://claude.base",
-        addedAt: expect.any(Number),
-        lastUsed: undefined,
-      },
-    });
+    expect(handleSubmit.mock.calls[0][0].providerKey).toBe("hrouter-team-a");
   });
 
-  it("新建 Grok Build 自定义供应商时不补默认 Grok 图标", async () => {
+  it("为 OpenClaw 传递预填模型目录与默认模型", async () => {
     const handleSubmit = vi.fn().mockResolvedValue(undefined);
-
     mockFormValues = {
-      name: "tes 1",
-      websiteUrl: "",
-      icon: "",
-      iconColor: "",
-      settingsConfig: JSON.stringify({
-        config: `[models]
-default = "grok-4.5"
-
-[model."grok-4.5"]
-model = "grok-4.5"
-base_url = "https://grok.example.com/v1"
-name = "tes 1"
-api_key = "secret"
-api_backend = "responses"
-context_window = 500000
-`,
-      }),
+      ...mockFormValues,
+      providerKey: "hrouter-openclaw",
+      suggestedDefaults: {
+        model: { primary: "hrouter-openclaw/gpt-5.6" },
+        modelCatalog: {
+          "hrouter-openclaw/gpt-5.6": { alias: "gpt-5.6" },
+        },
+      },
     };
 
     render(
       <AddProviderDialog
         open
         onOpenChange={vi.fn()}
-        appId="grokbuild"
+        appId="openclaw"
         onSubmit={handleSubmit}
       />,
     );
-
-    fireEvent.click(screen.getByRole("button", { name: "common.add" }));
+    fireEvent.click(screen.getByRole("button", { name: "添加 HRouter" }));
 
     await waitFor(() => expect(handleSubmit).toHaveBeenCalledTimes(1));
-
-    const submitted = handleSubmit.mock.calls[0][0];
-    expect(submitted.icon).toBeUndefined();
-    expect(submitted.iconColor).toBeUndefined();
+    expect(handleSubmit.mock.calls[0][0].suggestedDefaults).toEqual(
+      mockFormValues.suggestedDefaults,
+    );
   });
 });

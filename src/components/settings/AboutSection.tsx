@@ -887,7 +887,7 @@ export function AboutSection({ isPortable }: AboutSectionProps) {
               className="h-8 gap-1.5 text-xs"
             >
               <Github className="h-3.5 w-3.5" />
-              {t("settings.github")}
+              CC Switch 原项目
             </Button>
             {PRODUCT_UPDATES_ENABLED && (
               <Button
@@ -935,6 +935,16 @@ export function AboutSection({ isPortable }: AboutSectionProps) {
               </Button>
             )}
           </div>
+        </div>
+
+        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-xs leading-relaxed">
+          <p className="font-medium text-foreground">
+            HRouter 基于 CC Switch（MIT License）定制开发
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            Original project: farion1231/cc-switch · Original copyright © 2025
+            Jason Young。HRouter 保留原项目许可证与版权声明。
+          </p>
         </div>
 
         {hasUpdate && updateInfo && (

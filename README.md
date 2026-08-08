@@ -1,5 +1,22 @@
 <div align="center">
 
+# HRouter Desktop
+
+HRouter 桌面客户端，用于通过一个 HRouter Key 为多种 Agent 导入模型、配置路由并查看订阅/按量用量。
+
+**HRouter 基于 [CC Switch](https://github.com/farion1231/cc-switch)（MIT License）定制开发。**<br />
+Original project: `farion1231/cc-switch` · Original copyright © 2025 Jason Young.
+
+本仓库保留 CC Switch 原始版权声明及 [`LICENSE`](LICENSE)；HRouter 产品名称、Logo 与定制功能不代表原项目官方版本。
+
+</div>
+
+---
+
+## CC Switch 上游项目原始说明
+
+<div align="center">
+
 # CC Switch
 
 ### The All-in-One Manager for Claude Code, Claude Desktop, Codex, Gemini CLI, Grok Build, OpenCode, OpenClaw & Hermes Agent

@@ -8,6 +8,7 @@ import {
   ProviderForm,
   type ProviderFormValues,
 } from "@/components/providers/forms/ProviderForm";
+import { HRouterProviderForm } from "@/components/providers/forms/HRouterProviderForm";
 import { openclawApi, providersApi, vscodeApi, type AppId } from "@/lib/api";
 
 interface EditProviderDialogProps {
@@ -189,7 +190,7 @@ export function EditProviderDialog({
         unknown
       >;
       const nextProviderId =
-        (appId === "opencode" || appId === "openclaw") &&
+        (appId === "opencode" || appId === "openclaw" || appId === "hermes") &&
         values.providerKey?.trim()
           ? values.providerKey.trim()
           : provider.id;
@@ -238,17 +239,29 @@ export function EditProviderDialog({
         </Button>
       }
     >
-      <ProviderForm
-        appId={appId}
-        providerId={provider.id}
-        submitLabel={t("common.save")}
-        onSubmit={handleSubmit}
-        onCancel={() => onOpenChange(false)}
-        onSubmittingChange={setIsFormSubmitting}
-        initialData={initialData}
-        showButtons={false}
-        isProxyTakeover={isProxyTakeover}
-      />
+      {provider.meta?.providerType === "hrouter" ? (
+        <HRouterProviderForm
+          key={`${appId}:${provider.id}`}
+          appId={appId}
+          initialProvider={provider}
+          onSubmit={handleSubmit}
+          onCancel={() => onOpenChange(false)}
+          onSubmittingChange={setIsFormSubmitting}
+          showButtons={false}
+        />
+      ) : (
+        <ProviderForm
+          appId={appId}
+          providerId={provider.id}
+          submitLabel={t("common.save")}
+          onSubmit={handleSubmit}
+          onCancel={() => onOpenChange(false)}
+          onSubmittingChange={setIsFormSubmitting}
+          initialData={initialData}
+          showButtons={false}
+          isProxyTakeover={isProxyTakeover}
+        />
+      )}
     </FullScreenPanel>
   );
 }

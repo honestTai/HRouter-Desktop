@@ -3,32 +3,22 @@ import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FullScreenPanel } from "@/components/common/FullScreenPanel";
-import type { Provider, CustomEndpoint } from "@/types";
+import type { Provider } from "@/types";
 import type { AppId } from "@/lib/api";
 import type { ProviderFormValues } from "@/components/providers/forms/ProviderForm";
 import { HRouterProviderForm } from "@/components/providers/forms/HRouterProviderForm";
-import { providerPresets } from "@/config/claudeProviderPresets";
-import { codexProviderPresets } from "@/config/codexProviderPresets";
-import { geminiProviderPresets } from "@/config/geminiProviderPresets";
-import { claudeDesktopProviderPresets } from "@/config/claudeDesktopProviderPresets";
-import { extractCodexBaseUrl } from "@/utils/providerConfigUtils";
-import { extractGrokBuildBaseUrl } from "@/utils/grokBuildConfig";
-import { GROKBUILD_OFFICIAL_PROVIDER_ID } from "@/utils/providerCapabilities";
 import type { OpenClawSuggestedDefaults } from "@/config/openclawProviderPresets";
+
+interface HRouterProviderInput extends Omit<Provider, "id"> {
+  providerKey?: string;
+  suggestedDefaults?: OpenClawSuggestedDefaults;
+}
 
 interface AddProviderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   appId: AppId;
-  onSubmit: (
-    provider: Omit<Provider, "id"> & {
-      providerKey?: string;
-      suggestedDefaults?: OpenClawSuggestedDefaults;
-      ensureClaudeDesktopOfficialSeed?: boolean;
-      ensureCodexOfficialSeed?: boolean;
-      ensureGrokBuildOfficialSeed?: boolean;
-    },
-  ) => Promise<void> | void;
+  onSubmit: (provider: HRouterProviderInput) => Promise<void> | void;
 }
 
 export function AddProviderDialog({
@@ -42,204 +32,26 @@ export function AddProviderDialog({
 
   const handleSubmit = useCallback(
     async (values: ProviderFormValues) => {
-      const parsedConfig = JSON.parse(values.settingsConfig) as Record<
-        string,
-        unknown
-      >;
-
-      // 构造基础提交数据
-      const providerData: Omit<Provider, "id"> & {
-        providerKey?: string;
-        suggestedDefaults?: OpenClawSuggestedDefaults;
-        ensureClaudeDesktopOfficialSeed?: boolean;
-        ensureCodexOfficialSeed?: boolean;
-        ensureGrokBuildOfficialSeed?: boolean;
-      } = {
+      const providerData: HRouterProviderInput = {
         name: values.name.trim(),
         notes: values.notes?.trim() || undefined,
         websiteUrl: values.websiteUrl?.trim() || undefined,
-        settingsConfig: parsedConfig,
+        settingsConfig: JSON.parse(values.settingsConfig) as Record<
+          string,
+          unknown
+        >,
         icon: values.icon?.trim() || undefined,
         iconColor: values.iconColor?.trim() || undefined,
         ...(values.presetCategory ? { category: values.presetCategory } : {}),
         ...(values.meta ? { meta: values.meta } : {}),
       };
 
-      if (appId === "claude-desktop" && values.presetId) {
-        const presetIndex = parseInt(
-          values.presetId.replace("claude-desktop-", ""),
-        );
-        const preset = claudeDesktopProviderPresets[presetIndex];
-        providerData.ensureClaudeDesktopOfficialSeed =
-          values.presetCategory === "official" &&
-          preset?.category === "official";
-      }
-
-      if (appId === "codex" && values.presetId) {
-        const presetIndex = parseInt(values.presetId.replace("codex-", ""));
-        const preset = codexProviderPresets[presetIndex];
-        providerData.ensureCodexOfficialSeed =
-          values.presetCategory === "official" &&
-          preset?.category === "official";
-      }
-
-      if (appId === "grokbuild" && values.presetId) {
-        providerData.ensureGrokBuildOfficialSeed =
-          values.presetCategory === "official" &&
-          values.presetId === GROKBUILD_OFFICIAL_PROVIDER_ID;
-      }
-
-      // OpenCode/OpenClaw: pass providerKey for ID generation
       if (
         (appId === "opencode" || appId === "openclaw" || appId === "hermes") &&
         values.providerKey
       ) {
         providerData.providerKey = values.providerKey;
       }
-
-      const hasCustomEndpoints =
-        providerData.meta?.custom_endpoints &&
-        Object.keys(providerData.meta.custom_endpoints).length > 0;
-
-      if (!hasCustomEndpoints && values.presetCategory !== "omo") {
-        const urlSet = new Set<string>();
-
-        const addUrl = (rawUrl?: string) => {
-          const url = (rawUrl || "").trim().replace(/\/+$/, "");
-          if (url && url.startsWith("http")) {
-            urlSet.add(url);
-          }
-        };
-
-        if (values.presetId) {
-          if (appId === "claude") {
-            const presets = providerPresets;
-            const presetIndex = parseInt(
-              values.presetId.replace("claude-", ""),
-            );
-            if (
-              !isNaN(presetIndex) &&
-              presetIndex >= 0 &&
-              presetIndex < presets.length
-            ) {
-              const preset = presets[presetIndex];
-              if (preset?.endpointCandidates) {
-                preset.endpointCandidates.forEach(addUrl);
-              }
-            }
-          } else if (appId === "codex") {
-            const presets = codexProviderPresets;
-            const presetIndex = parseInt(values.presetId.replace("codex-", ""));
-            if (
-              !isNaN(presetIndex) &&
-              presetIndex >= 0 &&
-              presetIndex < presets.length
-            ) {
-              const preset = presets[presetIndex];
-              if (Array.isArray(preset.endpointCandidates)) {
-                preset.endpointCandidates.forEach(addUrl);
-              }
-            }
-          } else if (appId === "gemini") {
-            const presets = geminiProviderPresets;
-            const presetIndex = parseInt(
-              values.presetId.replace("gemini-", ""),
-            );
-            if (
-              !isNaN(presetIndex) &&
-              presetIndex >= 0 &&
-              presetIndex < presets.length
-            ) {
-              const preset = presets[presetIndex];
-              if (Array.isArray(preset.endpointCandidates)) {
-                preset.endpointCandidates.forEach(addUrl);
-              }
-            }
-          } else if (appId === "claude-desktop") {
-            const presets = claudeDesktopProviderPresets;
-            const presetIndex = parseInt(
-              values.presetId.replace("claude-desktop-", ""),
-            );
-            if (
-              !isNaN(presetIndex) &&
-              presetIndex >= 0 &&
-              presetIndex < presets.length
-            ) {
-              const preset = presets[presetIndex];
-              if (Array.isArray(preset.endpointCandidates)) {
-                preset.endpointCandidates.forEach(addUrl);
-              }
-              addUrl(preset.baseUrl);
-            }
-          }
-        }
-
-        if (appId === "claude") {
-          const env = parsedConfig.env as Record<string, any> | undefined;
-          if (env?.ANTHROPIC_BASE_URL) {
-            addUrl(env.ANTHROPIC_BASE_URL);
-          }
-        } else if (appId === "claude-desktop") {
-          const env = parsedConfig.env as Record<string, any> | undefined;
-          if (env?.ANTHROPIC_BASE_URL) {
-            addUrl(env.ANTHROPIC_BASE_URL);
-          }
-        } else if (appId === "codex") {
-          const config = parsedConfig.config as string | undefined;
-          if (config) {
-            const extractedBaseUrl = extractCodexBaseUrl(config);
-            if (extractedBaseUrl) {
-              addUrl(extractedBaseUrl);
-            }
-          }
-        } else if (appId === "gemini") {
-          const env = parsedConfig.env as Record<string, any> | undefined;
-          if (env?.GOOGLE_GEMINI_BASE_URL) {
-            addUrl(env.GOOGLE_GEMINI_BASE_URL);
-          }
-        } else if (appId === "grokbuild") {
-          const config = parsedConfig.config as string | undefined;
-          if (config) {
-            addUrl(extractGrokBuildBaseUrl(config));
-          }
-        } else if (appId === "opencode") {
-          const options = parsedConfig.options as
-            | Record<string, any>
-            | undefined;
-          if (options?.baseURL) {
-            addUrl(options.baseURL);
-          }
-        } else if (appId === "openclaw") {
-          // OpenClaw uses baseUrl directly
-          if (parsedConfig.baseUrl) {
-            addUrl(parsedConfig.baseUrl as string);
-          }
-        } else if (appId === "hermes") {
-          if (parsedConfig.base_url) {
-            addUrl(parsedConfig.base_url as string);
-          }
-        }
-
-        const urls = Array.from(urlSet);
-        if (urls.length > 0) {
-          const now = Date.now();
-          const customEndpoints: Record<string, CustomEndpoint> = {};
-          urls.forEach((url) => {
-            customEndpoints[url] = {
-              url,
-              addedAt: now,
-              lastUsed: undefined,
-            };
-          });
-
-          providerData.meta = {
-            ...(providerData.meta ?? {}),
-            custom_endpoints: customEndpoints,
-          };
-        }
-      }
-
-      // OpenClaw: pass suggestedDefaults for model registration
       if (appId === "openclaw" && values.suggestedDefaults) {
         providerData.suggestedDefaults = values.suggestedDefaults;
       }
@@ -247,31 +59,7 @@ export function AddProviderDialog({
       await onSubmit(providerData);
       onOpenChange(false);
     },
-    [appId, onSubmit, onOpenChange],
-  );
-
-  const footer = (
-    <>
-      <span className="mr-auto min-w-0 truncate text-xs text-muted-foreground">
-        只需输入 Key，HRouter 会自动导入并映射当前 Agent 可用模型。
-      </span>
-      <Button
-        variant="outline"
-        onClick={() => onOpenChange(false)}
-        className="border-border/20 hover:bg-accent hover:text-accent-foreground"
-      >
-        {t("common.cancel")}
-      </Button>
-      <Button
-        type="submit"
-        form="provider-form"
-        disabled={isFormSubmitting}
-        className="bg-primary text-primary-foreground hover:bg-primary/90"
-      >
-        <Plus className="mr-2 h-4 w-4" />
-        添加 HRouter
-      </Button>
-    </>
+    [appId, onOpenChange, onSubmit],
   );
 
   return (
@@ -279,8 +67,25 @@ export function AddProviderDialog({
       isOpen={open}
       title={`添加 HRouter · ${t(`apps.${appId}`)}`}
       onClose={() => onOpenChange(false)}
-      footer={footer}
       contentClassName="pt-3"
+      footer={
+        <>
+          <span className="mr-auto min-w-0 truncate text-xs text-muted-foreground">
+            只需输入 Key，HRouter 会自动导入并预填当前 Agent 的模型映射。
+          </span>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            type="submit"
+            form="provider-form"
+            disabled={isFormSubmitting}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            添加 HRouter
+          </Button>
+        </>
+      }
     >
       <HRouterProviderForm
         appId={appId}

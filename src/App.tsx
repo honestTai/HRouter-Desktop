@@ -124,7 +124,7 @@ interface SyncStatusUpdatedPayload {
 const DEFAULT_DRAG_BAR_HEIGHT = isWindows() || isLinux() ? 0 : 28; // px
 const HEADER_HEIGHT = 64; // px
 
-const STORAGE_KEY = "cc-switch-last-app";
+const STORAGE_KEY = "hrouter-last-app";
 const VALID_APPS: AppId[] = [
   "claude",
   "claude-desktop",
@@ -144,23 +144,8 @@ const getInitialApp = (): AppId => {
   return "claude";
 };
 
-const VIEW_STORAGE_KEY = "cc-switch-last-view";
-const VALID_VIEWS: View[] = [
-  "providers",
-  "settings",
-  "prompts",
-  "skills",
-  "skillsDiscovery",
-  "mcp",
-  "agents",
-  "universal",
-  "sessions",
-  "workspace",
-  "openclawEnv",
-  "openclawTools",
-  "openclawAgents",
-  "hermesMemory",
-];
+const VIEW_STORAGE_KEY = "hrouter-last-view";
+const VALID_VIEWS: View[] = ["providers", "settings"];
 
 const getInitialView = (): View => {
   const saved = localStorage.getItem(VIEW_STORAGE_KEY) as View | null;
@@ -1302,7 +1287,7 @@ function App() {
             {currentView === "providers" &&
               (settingsData?.showProfileSwitcher ?? true) && (
                 <div
-                  className="flex shrink-0 items-center"
+                  className="hidden shrink-0 items-center"
                   style={{ WebkitAppRegion: "no-drag" } as any}
                 >
                   <ProfileSwitcher activeApp={activeApp} />
@@ -1469,7 +1454,10 @@ function App() {
                 )}
                 {currentView === "providers" && (
                   <>
-                    <div className="flex items-center gap-1 p-1 bg-muted rounded-xl">
+                    <div
+                      className="hidden items-center gap-1 p-1 bg-muted rounded-xl"
+                      aria-hidden="true"
+                    >
                       <AnimatePresence mode="wait">
                         <motion.div
                           key={

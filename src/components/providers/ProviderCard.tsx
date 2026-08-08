@@ -30,6 +30,7 @@ import {
 import { useProviderHealth } from "@/lib/query/failover";
 import { useUsageQuery } from "@/lib/query/queries";
 import { resolveProviderIcon } from "@/utils/providerIcon";
+import { parseHRouterUsageExtra } from "@/lib/hrouter";
 
 interface DragHandleProps {
   attributes: DraggableAttributes;
@@ -253,6 +254,12 @@ export function ProviderCard({
     provider.meta?.usage_script?.templateType === "token_plan";
   const hasMultiplePlans =
     usage?.success && usage.data && usage.data.length > 1 && !isTokenPlan;
+  const isHRouter = provider.meta?.providerType === "hrouter";
+  const hrouterUsageExtra = isHRouter
+    ? parseHRouterUsageExtra(usage?.data?.[0]?.extra)
+    : null;
+  const hasHRouterStats = (hrouterUsageExtra?.modelStats.length ?? 0) > 0;
+  const canExpandUsage = Boolean(hasMultiplePlans || hasHRouterStats);
 
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -533,7 +540,7 @@ export function ProviderCard({
                   inline={true}
                 />
               )}
-              {hasMultiplePlans && (
+              {canExpandUsage && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -580,6 +587,7 @@ export function ProviderCard({
                   : undefined
               }
               onConfigureUsage={
+                isHRouter ||
                 (isOfficial && !supportsOfficialSubscription) ||
                 isCopilot ||
                 isCodexOauth ||
@@ -608,7 +616,7 @@ export function ProviderCard({
         </div>
       </div>
 
-      {isExpanded && hasMultiplePlans && (
+      {isExpanded && canExpandUsage && (
         <div className="mt-4 pt-4 border-t border-border-default">
           <UsageFooter
             provider={provider}

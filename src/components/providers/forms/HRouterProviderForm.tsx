@@ -1,6 +1,13 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Eye, EyeOff, KeyRound, Loader2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Layers3,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,13 +25,14 @@ import {
   buildHRouterProviderMeta,
   buildHRouterSettingsConfig,
   deriveHRouterModelMapping,
-  getHRouterModelsForApp,
+  extractHRouterProviderState,
   HROUTER_APP_NAMES,
   HROUTER_ICON_COLOR,
   HROUTER_MODELS_URL,
   HROUTER_ORIGIN,
   type HRouterModelMapping,
 } from "@/lib/hrouter";
+import type { Provider } from "@/types";
 import type { ProviderFormValues } from "./ProviderForm";
 
 interface HRouterProviderFormProps {
@@ -33,6 +41,7 @@ interface HRouterProviderFormProps {
   onCancel: () => void;
   onSubmittingChange?: (isSubmitting: boolean) => void;
   showButtons?: boolean;
+  initialProvider?: Provider;
 }
 
 const emptyMapping: HRouterModelMapping = {
@@ -56,6 +65,7 @@ export function HRouterProviderForm({
   onCancel,
   onSubmittingChange,
   showButtons = true,
+  initialProvider,
 }: HRouterProviderFormProps) {
   const { t } = useTranslation();
   const { data } = useProvidersQuery(appId);
@@ -67,22 +77,58 @@ export function HRouterProviderForm({
     [data?.providers],
   );
   const defaultName =
-    hrouterCount === 0 ? "HRouter" : `HRouter ${hrouterCount + 1}`;
+    initialProvider?.name ??
+    (hrouterCount === 0 ? "HRouter" : `HRouter ${hrouterCount + 1}`);
+  const initialState = useMemo(
+    () =>
+      initialProvider
+        ? extractHRouterProviderState(appId, initialProvider)
+        : { apiKey: "", mapping: emptyMapping },
+    [appId, initialProvider],
+  );
 
-  const [name, setName] = useState("");
-  const [apiKey, setApiKey] = useState("");
+  const [name, setName] = useState(initialProvider?.name ?? "");
+  const [apiKey, setApiKey] = useState(initialState.apiKey);
   const [showApiKey, setShowApiKey] = useState(false);
   const [fetchedModels, setFetchedModels] = useState<FetchedModel[]>([]);
-  const [mapping, setMapping] = useState<HRouterModelMapping>(emptyMapping);
+  const [mapping, setMapping] = useState<HRouterModelMapping>(
+    initialState.mapping,
+  );
   const [isFetching, setIsFetching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [providerKey] = useState(uniqueProviderKey);
+  const [providerKey] = useState(initialProvider?.id ?? uniqueProviderKey);
 
-  const appModels = useMemo(
-    () => getHRouterModelsForApp(appId, fetchedModels),
-    [appId, fetchedModels],
-  );
   const isClaudeApp = appId === "claude" || appId === "claude-desktop";
+
+  useEffect(() => {
+    if (!initialProvider || !initialState.apiKey) return;
+    let cancelled = false;
+
+    void fetchModelsForConfig(
+      HROUTER_ORIGIN,
+      initialState.apiKey,
+      false,
+      HROUTER_MODELS_URL,
+    )
+      .then((models) => {
+        if (cancelled || models.length === 0) return;
+        const recommended = deriveHRouterModelMapping(appId, models);
+        setFetchedModels(models);
+        setMapping((current) => ({
+          primary: current.primary || recommended.primary,
+          haiku: current.haiku || recommended.haiku,
+          sonnet: current.sonnet || recommended.sonnet,
+          opus: current.opus || recommended.opus,
+        }));
+      })
+      .catch(() => {
+        // 编辑时保留本地已保存的 Key 与映射；用户可手动点击“重新获取”。
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [appId, initialProvider, initialState.apiKey]);
 
   const importModels = useCallback(async () => {
     const key = apiKey.trim();
@@ -157,7 +203,7 @@ export function HRouterProviderForm({
         icon: "hrouter",
         iconColor: HROUTER_ICON_COLOR,
         presetCategory: "aggregator",
-        meta: buildHRouterProviderMeta(appId, effectiveMapping),
+        meta: buildHRouterProviderMeta(appId, effectiveMapping, key),
         ...(appId === "opencode" || appId === "openclaw" || appId === "hermes"
           ? { providerKey }
           : {}),
@@ -294,7 +340,7 @@ export function HRouterProviderForm({
                 已导入 {fetchedModels.length} 个模型
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                已为 {HROUTER_APP_NAMES[appId]} 自动映射：{mapping.primary}
+                已为 {HROUTER_APP_NAMES[appId]} 预填推荐映射，下面可自行修改。
               </p>
             </div>
             <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />
@@ -302,11 +348,89 @@ export function HRouterProviderForm({
         </div>
       )}
 
+      {fetchedModels.length > 0 && (
+        <section className="space-y-4 rounded-xl border bg-card p-4">
+          <div className="flex items-start gap-3">
+            <Layers3 className="mt-0.5 h-5 w-5 text-emerald-500" />
+            <div>
+              <h4 className="text-sm font-semibold">模型绑定</h4>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                HRouter 只预填推荐值；保存后仍可再次进入编辑并调整。
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="hrouter-primary-model">默认模型</Label>
+            <ModelInputWithFetch
+              id="hrouter-primary-model"
+              value={mapping.primary}
+              onChange={(primary) =>
+                setMapping((current) => ({ ...current, primary }))
+              }
+              fetchedModels={fetchedModels}
+              isLoading={false}
+            />
+          </div>
+
+          {isClaudeApp && (
+            <div className="grid gap-3 sm:grid-cols-3">
+              {(["haiku", "sonnet", "opus"] as const).map((role) => (
+                <div key={role} className="space-y-2">
+                  <Label
+                    htmlFor={`hrouter-${role}-model`}
+                    className="capitalize"
+                  >
+                    {role}
+                  </Label>
+                  <ModelInputWithFetch
+                    id={`hrouter-${role}-model`}
+                    value={mapping[role]}
+                    onChange={(value) =>
+                      setMapping((current) => ({
+                        ...current,
+                        [role]: value,
+                      }))
+                    }
+                    fetchedModels={fetchedModels}
+                    isLoading={false}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {fetchedModels.length > 0 && (
+        <section className="space-y-3 rounded-xl border bg-card p-4">
+          <div>
+            <h4 className="text-sm font-semibold">
+              当前 Key 的完整模型列表（{fetchedModels.length}）
+            </h4>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              包含 HRouter 实际返回的 Claude、Codex/GPT 与 Gemini 模型。
+            </p>
+          </div>
+          <div className="flex max-h-44 flex-wrap gap-2 overflow-y-auto rounded-lg bg-muted/30 p-3">
+            {fetchedModels.map((model) => (
+              <span
+                key={model.id}
+                className="rounded-md border bg-background px-2 py-1 font-mono text-xs"
+                title={model.ownedBy || model.id}
+              >
+                {model.id}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+
       <details className="group rounded-xl border bg-card">
         <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium">
-          高级设置（可选）
+          配置名称（可选）
           <span className="ml-2 text-xs font-normal text-muted-foreground">
-            配置名称与模型映射
+            用于区分多个 HRouter Key
           </span>
         </summary>
         <div className="space-y-4 border-t px-4 py-4">
@@ -319,50 +443,6 @@ export function HRouterProviderForm({
               placeholder={defaultName}
             />
           </div>
-
-          {fetchedModels.length > 0 && (
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="hrouter-primary-model">默认模型</Label>
-                <ModelInputWithFetch
-                  id="hrouter-primary-model"
-                  value={mapping.primary}
-                  onChange={(primary) =>
-                    setMapping((current) => ({ ...current, primary }))
-                  }
-                  fetchedModels={appModels}
-                  isLoading={false}
-                />
-              </div>
-
-              {isClaudeApp && (
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {(["haiku", "sonnet", "opus"] as const).map((role) => (
-                    <div key={role} className="space-y-2">
-                      <Label
-                        htmlFor={`hrouter-${role}-model`}
-                        className="capitalize"
-                      >
-                        {role}
-                      </Label>
-                      <ModelInputWithFetch
-                        id={`hrouter-${role}-model`}
-                        value={mapping[role]}
-                        onChange={(value) =>
-                          setMapping((current) => ({
-                            ...current,
-                            [role]: value,
-                          }))
-                        }
-                        fetchedModels={appModels}
-                        isLoading={false}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </details>
 
@@ -373,7 +453,7 @@ export function HRouterProviderForm({
           </Button>
           <Button type="submit" disabled={!apiKey.trim() || isSubmitting}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            添加 HRouter
+            {initialProvider ? "保存 HRouter" : "添加 HRouter"}
           </Button>
         </div>
       )}

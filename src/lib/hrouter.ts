@@ -1,8 +1,11 @@
 import type { AppId } from "@/lib/api";
 import type { FetchedModel } from "@/lib/api/model-fetch";
-import type { ProviderMeta } from "@/types";
+import type { Provider, ProviderMeta, UsageScript } from "@/types";
 import { CLAUDE_DESKTOP_ROLE_ROUTE_IDS } from "@/config/claudeDesktopProviderPresets";
-import { buildGrokBuildConfig } from "@/utils/grokBuildConfig";
+import {
+  buildGrokBuildConfig,
+  parseGrokBuildConfig,
+} from "@/utils/grokBuildConfig";
 
 export const HROUTER_ORIGIN = "https://www.honesttai.com";
 export const HROUTER_OPENAI_BASE_URL = `${HROUTER_ORIGIN}/v1`;
@@ -26,6 +29,47 @@ export interface HRouterModelMapping {
   sonnet: string;
   opus: string;
 }
+
+export interface HRouterModelStat {
+  model: string;
+  requests: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_creation_tokens: number;
+  cache_read_tokens: number;
+  total_tokens: number;
+  cost: number;
+  actual_cost: number;
+}
+
+export interface HRouterUsageExtra {
+  source: "hrouter";
+  billingMode: "subscription" | "payg";
+  planName?: string;
+  period?: string;
+  balance?: number;
+  totalActualCost: number;
+  modelStats: HRouterModelStat[];
+}
+
+export interface HRouterProviderState {
+  apiKey: string;
+  mapping: HRouterModelMapping;
+}
+
+const asRecord = (value: unknown): Record<string, unknown> | undefined =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+
+const asString = (value: unknown): string =>
+  typeof value === "string" ? value : "";
+
+const firstNonEmpty = (...values: unknown[]): string =>
+  values
+    .map(asString)
+    .find((value) => value.trim())
+    ?.trim() ?? "";
 
 const uniqueModelIds = (models: FetchedModel[]): string[] =>
   Array.from(
@@ -100,6 +144,10 @@ export function buildHRouterSettingsConfig(
 ): Record<string, unknown> {
   const key = apiKey.trim();
   const modelIds = uniqueModelIds(models);
+  const orderedModelIds = [
+    mapping.primary,
+    ...modelIds.filter((model) => model !== mapping.primary),
+  ].filter(Boolean);
 
   switch (appId) {
     case "claude":
@@ -167,7 +215,7 @@ wire_api = "responses"
           setCacheKey: true,
         },
         models: Object.fromEntries(
-          modelIds.map((model) => [model, { name: model }]),
+          orderedModelIds.map((model) => [model, { name: model }]),
         ),
       };
 
@@ -176,7 +224,7 @@ wire_api = "responses"
         baseUrl: HROUTER_OPENAI_BASE_URL,
         apiKey: key,
         api: "openai-responses",
-        models: modelIds.map((model) => ({ id: model, name: model })),
+        models: orderedModelIds.map((model) => ({ id: model, name: model })),
       };
 
     case "hermes":
@@ -187,17 +235,246 @@ wire_api = "responses"
         api_mode: mapping.primary.toLowerCase().includes("claude")
           ? "anthropic_messages"
           : "codex_responses",
-        models: modelIds.map((model) => ({ id: model, name: model })),
+        models: orderedModelIds.map((model) => ({ id: model, name: model })),
       };
   }
+}
+
+const HROUTER_USAGE_SCRIPT_CODE = `({
+  request: {
+    url: "{{baseUrl}}/v1/usage?days=30",
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer {{apiKey}}",
+      "Accept": "application/json",
+      "User-Agent": "HRouter-Desktop/1.0"
+    }
+  },
+  extractor: function(response) {
+    var usageTotal = response && response.usage && response.usage.total
+      ? response.usage.total
+      : {};
+    var stats = Array.isArray(response && response.model_stats)
+      ? response.model_stats
+      : [];
+    var modelStats = stats.map(function(item) {
+      return {
+        model: String(item.model || "unknown"),
+        requests: Number(item.requests || 0),
+        input_tokens: Number(item.input_tokens || 0),
+        output_tokens: Number(item.output_tokens || 0),
+        cache_creation_tokens: Number(item.cache_creation_tokens || 0),
+        cache_read_tokens: Number(item.cache_read_tokens || 0),
+        total_tokens: Number(item.total_tokens || 0),
+        cost: Number(item.cost || 0),
+        actual_cost: Number(item.actual_cost || 0)
+      };
+    });
+    var totalActualCost = Number(usageTotal.actual_cost || 0);
+    var baseExtra = {
+      source: "hrouter",
+      planName: response.planName || "",
+      totalActualCost: totalActualCost,
+      modelStats: modelStats
+    };
+
+    if (response.mode === "quota_limited" && response.quota) {
+      baseExtra.billingMode = "subscription";
+      baseExtra.period = "总额度";
+      return {
+        planName: response.planName || "订阅额度",
+        isValid: response.isValid !== false,
+        total: Number(response.quota.limit || 0),
+        used: Number(response.quota.used || 0),
+        remaining: Number(response.quota.remaining || 0),
+        unit: response.quota.unit || "USD",
+        extra: JSON.stringify(baseExtra)
+      };
+    }
+
+    if (response.mode === "quota_limited" && Array.isArray(response.rate_limits) && response.rate_limits.length) {
+      var priority = { "7d": 3, "1d": 2, "5h": 1 };
+      var rate = response.rate_limits.slice().sort(function(a, b) {
+        return (priority[b.window] || 0) - (priority[a.window] || 0);
+      })[0];
+      baseExtra.billingMode = "subscription";
+      baseExtra.period = rate.window || "额度";
+      return {
+        planName: response.planName || "订阅额度",
+        isValid: response.isValid !== false,
+        total: Number(rate.limit || 0),
+        used: Number(rate.used || 0),
+        remaining: Number(rate.remaining || 0),
+        unit: response.unit || "USD",
+        extra: JSON.stringify(baseExtra)
+      };
+    }
+
+    if (response.subscription) {
+      var sub = response.subscription;
+      var candidates = [
+        { period: "月", limit: sub.monthly_limit_usd, used: sub.monthly_usage_usd },
+        { period: "周", limit: sub.weekly_limit_usd, used: sub.weekly_usage_usd },
+        { period: "日", limit: sub.daily_limit_usd, used: sub.daily_usage_usd }
+      ];
+      var selected = null;
+      for (var i = 0; i < candidates.length; i += 1) {
+        if (Number(candidates[i].limit || 0) > 0) {
+          selected = candidates[i];
+          break;
+        }
+      }
+      baseExtra.billingMode = "subscription";
+      baseExtra.period = selected ? selected.period : "订阅";
+      var result = {
+        planName: response.planName || "订阅套餐",
+        isValid: response.isValid !== false,
+        used: selected ? Number(selected.used || 0) : totalActualCost,
+        unit: response.unit || "USD",
+        extra: JSON.stringify(baseExtra)
+      };
+      if (selected) {
+        result.total = Number(selected.limit || 0);
+        result.remaining = Math.max(0, result.total - result.used);
+      }
+      return result;
+    }
+
+    baseExtra.billingMode = "payg";
+    baseExtra.balance = Number(response.balance || response.remaining || 0);
+    return {
+      planName: "按量计费",
+      isValid: response.isValid !== false,
+      used: totalActualCost,
+      remaining: baseExtra.balance,
+      unit: response.unit || "USD",
+      extra: JSON.stringify(baseExtra)
+    };
+  }
+})`;
+
+export function buildHRouterUsageScript(apiKey: string): UsageScript {
+  return {
+    enabled: true,
+    language: "javascript",
+    code: HROUTER_USAGE_SCRIPT_CODE,
+    timeout: 15,
+    templateType: "custom",
+    apiKey: apiKey.trim(),
+    baseUrl: HROUTER_ORIGIN,
+    autoQueryInterval: 5,
+  };
+}
+
+export function parseHRouterUsageExtra(
+  extra: string | undefined,
+): HRouterUsageExtra | null {
+  if (!extra?.startsWith("{")) return null;
+  try {
+    const parsed = JSON.parse(extra) as Partial<HRouterUsageExtra>;
+    if (
+      parsed.source !== "hrouter" ||
+      (parsed.billingMode !== "subscription" && parsed.billingMode !== "payg")
+    ) {
+      return null;
+    }
+    return {
+      source: "hrouter",
+      billingMode: parsed.billingMode,
+      planName: parsed.planName,
+      period: parsed.period,
+      balance: typeof parsed.balance === "number" ? parsed.balance : undefined,
+      totalActualCost:
+        typeof parsed.totalActualCost === "number" ? parsed.totalActualCost : 0,
+      modelStats: Array.isArray(parsed.modelStats) ? parsed.modelStats : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function extractHRouterProviderState(
+  appId: AppId,
+  provider: Provider,
+): HRouterProviderState {
+  const config = asRecord(provider.settingsConfig) ?? {};
+  const env = asRecord(config.env) ?? {};
+  const auth = asRecord(config.auth) ?? {};
+  const options = asRecord(config.options) ?? {};
+  const modelMap = asRecord(config.models) ?? {};
+
+  let apiKey = "";
+  let primary = "";
+  let haiku = "";
+  let sonnet = "";
+  let opus = "";
+
+  switch (appId) {
+    case "claude":
+    case "claude-desktop":
+      apiKey = firstNonEmpty(env.ANTHROPIC_AUTH_TOKEN, env.ANTHROPIC_API_KEY);
+      primary = asString(env.ANTHROPIC_MODEL);
+      haiku = asString(env.ANTHROPIC_DEFAULT_HAIKU_MODEL);
+      sonnet = asString(env.ANTHROPIC_DEFAULT_SONNET_MODEL);
+      opus = asString(env.ANTHROPIC_DEFAULT_OPUS_MODEL);
+      break;
+    case "codex": {
+      apiKey = asString(auth.OPENAI_API_KEY);
+      const toml = asString(config.config);
+      primary = toml.match(/^model\s*=\s*["']([^"']+)["']/m)?.[1] ?? "";
+      break;
+    }
+    case "gemini":
+      apiKey = asString(env.GEMINI_API_KEY);
+      primary = asString(env.GEMINI_MODEL);
+      break;
+    case "grokbuild": {
+      const parsed = parseGrokBuildConfig(
+        asString(config.config),
+        provider.name,
+      );
+      apiKey = parsed.apiKey;
+      primary = parsed.upstreamModel || parsed.model;
+      break;
+    }
+    case "opencode":
+      apiKey = asString(options.apiKey);
+      primary = Object.keys(modelMap)[0] ?? "";
+      break;
+    case "openclaw": {
+      apiKey = asString(config.apiKey);
+      const models = Array.isArray(config.models) ? config.models : [];
+      primary = asString(asRecord(models[0])?.id);
+      break;
+    }
+    case "hermes": {
+      apiKey = asString(config.api_key);
+      const models = Array.isArray(config.models) ? config.models : [];
+      primary = asString(asRecord(models[0])?.id);
+      break;
+    }
+  }
+
+  const fallback = primary || sonnet || opus || haiku;
+  return {
+    apiKey,
+    mapping: {
+      primary: fallback,
+      haiku: haiku || fallback,
+      sonnet: sonnet || fallback,
+      opus: opus || fallback,
+    },
+  };
 }
 
 export function buildHRouterProviderMeta(
   appId: AppId,
   mapping: HRouterModelMapping,
+  apiKey: string,
 ): ProviderMeta {
   const meta: ProviderMeta = {
     providerType: "hrouter",
+    usage_script: buildHRouterUsageScript(apiKey),
     apiFormat:
       appId === "claude" || appId === "claude-desktop"
         ? "anthropic"

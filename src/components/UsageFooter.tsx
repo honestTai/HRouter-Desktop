@@ -6,6 +6,7 @@ import { useUsageQuery } from "@/lib/query/queries";
 import { UsageData, Provider } from "@/types";
 import { TierBadge } from "@/components/SubscriptionQuotaFooter";
 import type { QuotaTier } from "@/types/subscription";
+import { parseHRouterUsageExtra } from "@/lib/hrouter";
 
 interface UsageFooterProps {
   provider: Provider;
@@ -139,6 +140,186 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
 
   // 无数据时不显示
   if (usageDataList.length === 0) return null;
+
+  const hrouterData = usageDataList[0];
+  const hrouterExtra =
+    provider.meta?.providerType === "hrouter"
+      ? parseHRouterUsageExtra(hrouterData.extra)
+      : null;
+
+  if (hrouterExtra && inline) {
+    const isSubscription = hrouterExtra.billingMode === "subscription";
+    return (
+      <div className="flex flex-col items-end gap-1 text-xs whitespace-nowrap flex-shrink-0">
+        <div className="flex items-center gap-2 justify-end">
+          <span className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
+            <Clock size={10} />
+            {lastQueriedAt
+              ? formatRelativeTime(lastQueriedAt, now, t)
+              : t("usage.never", { defaultValue: "从未更新" })}
+          </span>
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              refetch();
+            }}
+            disabled={loading}
+            className="p-1 rounded hover:bg-muted transition-colors disabled:opacity-50 text-muted-foreground"
+            title={t("usage.refreshUsage")}
+          >
+            <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+          </button>
+        </div>
+        <div className="flex items-center gap-2 font-medium">
+          <span className="text-emerald-600 dark:text-emerald-400">
+            {isSubscription ? hrouterData.planName || "订阅额度" : "按量计费"}
+          </span>
+          {isSubscription ? (
+            <>
+              {hrouterData.total !== undefined && (
+                <span>总额度 {formatUsd(hrouterData.total)}</span>
+              )}
+              {hrouterData.used !== undefined && (
+                <span>已用 {formatUsd(hrouterData.used)}</span>
+              )}
+              {hrouterData.remaining !== undefined && (
+                <span className="text-emerald-600 dark:text-emerald-400">
+                  剩余 {formatUsd(hrouterData.remaining)}
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              <span>累计消费 {formatUsd(hrouterExtra.totalActualCost)}</span>
+              {hrouterData.remaining !== undefined && (
+                <span className="text-muted-foreground">
+                  余额 {formatUsd(hrouterData.remaining)}
+                </span>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (hrouterExtra && !inline) {
+    const isSubscription = hrouterExtra.billingMode === "subscription";
+    return (
+      <div className="mt-3 space-y-4 rounded-xl border border-border-default bg-card px-4 py-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold">
+              {isSubscription
+                ? hrouterData.planName || "HRouter 订阅"
+                : "HRouter 按量计费"}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {isSubscription
+                ? `${hrouterExtra.period || "当前"}额度与模型用量`
+                : "累计实际消费与近 30 天模型统计"}
+            </p>
+          </div>
+          <button
+            onClick={() => refetch()}
+            disabled={loading}
+            className="p-1.5 rounded-md hover:bg-muted transition-colors disabled:opacity-50"
+            title={t("usage.refreshUsage")}
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          </button>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-3">
+          {isSubscription ? (
+            <>
+              <UsageMetric
+                label="总额度"
+                value={formatOptionalUsd(hrouterData.total)}
+              />
+              <UsageMetric
+                label="已用"
+                value={formatOptionalUsd(hrouterData.used)}
+              />
+              <UsageMetric
+                label="剩余"
+                value={formatOptionalUsd(hrouterData.remaining)}
+                accent
+              />
+            </>
+          ) : (
+            <>
+              <UsageMetric
+                label="累计消费"
+                value={formatUsd(hrouterExtra.totalActualCost)}
+              />
+              <UsageMetric
+                label="钱包余额"
+                value={formatOptionalUsd(hrouterData.remaining)}
+                accent
+              />
+              <UsageMetric
+                label="统计模型"
+                value={`${hrouterExtra.modelStats.length} 个`}
+              />
+            </>
+          )}
+        </div>
+
+        {hrouterExtra.modelStats.length > 0 ? (
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[620px] text-xs">
+              <thead className="bg-muted/60 text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">模型</th>
+                  <th className="px-3 py-2 text-right font-medium">请求</th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    输入 Token
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    输出 Token
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">总 Token</th>
+                  <th className="px-3 py-2 text-right font-medium">实际消费</th>
+                </tr>
+              </thead>
+              <tbody>
+                {hrouterExtra.modelStats.map((stat) => (
+                  <tr key={stat.model} className="border-t">
+                    <td
+                      className="max-w-[220px] truncate px-3 py-2 font-mono"
+                      title={stat.model}
+                    >
+                      {stat.model}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {formatCount(stat.requests)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {formatCount(stat.input_tokens)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {formatCount(stat.output_tokens)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {formatCount(stat.total_tokens)}
+                    </td>
+                    <td className="px-3 py-2 text-right font-medium tabular-nums">
+                      {formatUsd(stat.actual_cost)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="rounded-lg bg-muted/40 px-3 py-4 text-center text-xs text-muted-foreground">
+            当前 Key 最近 30 天暂无模型调用记录。
+          </p>
+        )}
+      </div>
+    );
+  }
 
   // ── Token Plan：订阅风格内联渲染（百分比徽章 + 倒计时） ──
   if (isTokenPlan && inline) {
@@ -309,6 +490,31 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
     </div>
   );
 };
+
+const formatUsd = (value: number): string => `$${value.toFixed(2)}`;
+
+const formatOptionalUsd = (value: number | undefined): string =>
+  value === undefined ? "--" : formatUsd(value);
+
+const formatCount = (value: number): string =>
+  new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 0 }).format(value);
+
+const UsageMetric: React.FC<{
+  label: string;
+  value: string;
+  accent?: boolean;
+}> = ({ label, value, accent = false }) => (
+  <div className="rounded-lg bg-muted/40 px-3 py-2.5">
+    <p className="text-[11px] text-muted-foreground">{label}</p>
+    <p
+      className={`mt-1 text-base font-semibold tabular-nums ${
+        accent ? "text-emerald-600 dark:text-emerald-400" : ""
+      }`}
+    >
+      {value}
+    </p>
+  </div>
+);
 
 // ── 通用用量组件 ────────────────────────────────────────────
 
