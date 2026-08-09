@@ -50,9 +50,8 @@ pnpm test:unit
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-## 隐私与安全
+## 安全
 
-- 本仓库只包含桌面客户端源码，不包含 HRouter 后台、服务端、渠道配置或运维脚本。
 - 用户 Key 是运行时配置，不应提交到 Git 仓库、Issue、日志或截图中。
 - 报告安全问题时请使用 [GitHub Security Advisories](https://github.com/honestTai/HRouter-Desktop/security/advisories/new)，不要公开提交包含凭据的 Issue。
 
@@ -70,5 +69,3 @@ cargo test --manifest-path src-tauri/Cargo.toml
 ## English
 
 HRouter Desktop is an independent HRouter-focused distribution based on [CC Switch](https://github.com/farion1231/cc-switch). It lets users configure supported AI agents with an HRouter Key, fetch available models, manage model mappings, and inspect subscription or pay-as-you-go usage. Download the Windows x64 installer from [GitHub Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest). See the Chinese sections above for setup and development commands.
-
-This repository contains only the desktop client. It does not contain HRouter server, operations, channel, or administrator code.
