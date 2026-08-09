@@ -1211,7 +1211,7 @@ function App() {
               <div className="flex items-center gap-2">
                 <div className="relative inline-flex items-center">
                   <a
-                    href="https://www.honesttai.com"
+                    href="https://hrouter.net/"
                     target="_blank"
                     rel="noreferrer"
                     className={cn(

@@ -6,6 +6,7 @@ import {
   buildHRouterUsageScript,
   deriveHRouterModelMapping,
   extractHRouterProviderState,
+  HROUTER_MODELS_URL,
   HROUTER_OPENAI_BASE_URL,
   HROUTER_ORIGIN,
 } from "./hrouter";
@@ -19,6 +20,11 @@ const models: FetchedModel[] = [
 ];
 
 describe("HRouter provider configuration", () => {
+  it("uses the current HRouter API domain", () => {
+    expect(HROUTER_ORIGIN).toBe("https://hrouter.net");
+    expect(HROUTER_MODELS_URL).toBe("https://hrouter.net/v1/models");
+  });
+
   it("maps Claude roles from the models returned by the Key", () => {
     expect(deriveHRouterModelMapping("claude", models)).toEqual({
       primary: "claude-sonnet-5",

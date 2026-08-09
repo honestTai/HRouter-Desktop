@@ -7,7 +7,7 @@ import {
   parseGrokBuildConfig,
 } from "@/utils/grokBuildConfig";
 
-export const HROUTER_ORIGIN = "https://www.honesttai.com";
+export const HROUTER_ORIGIN = "https://hrouter.net";
 export const HROUTER_OPENAI_BASE_URL = `${HROUTER_ORIGIN}/v1`;
 export const HROUTER_MODELS_URL = `${HROUTER_OPENAI_BASE_URL}/models`;
 export const HROUTER_ICON_COLOR = "#10b981";

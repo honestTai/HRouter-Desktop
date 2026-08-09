@@ -46,11 +46,11 @@ describe("AddProviderDialog HRouter 专用入口", () => {
   beforeEach(() => {
     mockFormValues = {
       name: "HRouter",
-      websiteUrl: "https://www.honesttai.com",
+      websiteUrl: "https://hrouter.net",
       notes: "Claude Code · HRouter Key 自动配置",
       settingsConfig: JSON.stringify({
         env: {
-          ANTHROPIC_BASE_URL: "https://www.honesttai.com",
+          ANTHROPIC_BASE_URL: "https://hrouter.net",
           ANTHROPIC_AUTH_TOKEN: "sk-test",
           ANTHROPIC_MODEL: "claude-sonnet",
         },
@@ -65,7 +65,7 @@ describe("AddProviderDialog HRouter 专用入口", () => {
           language: "javascript",
           code: "({ request: {}, extractor: function () { return {}; } })",
           apiKey: "sk-test",
-          baseUrl: "https://www.honesttai.com",
+          baseUrl: "https://hrouter.net",
         },
       },
     };

@@ -3,7 +3,7 @@
   <h1>HRouter Desktop</h1>
   <p>一个 Key，为常用 AI Agent 自动导入模型、配置路由并查看用量。</p>
 
-  [HRouter 官网](https://www.honesttai.com) · [下载与版本发布](https://github.com/honestTai/HRouter-Desktop/releases) · [问题反馈](https://github.com/honestTai/HRouter-Desktop/issues)
+  [HRouter 官网](https://hrouter.net/) · [下载最新版本](https://github.com/honestTai/HRouter-Desktop/releases/latest) · [查看源码](https://github.com/honestTai/HRouter-Desktop) · [问题反馈](https://github.com/honestTai/HRouter-Desktop/issues)
 </div>
 
 > HRouter Desktop 基于开源项目 [CC Switch](https://github.com/farion1231/cc-switch)（MIT License）定制开发。本项目保留原始版权和许可证声明，不是 CC Switch 官方发行版，也不代表原项目维护者背书。
@@ -20,14 +20,14 @@
 
 ## 快速开始
 
-1. 前往 [HRouter](https://www.honesttai.com) 注册或登录。
+1. 前往 [HRouter](https://hrouter.net/) 注册或登录。
 2. 在控制台创建 API Key。
-3. 从 [Releases](https://github.com/honestTai/HRouter-Desktop/releases) 下载适合系统的安装包。
+3. 从 [GitHub Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest) 下载 Windows 安装包。
 4. 打开 HRouter Desktop，选择 Agent，点击“添加 HRouter”。
 5. 输入 Key 并点击“识别 Key”。
 6. 确认模型绑定后保存并启用配置。
 
-安装包尚未发布时，可以按照下面的开发说明从源码运行。
+> GitHub Releases 提供预编译的 Windows x64 安装包；开发者也可以按照下面的说明从源码运行。
 
 ## 从源码运行
 
@@ -69,6 +69,6 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 ## English
 
-HRouter Desktop is an independent HRouter-focused distribution based on [CC Switch](https://github.com/farion1231/cc-switch). It lets users configure supported AI agents with an HRouter Key, fetch available models, manage model mappings, and inspect subscription or pay-as-you-go usage. See the Chinese sections above for setup and development commands.
+HRouter Desktop is an independent HRouter-focused distribution based on [CC Switch](https://github.com/farion1231/cc-switch). It lets users configure supported AI agents with an HRouter Key, fetch available models, manage model mappings, and inspect subscription or pay-as-you-go usage. Download the Windows x64 installer from [GitHub Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest). See the Chinese sections above for setup and development commands.
 
 This repository contains only the desktop client. It does not contain HRouter server, operations, channel, or administrator code.

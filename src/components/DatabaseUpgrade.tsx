@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const RELEASES_URL = "https://www.honesttai.com";
+const RELEASES_URL = "https://hrouter.net/";
 
 interface DatabaseUpgradeProps {
   payload: {
