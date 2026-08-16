@@ -27,7 +27,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: https: http:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost https: http:; frame-src https://hrouter.net",
+      "csp": "default-src 'self'; img-src 'self' data: https: http:; script-src 'self' 'sha256-A5LYs0yc26yk8avfax0iGT57PmPUg0Qsfy0zt7kZ6LA='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost https: http:; frame-src https://hrouter.net",
       "assetProtocol": {
         "enable": true,
         "scope": []
