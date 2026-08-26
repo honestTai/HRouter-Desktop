@@ -1,0 +1,19 @@
+.github/workflows/release.yml
+  s_2e68a705bf42bc::t_87a9c5a5929c79 76,82-142
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "d3c4d2688275d630c46bb7df30f6fe8a33947b56",
+  "prompts": {},
+  "sessions": {
+    "s_2e68a705bf42bc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03c14-fd25-7c73-be1c-48251d6e8fd5",
+        "model": "unknown"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    }
+  }
+}
