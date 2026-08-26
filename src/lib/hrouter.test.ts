@@ -6,6 +6,8 @@ import {
   buildHRouterUsageScript,
   deriveHRouterModelMapping,
   extractHRouterProviderState,
+  HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT,
+  HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW,
   HROUTER_MODELS_URL,
   HROUTER_OPENAI_BASE_URL,
   HROUTER_ORIGIN,
@@ -66,6 +68,35 @@ describe("HRouter provider configuration", () => {
     expect(config.config).toContain('name = "OpenAI"');
     expect(config.config).toContain(`base_url = "${HROUTER_OPENAI_BASE_URL}"`);
     expect(config.config).toContain('wire_api = "responses"');
+    expect(config.config).toContain(
+      `model_context_window = ${HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW}`,
+    );
+    expect(config.config).toContain(
+      `model_auto_compact_token_limit = ${HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT}`,
+    );
+  });
+
+  it("preserves custom Codex context settings when editing", () => {
+    const mapping = deriveHRouterModelMapping("codex", models);
+    const settingsConfig = buildHRouterSettingsConfig(
+      "codex",
+      "sk-existing",
+      mapping,
+      models,
+      { contextWindow: 500_000, autoCompactTokenLimit: 420_000 },
+    );
+    const state = extractHRouterProviderState("codex", {
+      id: "hrouter-codex",
+      name: "HRouter",
+      settingsConfig,
+    });
+
+    expect(state.apiKey).toBe("sk-existing");
+    expect(state.mapping.primary).toBe(mapping.primary);
+    expect(state.codexContextConfig).toEqual({
+      contextWindow: 500_000,
+      autoCompactTokenLimit: 420_000,
+    });
   });
 
   it("registers every imported model for OpenCode", () => {

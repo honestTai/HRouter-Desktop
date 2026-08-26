@@ -6,11 +6,16 @@ import {
   buildGrokBuildConfig,
   parseGrokBuildConfig,
 } from "@/utils/grokBuildConfig";
+import { extractCodexTopLevelInt } from "@/utils/providerConfigUtils";
 
 export const HROUTER_ORIGIN = "https://hrouter.net";
 export const HROUTER_OPENAI_BASE_URL = `${HROUTER_ORIGIN}/v1`;
 export const HROUTER_MODELS_URL = `${HROUTER_OPENAI_BASE_URL}/models`;
 export const HROUTER_ICON_COLOR = "#10b981";
+export const HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW = 272_000;
+export const HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT = Math.floor(
+  HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW * 0.9,
+);
 
 export const HROUTER_APP_NAMES: Record<AppId, string> = {
   claude: "Claude Code",
@@ -28,6 +33,11 @@ export interface HRouterModelMapping {
   haiku: string;
   sonnet: string;
   opus: string;
+}
+
+export interface HRouterCodexContextConfig {
+  contextWindow: number;
+  autoCompactTokenLimit: number;
 }
 
 export interface HRouterModelStat {
@@ -55,6 +65,7 @@ export interface HRouterUsageExtra {
 export interface HRouterProviderState {
   apiKey: string;
   mapping: HRouterModelMapping;
+  codexContextConfig: HRouterCodexContextConfig;
 }
 
 const asRecord = (value: unknown): Record<string, unknown> | undefined =>
@@ -136,11 +147,38 @@ export function deriveHRouterModelMapping(
 
 const tomlString = (value: string): string => JSON.stringify(value);
 
+const asPositiveInteger = (
+  value: number | undefined,
+  fallback: number,
+): number =>
+  Number.isSafeInteger(value) && (value ?? 0) > 0
+    ? (value as number)
+    : fallback;
+
+export function resolveHRouterCodexContextConfig(
+  config?: Partial<HRouterCodexContextConfig>,
+): HRouterCodexContextConfig {
+  const contextWindow = asPositiveInteger(
+    config?.contextWindow,
+    HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW,
+  );
+  const defaultAutoCompactTokenLimit = Math.floor(contextWindow * 0.9);
+
+  return {
+    contextWindow,
+    autoCompactTokenLimit: asPositiveInteger(
+      config?.autoCompactTokenLimit,
+      defaultAutoCompactTokenLimit,
+    ),
+  };
+}
+
 export function buildHRouterSettingsConfig(
   appId: AppId,
   apiKey: string,
   mapping: HRouterModelMapping,
   models: FetchedModel[],
+  codexContextConfig?: Partial<HRouterCodexContextConfig>,
 ): Record<string, unknown> {
   const key = apiKey.trim();
   const modelIds = uniqueModelIds(models);
@@ -167,12 +205,14 @@ export function buildHRouterSettingsConfig(
       };
 
     case "codex": {
+      const { contextWindow, autoCompactTokenLimit } =
+        resolveHRouterCodexContextConfig(codexContextConfig);
       const config = `disable_response_storage = true
 model = ${tomlString(mapping.primary)}
 model_reasoning_effort = "high"
 model_provider = "4router"
-model_context_window = 1000000
-model_auto_compact_token_limit = 900000
+model_context_window = ${contextWindow}
+model_auto_compact_token_limit = ${autoCompactTokenLimit}
 
 [model_providers.4router]
 name = "OpenAI"
@@ -408,6 +448,7 @@ export function extractHRouterProviderState(
   let haiku = "";
   let sonnet = "";
   let opus = "";
+  let codexContextConfig = resolveHRouterCodexContextConfig();
 
   switch (appId) {
     case "claude":
@@ -422,6 +463,13 @@ export function extractHRouterProviderState(
       apiKey = asString(auth.OPENAI_API_KEY);
       const toml = asString(config.config);
       primary = toml.match(/^model\s*=\s*["']([^"']+)["']/m)?.[1] ?? "";
+      codexContextConfig = resolveHRouterCodexContextConfig({
+        contextWindow: extractCodexTopLevelInt(toml, "model_context_window"),
+        autoCompactTokenLimit: extractCodexTopLevelInt(
+          toml,
+          "model_auto_compact_token_limit",
+        ),
+      });
       break;
     }
     case "gemini":
@@ -464,6 +512,7 @@ export function extractHRouterProviderState(
       sonnet: sonnet || fallback,
       opus: opus || fallback,
     },
+    codexContextConfig,
   };
 }
 

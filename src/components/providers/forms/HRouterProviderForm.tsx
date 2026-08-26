@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  Gauge,
   KeyRound,
   Layers3,
   Loader2,
@@ -26,6 +27,8 @@ import {
   buildHRouterSettingsConfig,
   deriveHRouterModelMapping,
   extractHRouterProviderState,
+  HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT,
+  HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW,
   HROUTER_APP_NAMES,
   HROUTER_ICON_COLOR,
   HROUTER_MODELS_URL,
@@ -50,6 +53,15 @@ const emptyMapping: HRouterModelMapping = {
   sonnet: "",
   opus: "",
 };
+
+const parsePositiveInteger = (value: string): number | undefined => {
+  if (!/^\d+$/.test(value)) return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
+};
+
+const formatTokenValue = (value: string): string =>
+  parsePositiveInteger(value)?.toLocaleString("zh-CN") ?? "未设置";
 
 const uniqueProviderKey = (): string => {
   const suffix =
@@ -83,7 +95,15 @@ export function HRouterProviderForm({
     () =>
       initialProvider
         ? extractHRouterProviderState(appId, initialProvider)
-        : { apiKey: "", mapping: emptyMapping },
+        : {
+            apiKey: "",
+            mapping: emptyMapping,
+            codexContextConfig: {
+              contextWindow: HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW,
+              autoCompactTokenLimit:
+                HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT,
+            },
+          },
     [appId, initialProvider],
   );
 
@@ -93,6 +113,12 @@ export function HRouterProviderForm({
   const [fetchedModels, setFetchedModels] = useState<FetchedModel[]>([]);
   const [mapping, setMapping] = useState<HRouterModelMapping>(
     initialState.mapping,
+  );
+  const [codexContextWindow, setCodexContextWindow] = useState(
+    String(initialState.codexContextConfig.contextWindow),
+  );
+  const [codexAutoCompactTokenLimit, setCodexAutoCompactTokenLimit] = useState(
+    String(initialState.codexContextConfig.autoCompactTokenLimit),
   );
   const [isFetching, setIsFetching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -189,11 +215,36 @@ export function HRouterProviderForm({
         return;
       }
 
+      const contextWindow = parsePositiveInteger(codexContextWindow);
+      const autoCompactTokenLimit = parsePositiveInteger(
+        codexAutoCompactTokenLimit,
+      );
+      if (appId === "codex" && !contextWindow) {
+        toast.error("请输入有效的上下文窗口");
+        return;
+      }
+      if (appId === "codex" && !autoCompactTokenLimit) {
+        toast.error("请输入有效的自动压缩阈值");
+        return;
+      }
+      if (
+        appId === "codex" &&
+        contextWindow &&
+        autoCompactTokenLimit &&
+        autoCompactTokenLimit >= contextWindow
+      ) {
+        toast.error("自动压缩阈值必须小于上下文窗口");
+        return;
+      }
+
       const settingsConfig = buildHRouterSettingsConfig(
         appId,
         key,
         effectiveMapping,
         models,
+        appId === "codex" && contextWindow && autoCompactTokenLimit
+          ? { contextWindow, autoCompactTokenLimit }
+          : undefined,
       );
       const values: ProviderFormValues = {
         name: name.trim() || defaultName,
@@ -232,6 +283,8 @@ export function HRouterProviderForm({
   }, [
     apiKey,
     appId,
+    codexAutoCompactTokenLimit,
+    codexContextWindow,
     defaultName,
     fetchedModels,
     importModels,
@@ -399,6 +452,59 @@ export function HRouterProviderForm({
               ))}
             </div>
           )}
+        </section>
+      )}
+
+      {appId === "codex" && (
+        <section className="space-y-4 rounded-xl border bg-card p-4">
+          <div className="flex items-start gap-3">
+            <Gauge className="mt-0.5 h-5 w-5 text-emerald-500" />
+            <div>
+              <h4 className="text-sm font-semibold">Codex 上下文</h4>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                当前窗口 {formatTokenValue(codexContextWindow)} token，达到{" "}
+                {formatTokenValue(codexAutoCompactTokenLimit)} token
+                时自动压缩。
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="hrouter-codex-context-window">上下文窗口</Label>
+              <Input
+                id="hrouter-codex-context-window"
+                type="number"
+                min={1}
+                step={1000}
+                inputMode="numeric"
+                value={codexContextWindow}
+                onChange={(event) =>
+                  setCodexContextWindow(
+                    event.target.value.replace(/[^\d]/g, ""),
+                  )
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="hrouter-codex-auto-compact-limit">
+                自动压缩阈值
+              </Label>
+              <Input
+                id="hrouter-codex-auto-compact-limit"
+                type="number"
+                min={1}
+                step={1000}
+                inputMode="numeric"
+                value={codexAutoCompactTokenLimit}
+                onChange={(event) =>
+                  setCodexAutoCompactTokenLimit(
+                    event.target.value.replace(/[^\d]/g, ""),
+                  )
+                }
+              />
+            </div>
+          </div>
         </section>
       )}
 
