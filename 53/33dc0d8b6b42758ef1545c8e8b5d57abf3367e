@@ -1,0 +1,23 @@
+src/components/providers/forms/HRouterProviderForm.tsx
+  s_2e68a705bf42bc::t_096c20540fe736 7,30-31,57-65,98-106,117-122,218-239,245-247,286-287,458-510
+src/lib/hrouter.test.ts
+  s_2e68a705bf42bc::t_3d00a4c1de2958 9-10,71-99
+tests/components/HRouterProviderForm.test.tsx
+  s_2e68a705bf42bc::t_661fdc227b8319 1-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "5333dc0d8b6b42758ef1545c8e8b5d57abf3367e",
+  "prompts": {},
+  "sessions": {
+    "s_2e68a705bf42bc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03c14-fd25-7c73-be1c-48251d6e8fd5",
+        "model": "unknown"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    }
+  }
+}
