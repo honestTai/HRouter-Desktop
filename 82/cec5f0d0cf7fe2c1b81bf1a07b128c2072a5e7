@@ -1,0 +1,29 @@
+.github/workflows/release.yml
+  s_2e68a705bf42bc::t_5a5ef9bc931a47 1-81
+CHANGELOG.md
+  s_2e68a705bf42bc::t_644e5c61c0b26b 3-8
+package.json
+  s_2e68a705bf42bc::t_e7299bb0dbb27f 3
+src-tauri/Cargo.lock
+  s_2e68a705bf42bc::t_5f886796bff8bb 2223
+src-tauri/Cargo.toml
+  s_2e68a705bf42bc::t_349912b07b1144 3
+src-tauri/tauri.conf.json
+  s_2e68a705bf42bc::t_f358ab752764d2 4,39,64-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "82cec5f0d0cf7fe2c1b81bf1a07b128c2072a5e7",
+  "prompts": {},
+  "sessions": {
+    "s_2e68a705bf42bc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03c14-fd25-7c73-be1c-48251d6e8fd5",
+        "model": "unknown"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    }
+  }
+}
