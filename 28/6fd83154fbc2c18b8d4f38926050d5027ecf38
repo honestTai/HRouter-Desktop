@@ -1,0 +1,25 @@
+.github/CODEOWNERS
+  s_2e68a705bf42bc::t_3a17e80e84fcbb 3-4,9
+CODE_SIGNING_POLICY.md
+  s_2e68a705bf42bc::t_010e2e1f0188d0 1-47
+PRIVACY.md
+  s_2e68a705bf42bc::t_0bdbf2dbd0d4da 1-74
+README.md
+  s_2e68a705bf42bc::t_2515a81c60a50e 6-7,59-68,83-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "286fd83154fbc2c18b8d4f38926050d5027ecf38",
+  "prompts": {},
+  "sessions": {
+    "s_2e68a705bf42bc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03c14-fd25-7c73-be1c-48251d6e8fd5",
+        "model": "unknown"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    }
+  }
+}
