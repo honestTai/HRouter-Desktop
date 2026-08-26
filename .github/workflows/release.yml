@@ -73,9 +73,70 @@ jobs:
             - Codex context window and automatic compaction threshold are now configurable.
             - New HRouter Codex providers default to a 272K context window.
             - This release starts a new updater signing chain. Users on v0.2.0 must install v0.2.1 manually once; later releases can update in the app.
-          releaseDraft: false
+          releaseDraft: true
           prerelease: false
           uploadUpdaterJson: true
           updaterJsonPreferNsis: true
           tauriScript: pnpm tauri
           args: --bundles nsis
+
+      - name: Rewrite updater manifest to public download URLs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $manifestDir = Join-Path $env:RUNNER_TEMP "hrouter-updater-manifest"
+          New-Item -ItemType Directory -Force -Path $manifestDir | Out-Null
+          gh release download $tag --pattern latest.json --dir $manifestDir --clobber
+
+          $manifestPath = Join-Path $manifestDir "latest.json"
+          $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+          $release = gh release view $tag --json assets | ConvertFrom-Json
+          $expectedPrefix = "https://github.com/${{ github.repository }}/releases/download/$tag/"
+
+          foreach ($platform in $manifest.platforms.PSObject.Properties) {
+            $matches = @($release.assets | Where-Object apiUrl -eq $platform.Value.url)
+            if ($matches.Count -ne 1) {
+              throw "Could not map updater asset URL for $($platform.Name): $($platform.Value.url)"
+            }
+            $platform.Value.url = $matches[0].url
+            if (-not $platform.Value.url.StartsWith($expectedPrefix)) {
+              throw "Unexpected public updater URL for $($platform.Name): $($platform.Value.url)"
+            }
+          }
+
+          $json = $manifest | ConvertTo-Json -Depth 10
+          [IO.File]::WriteAllText(
+            $manifestPath,
+            "$json`n",
+            [Text.UTF8Encoding]::new($false)
+          )
+          gh release upload $tag $manifestPath --clobber
+
+      - name: Validate updater manifest and publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $manifestDir = Join-Path $env:RUNNER_TEMP "hrouter-updater-manifest-verify"
+          New-Item -ItemType Directory -Force -Path $manifestDir | Out-Null
+          gh release download $tag --pattern latest.json --dir $manifestDir --clobber
+
+          $manifest = Get-Content (Join-Path $manifestDir "latest.json") -Raw | ConvertFrom-Json
+          $expectedVersion = $tag.Substring(1)
+          $expectedPrefix = "https://github.com/${{ github.repository }}/releases/download/$tag/"
+          if ($manifest.version -ne $expectedVersion) {
+            throw "Unexpected updater version: $($manifest.version)"
+          }
+          foreach ($platform in $manifest.platforms.PSObject.Properties) {
+            if (-not $platform.Value.url.StartsWith($expectedPrefix)) {
+              throw "Updater URL is not public for $($platform.Name): $($platform.Value.url)"
+            }
+            if ([string]::IsNullOrWhiteSpace($platform.Value.signature)) {
+              throw "Updater signature is missing for $($platform.Name)"
+            }
+          }
+
+          gh release edit $tag --draft=false
