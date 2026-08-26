@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows-x64:
+    name: Windows x64 Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Verify release version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ($tag -notmatch '^v\d+\.\d+\.\d+$') {
+            throw "Release tag must use the stable vX.Y.Z format: $tag"
+          }
+          $tagVersion = $tag.Substring(1)
+          $packageVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $tauriVersion = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $cargoMatch = Select-String -Path src-tauri/Cargo.toml -Pattern '^version = "([^"]+)"$' | Select-Object -First 1
+          $cargoVersion = $cargoMatch.Matches[0].Groups[1].Value
+          $versions = @($tagVersion, $packageVersion, $tauriVersion, $cargoVersion) | Select-Object -Unique
+          if ($versions.Count -ne 1) {
+            throw "Release versions do not match: tag=$tagVersion package=$packageVersion tauri=$tauriVersion cargo=$cargoVersion"
+          }
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+        shell: pwsh
+        run: |
+          corepack enable
+          corepack install
+          pnpm --version
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build and publish signed updater
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "HRouter Desktop v__VERSION__"
+          releaseBody: |
+            HRouter Desktop v__VERSION__
+
+            - Codex context window and automatic compaction threshold are now configurable.
+            - New HRouter Codex providers default to a 272K context window.
+            - This release starts a new updater signing chain. Users on v0.2.0 must install v0.2.1 manually once; later releases can update in the app.
+          releaseDraft: false
+          prerelease: false
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true
+          tauriScript: pnpm tauri
+          args: --bundles nsis

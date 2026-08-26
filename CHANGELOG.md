@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+- Added editable Codex context-window and automatic-compaction settings for HRouter providers.
+- Changed new HRouter Codex providers to a 272K context window with compaction at 90% by default.
+- Rebuilt the updater signing and GitHub Releases pipeline. Users on 0.2.0 must install 0.2.1 manually once; later releases can update in the app.
+
 ## 0.2.0
 
 - Rebranded the desktop application as HRouter Desktop.
