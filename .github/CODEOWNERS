@@ -1,14 +1,11 @@
 # Code owners for HRouter Desktop
 #
-# Branch protection on `main` has "Require review from Code Owners" enabled.
-# With this file present, a PR cannot merge to `main` without an approval from
-# the owner below. This closes the gap where two collaborators could approve
-# each other's malicious PRs (a single non-owner approval is no longer enough).
+# This file assigns review ownership. Repository branch protection is configured
+# separately in GitHub and must not be inferred from this file alone.
 
 # Global fallback: every PR needs owner approval before merging to main.
 *                 @honestTai
 
-# Most sensitive paths — CI/signing/release and the Rust backend. Listed
-# explicitly so they stay locked even if the global rule above is relaxed later.
+# Most sensitive paths: CI/signing/release and the Rust backend.
 /.github/         @honestTai
 /src-tauri/       @honestTai

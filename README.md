@@ -3,7 +3,8 @@
   <h1>HRouter Desktop</h1>
   <p>一个 Key，为常用 AI Agent 自动导入模型、配置路由并查看用量。</p>
 
-  [HRouter 官网](https://hrouter.net/) · [下载最新版本](https://github.com/honestTai/HRouter-Desktop/releases/latest) · [查看源码](https://github.com/honestTai/HRouter-Desktop) · [问题反馈](https://github.com/honestTai/HRouter-Desktop/issues)
+[HRouter 官网](https://hrouter.net/) · [下载最新版本](https://github.com/honestTai/HRouter-Desktop/releases/latest) · [查看源码](https://github.com/honestTai/HRouter-Desktop) · [问题反馈](https://github.com/honestTai/HRouter-Desktop/issues)
+
 </div>
 
 > HRouter Desktop 基于开源项目 [CC Switch](https://github.com/farion1231/cc-switch)（MIT License）定制开发。本项目保留原始版权和许可证声明，不是 CC Switch 官方发行版，也不代表原项目维护者背书。
@@ -55,6 +56,16 @@ cargo test --manifest-path src-tauri/Cargo.toml
 - 用户 Key 是运行时配置，不应提交到 Git 仓库、Issue、日志或截图中。
 - 报告安全问题时请使用 [GitHub Security Advisories](https://github.com/honestTai/HRouter-Desktop/security/advisories/new)，不要公开提交包含凭据的 Issue。
 
+## Code signing policy
+
+For releases approved under this policy, free code signing is provided by
+[SignPath.io](https://signpath.io/), with a certificate provided by the
+[SignPath Foundation](https://signpath.org/). The application is pending; the
+v0.2.1 Windows installer is not Authenticode-signed.
+
+See the full [code signing policy](CODE_SIGNING_POLICY.md) and
+[privacy policy](PRIVACY.md).
+
 ## 与 CC Switch 上游的关系
 
 - 上游仓库：<https://github.com/farion1231/cc-switch>
@@ -69,3 +80,5 @@ cargo test --manifest-path src-tauri/Cargo.toml
 ## English
 
 HRouter Desktop is an independent HRouter-focused distribution based on [CC Switch](https://github.com/farion1231/cc-switch). It lets users configure supported AI agents with an HRouter Key, fetch available models, manage model mappings, and inspect subscription or pay-as-you-go usage. Download the Windows x64 installer from [GitHub Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest). See the Chinese sections above for setup and development commands.
+
+For signing controls and data handling, see the [code signing policy](CODE_SIGNING_POLICY.md) and [privacy policy](PRIVACY.md).
