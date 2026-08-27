@@ -1,0 +1,49 @@
+src-tauri/src/commands/embedded_terminal.rs
+  s_fd1a6b7dfac722::t_298093d66c9d3b 14-15,104-105,107-111,113,121-123
+src/index.html
+  s_fd1a6b7dfac722::t_67b38d35108d3b 1,7-18
+tests/config/inlineThemeCsp.test.ts
+  s_fd1a6b7dfac722::t_b5c4fe4223c162 1-20
+src/components/providers/forms/OpenClawFormFields.tsx
+  s_fd1a6b7dfac722::t_4a16b376483751 5,244,247,358,360-361,422,424-425
+src-tauri/tauri.conf.json
+  s_fd1a6b7dfac722::t_a4e02920e625c7 30
+tests/components/ImeSafeInput.test.tsx
+  s_fd1a6b7dfac722::t_ef727277f8c7c0 15,48,50,53-62,65,67,69,71,73-77,79
+  s_fd1a6b7dfac722::t_cd86d2efbf46fc 1-14,16-47,49,51-52,63-64,66,68,70,72,78,80-81
+src/components/providers/forms/HermesFormFields.tsx
+  s_fd1a6b7dfac722::t_4a16b376483751 12,307,310,415,417-418,471,473-474
+src/components/providers/forms/OpenCodeFormFields.tsx
+  s_fd1a6b7dfac722::t_c93a5716617480 5,60,62-66,103,105-107,142,144-146,597,600,666,668-669,772,774-775,887,889,1015,1017,1021,1096,1102,1106
+src/components/ui/ime-safe-input.tsx
+  s_fd1a6b7dfac722::t_cd86d2efbf46fc 1-16,18-29,31-56,67-74,76-85
+  s_fd1a6b7dfac722::t_ef727277f8c7c0 17,30,57-66,75
+src-tauri/src/prompt_files.rs
+  s_fd1a6b7dfac722::t_40c4373a7c56ef 60-73
+  s_fd1a6b7dfac722::t_0cfcafaecea901 74
+src-tauri/src/commands/misc.rs
+  s_fd1a6b7dfac722::t_28894187d3125c 2361,2364-2372,2375-2380,2386,2388-2390,2392,6676-6677,6679
+  s_fd1a6b7dfac722::t_f1e351cde6f1d1 1810-1830,1894,6647,6649-6650,6659-6660
+  s_fd1a6b7dfac722::t_298093d66c9d3b 1696
+  s_fd1a6b7dfac722::t_d75d864231804d 2373-2374
+src/components/providers/forms/ProviderForm.tsx
+  s_fd1a6b7dfac722::t_ef727277f8c7c0 9,217-219,1987,1990-1991,2050,2053-2054,2115,2118-2119
+src/components/providers/forms/BasicFormFields.tsx
+  s_fd1a6b7dfac722::t_ef727277f8c7c0 11,133-141,155-161,178-184
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "e3b7a2966822508dd07b510b8b392f11245fed22",
+  "prompts": {},
+  "sessions": {
+    "s_fd1a6b7dfac722": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a041e1-88aa-7bd2-a4ca-61e5c9389296",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    }
+  }
+}
