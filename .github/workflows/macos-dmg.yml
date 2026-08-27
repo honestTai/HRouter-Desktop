@@ -62,8 +62,14 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Install macOS Rust targets
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          workspaces: "./src-tauri -> target"
 
       - name: Build universal DMG
         env:
