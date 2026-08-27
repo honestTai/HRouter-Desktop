@@ -106,11 +106,11 @@ pub async fn get_codex_gui_status() -> Result<CodexGuiStatus, String> {
         }
 
         let version = decode_command_output(&output.stdout).trim().to_string();
-        return Ok(CodexGuiStatus {
+        Ok(CodexGuiStatus {
             supported: true,
             installed: !version.is_empty(),
             version: (!version.is_empty()).then_some(version),
-        });
+        })
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -148,7 +148,7 @@ pub async fn launch_codex_gui_installer(app: AppHandle) -> Result<bool, String> 
         Command::new(&installer_path)
             .spawn()
             .map_err(|e| format!("启动 Codex GUI 安装器失败: {e}"))?;
-        return Ok(true);
+        Ok(true)
     }
 
     #[cfg(not(target_os = "windows"))]
