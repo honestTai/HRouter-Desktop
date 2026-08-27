@@ -1,0 +1,121 @@
+.github/workflows/release.yml
+  s_2e68a705bf42bc::t_37516aa8f32ffd 73-77
+src-tauri/src/commands/misc.rs
+  s_e4eacacd71e01e::t_c1b28fe1666910 75-160
+src-tauri/src/commands/usage.rs
+  s_e4eacacd71e01e::t_0994f13f29e08a 7-8,11-12,126-159
+src-tauri/src/lib.rs
+  s_e4eacacd71e01e::t_1150afde84d32e 1369-1370,1537
+src/App.tsx
+  s_e4eacacd71e01e::t_dfc72efe625f0c 30,70-72,89,120-121,930-931,1074-1076,1177,1223-1227,1236,1250-1266,1288,1309,1321,1324-1329,1482,1649-1654
+src/components/AgentManagerButton.tsx
+  s_e4eacacd71e01e::t_9d142bccf76201 1-502
+src/components/HRouterWebView.tsx
+  s_e4eacacd71e01e::t_fae8c5f09151a0 1-99
+src/components/HelpCenterButton.tsx
+  s_e4eacacd71e01e::t_d66f3aa2186c3c 1,4-23,26,34-48,52-59,61-62,64,70-87,92-117,119-130,132-222,224-232
+src/components/SupportGroupButton.tsx
+  s_e4eacacd71e01e::t_9d600e67fd2257 1-46
+src/components/UpdateBadge.tsx
+  s_e4eacacd71e01e::t_5499c59ec153e7 1,3-16,18-26,32-49,54-85,87-143,146-303
+src/components/UsageFooter.tsx
+  s_e4eacacd71e01e::t_150741b3588400 180,183,187,193,196,238,242,246,254,258,308,494,496-497
+src/components/providers/forms/HRouterProviderForm.tsx
+  s_e4eacacd71e01e::t_fd66adc17e5abe 5,31-32,69-89,147-152,159-175,519-586,588-593,595-600
+src/components/settings/AboutSection.tsx
+  s_e4eacacd71e01e::t_b676099338e60b 17,42,44,448,453,520-529,961-986
+src/components/usage/ModelStatsTable.tsx
+  s_e4eacacd71e01e::t_3362d50994d358 11,85,88
+src/components/usage/PricingConfigPanel.tsx
+  s_e4eacacd71e01e::t_55e26409870355 2-3,23-25,28-31,46-57,86-91,194-205,208,216,220,350-363,365-366,368-370,372-377,381-384,386,419,422,425,428
+src/components/usage/ProviderStatsTable.tsx
+  s_e4eacacd71e01e::t_9c895fa2b24eed 11,88
+src/components/usage/RequestDetailPanel.tsx
+  s_e4eacacd71e01e::t_7509e32074bd92 225,236,247,258,290
+src/components/usage/RequestLogTable.tsx
+  s_e4eacacd71e01e::t_7a79216c27a719 31,281
+src/components/usage/UsageHero.tsx
+  s_e4eacacd71e01e::t_66534aacebee8e 20,304
+src/components/usage/UsageTrendChart.tsx
+  s_e4eacacd71e01e::t_f5bce2d9d1ba6d 16,108,184
+src/components/usage/format.ts
+  s_e4eacacd71e01e::t_29264d2e0432c4 24,31
+src/config/brand.ts
+  s_e4eacacd71e01e::t_360897fa4b6ea1 3-6
+src/contexts/UpdateContext.tsx
+  s_e4eacacd71e01e::t_bc0498ea0f3eb2 18,39,102,138
+src/i18n/locales/en.json
+  s_e4eacacd71e01e::t_0d0fd495e9105b 53-96,830-845,850,859-860,864-869,1605-1611,1679-1680,1737-1738
+src/i18n/locales/ja.json
+  s_e4eacacd71e01e::t_67445126520ef2 53-96,830-845,850,859-860,864-869,1605-1611,1679-1680,1737-1738
+src/i18n/locales/zh-TW.json
+  s_e4eacacd71e01e::t_c57203c91c6abc 53-96,830-845,850,859-860,864-869,1606-1612,1680-1681,1738-1739
+src/i18n/locales/zh.json
+  s_e4eacacd71e01e::t_9f1f33b3e9580c 53-96,830-845,850,859-860,864-869,1605-1611,1679-1680,1737-1738
+src/lib/api/settings.ts
+  s_e4eacacd71e01e::t_3fbc76d6df65ff 29-34,74-81
+src/lib/api/usage.ts
+  s_e4eacacd71e01e::t_d42e716f8b064b 1,22-25,151-164,166,189
+src/lib/hrouter.test.ts
+  s_e4eacacd71e01e::t_26cbd2136d7621 168,196
+src/lib/hrouter.ts
+  s_e4eacacd71e01e::t_cc1c7faf358426 19-22,334,352,377,394
+src/lib/hrouterModelPlazaPricing.ts
+  s_e4eacacd71e01e::t_716582b1822437 1-122
+src/main.tsx
+  s_e4eacacd71e01e::t_b94402247e5ff9 26-29,139-141,143,145-146,148-149,152-163
+tests/components/AgentManagerButton.test.tsx
+  s_e4eacacd71e01e::t_bd16b21d9b1d41 1-69
+tests/components/HRouterProviderForm.test.tsx
+  s_e4eacacd71e01e::t_8c9d5f56ecd194 32-42,55-70,84-87
+tests/components/HRouterWebView.test.tsx
+  s_e4eacacd71e01e::t_57d8a1a3b8cab0 1-39
+tests/components/HelpCenterButton.test.tsx
+  s_e4eacacd71e01e::t_5e6fb02dfe1457 1-65
+tests/components/PricingConfigPanel.test.tsx
+  s_e4eacacd71e01e::t_7aa34bf77b42f3 1-70
+tests/components/SupportGroupButton.test.tsx
+  s_e4eacacd71e01e::t_995651c0537196 1-28
+tests/components/UpdateBadge.test.tsx
+  s_e4eacacd71e01e::t_5cc6fab8713e83 1-70
+tests/components/UsageFooter.test.tsx
+  s_e4eacacd71e01e::t_87da7d96bc9869 1-69
+tests/components/usageFormat.test.ts
+  s_e4eacacd71e01e::t_a121dc3d783cc7 3,9-13
+tests/config/faqLocales.test.ts
+  s_e4eacacd71e01e::t_a2cb9cf9572267 1-102
+tests/config/toolManagementLocales.test.ts
+  s_e4eacacd71e01e::t_dbacfbd94425ee 38-51
+tests/lib/hrouterModelPlazaPricing.test.ts
+  s_e4eacacd71e01e::t_10235c2fb2f74d 1-105
+tests/lib/usageApiBrowserFallback.test.ts
+  s_e4eacacd71e01e::t_c47002b666d9b9 1-37
+tests/msw/tauriMocks.ts
+  s_e4eacacd71e01e::t_286a67839cf42c 8
+vite.config.ts
+  s_e4eacacd71e01e::t_3d281ad9a89611 23-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "087a26d568e1a8e81487804e89daec1f215615e6",
+  "prompts": {},
+  "sessions": {
+    "s_2e68a705bf42bc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03c14-fd25-7c73-be1c-48251d6e8fd5",
+        "model": "unknown"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    },
+    "s_e4eacacd71e01e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a040b6-3925-79e3-8538-82d8c1e5987b",
+        "model": "unknown"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    }
+  }
+}
