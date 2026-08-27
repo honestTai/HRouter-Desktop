@@ -1,0 +1,104 @@
+src/components/terminal/TerminalWorkspace.tsx
+  s_fd1a6b7dfac722::t_d93260e6d22710 86-88,94-95
+  s_fd1a6b7dfac722::t_3e59d2e1733fa9 1-85,89-93,96-102
+src-tauri/src/commands/embedded_terminal.rs
+  s_fd1a6b7dfac722::t_5b505b59d4f8cb 398,405
+  s_fd1a6b7dfac722::t_ac25126f9179b8 8,376-377,391-397,399,401-404,406,408-414,419-422,424-425,437,468,487,489-490
+  s_fd1a6b7dfac722::t_19c7882ead0f55 220,249,257,260,267-270
+  s_fd1a6b7dfac722::t_d936f3f59cfbc8 426-432,434-436
+  s_fd1a6b7dfac722::t_d93260e6d22710 141,190-192
+  s_fd1a6b7dfac722::t_565ffbb9c90314 484
+  s_fd1a6b7dfac722::t_0886a0d0e99567 98-119,212-215
+  s_fd1a6b7dfac722::t_63746e7b098728 1-7,11-19,21-30,42-66,68-81,84-92,94-97,120-126,169-173,175-176,178,188-189,193-196,199-200,202-205,207-211,216-219,221-239,241,243-248,251-256,258-259,261-266,272-330,347-375,492-493
+  s_fd1a6b7dfac722::t_eb1b00271d0fcc 9,31-41,83,177,179-187,197-198,201,240,250
+  s_fd1a6b7dfac722::t_70f3eabc7aab76 10,127-140,142-168
+  s_fd1a6b7dfac722::t_14da459e4d3899 378-390
+  s_fd1a6b7dfac722::t_5841b97df084eb 67,82,93,206
+  s_fd1a6b7dfac722::t_519742423bca1f 271
+  s_fd1a6b7dfac722::t_04a9fb00ed7873 433,440-444,448-453,457-459,469-483,486
+  s_fd1a6b7dfac722::t_8c60254f4d194d 400,407,415-418,423,438-439,460,462-467,488
+  s_fd1a6b7dfac722::t_daa42c806f95a8 445-447,454-456
+  s_fd1a6b7dfac722::t_6d265bcc6d244c 20,174,242,331-346
+  s_815e909be94b5d::t_59fddd5fab7794 461,485,491
+src-tauri/src/lightweight.rs
+  s_fd1a6b7dfac722::t_c81cbdb45415ab 7-26,76
+src-tauri/src/commands/mod.rs
+  s_fd1a6b7dfac722::t_63746e7b098728 10,47
+src/App.tsx
+  s_fd1a6b7dfac722::t_2e180746017075 1065-1067
+  s_fd1a6b7dfac722::t_586ba63da1bdc1 1,106-112,1790-1792
+  s_fd1a6b7dfac722::t_c8271c231c2b6e 38,192,851-853
+  s_fd1a6b7dfac722::t_b28cd3a0c2e025 171-191,1787-1789,1793-1794
+  s_fd1a6b7dfac722::t_bb8bbecd1d1662 1795-1797
+src/i18n/locales/zh.json
+  s_fd1a6b7dfac722::t_92108fa0f1041e 3102-3116
+src/components/terminal/EmbeddedTerminalPane.tsx
+  s_fd1a6b7dfac722::t_d60ff07869d249 1-9,11-163,167-194,196-251
+  s_fd1a6b7dfac722::t_d93260e6d22710 10,164-166
+  s_fd1a6b7dfac722::t_283f9652bcad51 195
+src-tauri/tauri.windows.conf.json
+  s_fd1a6b7dfac722::t_1135ba47720b48 7
+src-tauri/tauri.conf.json
+  s_fd1a6b7dfac722::t_c81cbdb45415ab 16
+src-tauri/src/commands/misc.rs
+  s_fd1a6b7dfac722::t_eb15b90640b9ed 787,5022-5027,5035-5036
+  s_fd1a6b7dfac722::t_14da459e4d3899 814,5020-5021,5028-5034,5037-5040
+  s_fd1a6b7dfac722::t_0886a0d0e99567 603-631,786,788-790,810-813
+  s_fd1a6b7dfac722::t_63746e7b098728 3482,3531
+src/lib/api/embeddedTerminal.ts
+  s_fd1a6b7dfac722::t_d93260e6d22710 61-62
+  s_fd1a6b7dfac722::t_eb1b00271d0fcc 31
+  s_fd1a6b7dfac722::t_d60ff07869d249 1-14,23-30,32-60,63-65
+  s_fd1a6b7dfac722::t_5211d3b8d68ae6 15-22
+src/i18n/locales/ja.json
+  s_fd1a6b7dfac722::t_afbf962861c6c0 3102-3116
+src-tauri/src/lib.rs
+  s_fd1a6b7dfac722::t_63746e7b098728 1104,1581-1584
+  s_fd1a6b7dfac722::t_70f3eabc7aab76 1580
+  s_fd1a6b7dfac722::t_c81cbdb45415ab 430
+  s_fd1a6b7dfac722::t_57a228ecdef979 384-386
+  s_fd1a6b7dfac722::t_6d265bcc6d244c 376-383
+  s_fd1a6b7dfac722::t_b3b7ab78160413 429
+package.json
+  s_fd1a6b7dfac722::t_bf8de238a89492 90-91
+src-tauri/Cargo.toml
+  s_fd1a6b7dfac722::t_bda55edac1702a 85
+src/lib/api/index.ts
+  s_fd1a6b7dfac722::t_d60ff07869d249 15
+src/i18n/locales/en.json
+  s_fd1a6b7dfac722::t_92108fa0f1041e 3102-3116
+src/i18n/locales/zh-TW.json
+  s_fd1a6b7dfac722::t_afbf962861c6c0 3103-3117
+src/index.css
+  s_fd1a6b7dfac722::t_d60ff07869d249 5-15
+src-tauri/capabilities/default.json
+  s_fd1a6b7dfac722::t_70f3eabc7aab76 5
+pnpm-lock.yaml
+  s_fd1a6b7dfac722::t_16f4dbbeed661b 104-109,1242,1248,1254,1260,1266,1272,1278,1284,1290,1296,1302,1308,1314,1395,1402,1409,1416,1423,1604-1611,2187,2194,2201,2208,4344-4349
+src-tauri/Cargo.lock
+  s_fd1a6b7dfac722::t_08b7ddf02d0835 536,801-806,1339-1344,1573-1583,2276,3205-3216,4005-4025,4181,4221,4747,5181-5191,5281-5296
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "0b82d3bc26ee7a0870980e48966e61bc673ac7ab",
+  "prompts": {},
+  "sessions": {
+    "s_815e909be94b5d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a041be-2dda-78d3-b39d-1fa9f60f510c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    },
+    "s_fd1a6b7dfac722": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a041e1-88aa-7bd2-a4ca-61e5c9389296",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    }
+  }
+}
