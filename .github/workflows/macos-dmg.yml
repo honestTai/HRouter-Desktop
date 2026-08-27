@@ -1,0 +1,84 @@
+name: macOS Universal DMG
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to receive the DMG"
+        required: true
+        default: "v0.2.2"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: macos-dmg-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  universal-dmg:
+    name: macOS Universal DMG
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Verify release version
+        shell: pwsh
+        run: |
+          $tag = "${{ inputs.tag }}"
+          if ($tag -notmatch '^v\d+\.\d+\.\d+$') {
+            throw "Release tag must use the stable vX.Y.Z format: $tag"
+          }
+          $tagVersion = $tag.Substring(1)
+          $packageVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $tauriVersion = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $cargoMatch = Select-String -Path src-tauri/Cargo.toml -Pattern '^version = "([^"]+)"$' | Select-Object -First 1
+          $cargoVersion = $cargoMatch.Matches[0].Groups[1].Value
+          $versions = @($tagVersion, $packageVersion, $tauriVersion, $cargoVersion) | Select-Object -Unique
+          if ($versions.Count -ne 1) {
+            throw "Release versions do not match: tag=$tagVersion package=$packageVersion tauri=$tauriVersion cargo=$cargoVersion"
+          }
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+        shell: pwsh
+        run: |
+          corepack enable
+          corepack install
+          pnpm --version
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Build universal DMG
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm tauri build --target universal-apple-darwin --bundles dmg
+
+      - name: Upload DMG to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $tag = "${{ inputs.tag }}"
+          $dmgFiles = @(Get-ChildItem "src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg")
+          if ($dmgFiles.Count -ne 1) {
+            throw "Expected exactly one universal DMG, found $($dmgFiles.Count)"
+          }
+          gh release upload $tag $dmgFiles[0].FullName --clobber
