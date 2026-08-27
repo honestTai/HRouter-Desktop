@@ -1,0 +1,23 @@
+src-tauri/tauri.conf.json
+  s_fd1a6b7dfac722::t_e660989ed25942 30
+src-tauri/src/lib.rs
+  s_fd1a6b7dfac722::t_589b8bd801d353 73-74,373-388,1334,1336-1338
+src/index.html
+  s_fd1a6b7dfac722::t_e660989ed25942 7,13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "7a4a7992e09586801cdef5519e136b37b9951302",
+  "prompts": {},
+  "sessions": {
+    "s_fd1a6b7dfac722": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a041e1-88aa-7bd2-a4ca-61e5c9389296",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    }
+  }
+}
