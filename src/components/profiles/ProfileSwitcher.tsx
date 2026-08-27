@@ -5,7 +5,9 @@ import {
   ChevronsUpDown,
   FolderCog,
   FolderOpen,
+  Plug,
   Plus,
+  Sparkles,
   X,
 } from "lucide-react";
 import {
@@ -39,6 +41,9 @@ import {
   useCreateProfileMutation,
   useProfilesQuery,
 } from "@/lib/query/profiles";
+import { useProvidersQuery } from "@/lib/query/queries";
+import { useAllMcpServers } from "@/hooks/useMcp";
+import { useInstalledSkills } from "@/hooks/useSkills";
 import { ProfileManageDialog } from "./ProfileManageDialog";
 import { APP_PROFILE_SCOPE, hasScopeSnapshot } from "./scope";
 import type { CurrentProfileIds, ProfileScope } from "@/lib/api/profiles";
@@ -69,6 +74,9 @@ export function ProfileSwitcher({ activeApp }: ProfileSwitcherProps) {
   const [newName, setNewName] = useState("");
 
   const { data } = useProfilesQuery();
+  const { data: providersData } = useProvidersQuery(activeApp);
+  const { data: mcpServers } = useAllMcpServers();
+  const { data: installedSkills } = useInstalledSkills();
   const applyMutation = useApplyProfileMutation();
   const clearMutation = useClearProfileMutation();
   const createMutation = useCreateProfileMutation();
@@ -83,6 +91,27 @@ export function ProfileSwitcher({ activeApp }: ProfileSwitcherProps) {
   const profiles = data?.profiles ?? [];
   const currentId = data?.currentIds?.[CURRENT_ID_KEY[scope]] ?? null;
   const currentProfile = profiles.find((p) => p.id === currentId);
+  const providerNames = providersData?.providers ?? {};
+  const skillNames = new Map(
+    (installedSkills ?? []).map((skill) => [skill.id, skill.name]),
+  );
+
+  const getProfileSummary = (profile: (typeof profiles)[number]) => {
+    const providerId = profile.payload.providers[scope];
+    const mcpIds = profile.payload.mcp[scope];
+    const skillIds = profile.payload.skills[scope];
+
+    return {
+      providerName: providerId
+        ? (providerNames[providerId]?.name ?? providerId)
+        : null,
+      mcp:
+        mcpIds?.map((id) => ({ id, name: mcpServers?.[id]?.name ?? id })) ?? [],
+      skills:
+        skillIds?.map((id) => ({ id, name: skillNames.get(id) ?? id })) ?? [],
+      captured: hasScopeSnapshot(profile, scope),
+    };
+  };
 
   const handleApply = (id: string) => {
     setOpen(false);
@@ -128,7 +157,7 @@ export function ProfileSwitcher({ activeApp }: ProfileSwitcherProps) {
           side="bottom"
           align="start"
           sideOffset={6}
-          className="z-[100] w-64 p-0"
+          className="z-[100] w-[min(23rem,calc(100vw-2rem))] p-0"
         >
           <Command>
             <CommandInput placeholder={t("profiles.searchPlaceholder")} />
@@ -136,29 +165,79 @@ export function ProfileSwitcher({ activeApp }: ProfileSwitcherProps) {
               <CommandEmpty>{t("profiles.empty")}</CommandEmpty>
               {profiles.length > 0 && (
                 <CommandGroup>
-                  {profiles.map((profile) => (
-                    <CommandItem
-                      key={profile.id}
-                      value={profile.id}
-                      keywords={[profile.name]}
-                      onSelect={() => handleApply(profile.id)}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4 shrink-0",
-                          currentId === profile.id
-                            ? "opacity-100"
-                            : "opacity-0",
-                        )}
-                      />
-                      <span className="truncate">{profile.name}</span>
-                      {!hasScopeSnapshot(profile, scope) && (
-                        <span className="ml-auto shrink-0 pl-2 text-xs text-muted-foreground">
-                          {t("profiles.noSnapshotForScope")}
-                        </span>
-                      )}
-                    </CommandItem>
-                  ))}
+                  {profiles.map((profile) => {
+                    const summary = getProfileSummary(profile);
+                    const searchTerms = [
+                      profile.name,
+                      summary.providerName ?? "",
+                      ...summary.mcp.map((item) => item.name),
+                      ...summary.skills.map((item) => item.name),
+                    ];
+
+                    return (
+                      <CommandItem
+                        key={profile.id}
+                        value={profile.id}
+                        keywords={searchTerms}
+                        onSelect={() => handleApply(profile.id)}
+                        className="items-start py-2.5"
+                      >
+                        <Check
+                          className={cn(
+                            "mt-0.5 h-4 w-4 shrink-0",
+                            currentId === profile.id
+                              ? "opacity-100"
+                              : "opacity-0",
+                          )}
+                        />
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="min-w-0 flex-1 truncate font-medium">
+                              {profile.name}
+                            </span>
+                            {!summary.captured && (
+                              <span className="shrink-0 text-xs text-muted-foreground">
+                                {t("profiles.noSnapshotForScope")}
+                              </span>
+                            )}
+                          </div>
+                          {summary.captured && (
+                            <>
+                              {summary.providerName && (
+                                <div className="truncate text-xs text-muted-foreground">
+                                  {t("profiles.providerLabel")}:{" "}
+                                  {summary.providerName}
+                                </div>
+                              )}
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                <span className="inline-flex items-center gap-1">
+                                  <Plug className="h-3 w-3" />
+                                  {t("profiles.mcpCount", {
+                                    count: summary.mcp.length,
+                                  })}
+                                </span>
+                                <span className="inline-flex items-center gap-1">
+                                  <Sparkles className="h-3 w-3" />
+                                  {t("profiles.skillCount", {
+                                    count: summary.skills.length,
+                                  })}
+                                </span>
+                              </div>
+                              {(summary.mcp.length > 0 ||
+                                summary.skills.length > 0) && (
+                                <div className="line-clamp-2 break-words text-xs leading-4 text-muted-foreground/80">
+                                  {[
+                                    ...summary.mcp.map((item) => item.name),
+                                    ...summary.skills.map((item) => item.name),
+                                  ].join(" · ")}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </CommandItem>
+                    );
+                  })}
                 </CommandGroup>
               )}
               <div className="mx-1 my-1 h-px bg-border" />

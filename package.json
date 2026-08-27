@@ -1,6 +1,6 @@
 {
   "name": "hrouter",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "HRouter configuration manager for AI coding agents",
   "type": "module",
   "scripts": {

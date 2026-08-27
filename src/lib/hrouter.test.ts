@@ -66,6 +66,7 @@ describe("HRouter provider configuration", () => {
     expect(config.auth.OPENAI_API_KEY).toBe("sk-hrouter-test");
     expect(config.config).toContain('model_provider = "4router"');
     expect(config.config).toContain('name = "OpenAI"');
+    expect(config.config).not.toContain("goals = true");
     expect(config.config).toContain(`base_url = "${HROUTER_OPENAI_BASE_URL}"`);
     expect(config.config).toContain('wire_api = "responses"');
     expect(config.config).toContain(
@@ -74,6 +75,25 @@ describe("HRouter provider configuration", () => {
     expect(config.config).toContain(
       `model_auto_compact_token_limit = ${HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT}`,
     );
+  });
+
+  it("supports optional Goal mode and disabling remote compaction", () => {
+    const mapping = deriveHRouterModelMapping("codex", models);
+    const settingsConfig = buildHRouterSettingsConfig(
+      "codex",
+      "sk-hrouter-test",
+      mapping,
+      models,
+      {
+        contextWindow: HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW,
+        autoCompactTokenLimit: HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT,
+        goalMode: true,
+        remoteCompaction: false,
+      },
+    ) as { config: string };
+
+    expect(settingsConfig.config).toContain("[features]\ngoals = true");
+    expect(settingsConfig.config).toContain('name = "HRouter"');
   });
 
   it("preserves custom Codex context settings when editing", () => {
@@ -96,6 +116,8 @@ describe("HRouter provider configuration", () => {
     expect(state.codexContextConfig).toEqual({
       contextWindow: 500_000,
       autoCompactTokenLimit: 420_000,
+      goalMode: false,
+      remoteCompaction: true,
     });
   });
 

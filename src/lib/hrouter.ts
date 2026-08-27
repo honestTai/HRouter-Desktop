@@ -6,7 +6,11 @@ import {
   buildGrokBuildConfig,
   parseGrokBuildConfig,
 } from "@/utils/grokBuildConfig";
-import { extractCodexTopLevelInt } from "@/utils/providerConfigUtils";
+import {
+  extractCodexTopLevelInt,
+  isCodexGoalModeEnabled,
+  isCodexRemoteCompactionEnabled,
+} from "@/utils/providerConfigUtils";
 
 export const HROUTER_ORIGIN = "https://hrouter.net";
 export const HROUTER_OPENAI_BASE_URL = `${HROUTER_ORIGIN}/v1`;
@@ -42,6 +46,8 @@ export interface HRouterModelMapping {
 export interface HRouterCodexContextConfig {
   contextWindow: number;
   autoCompactTokenLimit: number;
+  goalMode?: boolean;
+  remoteCompaction?: boolean;
 }
 
 export interface HRouterModelStat {
@@ -211,19 +217,23 @@ export function buildHRouterSettingsConfig(
     case "codex": {
       const { contextWindow, autoCompactTokenLimit } =
         resolveHRouterCodexContextConfig(codexContextConfig);
-      const config = `disable_response_storage = true
-model = ${tomlString(mapping.primary)}
-model_reasoning_effort = "high"
-model_provider = "4router"
-model_context_window = ${contextWindow}
-model_auto_compact_token_limit = ${autoCompactTokenLimit}
-
-[model_providers.4router]
-name = "OpenAI"
-base_url = ${tomlString(HROUTER_OPENAI_BASE_URL)}
-requires_openai_auth = true
-wire_api = "responses"
-`;
+      const goalMode = codexContextConfig?.goalMode === true;
+      const remoteCompaction = codexContextConfig?.remoteCompaction !== false;
+      const config = `${[
+        "disable_response_storage = true",
+        `model = ${tomlString(mapping.primary)}`,
+        'model_reasoning_effort = "high"',
+        'model_provider = "4router"',
+        `model_context_window = ${contextWindow}`,
+        `model_auto_compact_token_limit = ${autoCompactTokenLimit}`,
+        "",
+        ...(goalMode ? ["[features]", "goals = true", ""] : []),
+        "[model_providers.4router]",
+        `name = ${tomlString(remoteCompaction ? "OpenAI" : "HRouter")}`,
+        `base_url = ${tomlString(HROUTER_OPENAI_BASE_URL)}`,
+        "requires_openai_auth = true",
+        'wire_api = "responses"',
+      ].join("\n")}\n`;
       return { auth: { OPENAI_API_KEY: key }, config };
     }
 
@@ -474,6 +484,9 @@ export function extractHRouterProviderState(
           "model_auto_compact_token_limit",
         ),
       });
+      codexContextConfig.goalMode = isCodexGoalModeEnabled(toml);
+      codexContextConfig.remoteCompaction =
+        isCodexRemoteCompactionEnabled(toml);
       break;
     }
     case "gemini":

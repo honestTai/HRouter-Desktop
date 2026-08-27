@@ -33,7 +33,9 @@ describe("HRouterProviderForm Codex context settings", () => {
       "aria-checked",
       "true",
     );
-    const preview = screen.getByLabelText("config.toml 配置预览");
+    const preview = screen.getByLabelText("config.toml 完整配置编辑器");
+    expect(preview).toHaveTextContent('model_provider = "4router"');
+    expect(preview).toHaveTextContent('base_url = "https://hrouter.net/v1"');
     expect(preview).toHaveTextContent("model_context_window = 272000");
     expect(preview).toHaveTextContent(
       "model_auto_compact_token_limit = 244800",
@@ -61,7 +63,7 @@ describe("HRouterProviderForm Codex context settings", () => {
       "aria-checked",
       "true",
     );
-    const preview = screen.getByLabelText("config.toml 配置预览");
+    const preview = screen.getByLabelText("config.toml 完整配置编辑器");
     expect(preview).toHaveTextContent("model_context_window = 1000000");
     expect(preview).toHaveTextContent(
       "model_auto_compact_token_limit = 900000",
@@ -77,6 +79,9 @@ describe("HRouterProviderForm Codex context settings", () => {
         config: `model = "gpt-5.6-sol"
 model_context_window = 500000
 model_auto_compact_token_limit = 420000
+
+[custom_section]
+keep_me = "preserved"
 `,
       },
     });
@@ -87,5 +92,8 @@ model_auto_compact_token_limit = 420000
     );
     expect(screen.getByLabelText("上下文窗口")).toHaveValue(500_000);
     expect(screen.getByLabelText("自动压缩阈值")).toHaveValue(420_000);
+    expect(
+      screen.getByLabelText("config.toml 完整配置编辑器"),
+    ).toHaveTextContent('keep_me = "preserved"');
   });
 });

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { parse as parseToml } from "smol-toml";
 import {
   CheckCircle2,
   FileCode2,
+  Flag,
+  CloudCog,
   Eye,
   EyeOff,
   Gauge,
@@ -14,6 +17,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ToggleRow } from "@/components/ui/toggle-row";
+import JsonEditor from "@/components/JsonEditor";
 import { ProviderIcon } from "@/components/ProviderIcon";
 import { ModelInputWithFetch } from "./shared/ModelInputWithFetch";
 import type { AppId } from "@/lib/api";
@@ -40,6 +45,16 @@ import {
 } from "@/lib/hrouter";
 import type { Provider } from "@/types";
 import type { ProviderFormValues } from "./ProviderForm";
+import {
+  extractCodexTopLevelInt,
+  extractCodexModelName,
+  isCodexGoalModeEnabled,
+  isCodexRemoteCompactionEnabled,
+  setCodexGoalMode,
+  setCodexModelName,
+  setCodexRemoteCompaction,
+  setCodexTopLevelInt,
+} from "@/utils/providerConfigUtils";
 
 interface HRouterProviderFormProps {
   appId: AppId;
@@ -126,6 +141,8 @@ export function HRouterProviderForm({
               contextWindow: HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW,
               autoCompactTokenLimit:
                 HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT,
+              goalMode: false,
+              remoteCompaction: true,
             },
           },
     [appId, initialProvider],
@@ -138,17 +155,27 @@ export function HRouterProviderForm({
   const [mapping, setMapping] = useState<HRouterModelMapping>(
     initialState.mapping,
   );
-  const [codexContextWindow, setCodexContextWindow] = useState(
-    String(initialState.codexContextConfig.contextWindow),
-  );
-  const [codexAutoCompactTokenLimit, setCodexAutoCompactTokenLimit] = useState(
-    String(initialState.codexContextConfig.autoCompactTokenLimit),
-  );
-  const [codexContextMode, setCodexContextMode] = useState<CodexContextMode>(
+  const initialCodexConfig = useMemo(() => {
+    const savedConfig = initialProvider?.settingsConfig?.config;
+    if (typeof savedConfig === "string" && savedConfig.trim()) {
+      return savedConfig;
+    }
+    const generated = buildHRouterSettingsConfig(
+      "codex",
+      "",
+      initialState.mapping,
+      [],
+      initialState.codexContextConfig,
+    ) as { config: string };
+    return generated.config;
+  }, [initialProvider, initialState]);
+  const [codexConfig, setCodexConfig] = useState(initialCodexConfig);
+  const [codexConfigError, setCodexConfigError] = useState("");
+  const [customContextEditorOpen, setCustomContextEditorOpen] = useState(
     getCodexContextMode(
       initialState.codexContextConfig.contextWindow,
       initialState.codexContextConfig.autoCompactTokenLimit,
-    ),
+    ) === "custom",
   );
   const [isFetching, setIsFetching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -156,22 +183,62 @@ export function HRouterProviderForm({
 
   const isClaudeApp = appId === "claude" || appId === "claude-desktop";
 
+  const codexContextWindow = String(
+    extractCodexTopLevelInt(codexConfig, "model_context_window") ??
+      HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW,
+  );
+  const codexAutoCompactTokenLimit = String(
+    extractCodexTopLevelInt(codexConfig, "model_auto_compact_token_limit") ??
+      HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT,
+  );
+  const parsedCodexContextMode = getCodexContextMode(
+    Number(codexContextWindow),
+    Number(codexAutoCompactTokenLimit),
+  );
+  const codexContextMode = customContextEditorOpen
+    ? "custom"
+    : parsedCodexContextMode;
+  const codexGoalMode = isCodexGoalModeEnabled(codexConfig);
+  const codexRemoteCompaction = isCodexRemoteCompactionEnabled(codexConfig);
+
   const selectCodexContextMode = (mode: CodexContextMode) => {
-    setCodexContextMode(mode);
+    setCustomContextEditorOpen(mode === "custom");
     if (mode === "official-272k") {
-      setCodexContextWindow(String(HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW));
-      setCodexAutoCompactTokenLimit(
-        String(HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT),
+      setCodexConfig((current) =>
+        setCodexTopLevelInt(
+          setCodexTopLevelInt(
+            current,
+            "model_context_window",
+            HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW,
+          ),
+          "model_auto_compact_token_limit",
+          HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT,
+        ),
       );
     } else if (mode === "official-1m") {
-      setCodexContextWindow(String(HROUTER_CODEX_1M_CONTEXT_WINDOW));
-      setCodexAutoCompactTokenLimit(
-        String(HROUTER_CODEX_1M_AUTO_COMPACT_TOKEN_LIMIT),
+      setCodexConfig((current) =>
+        setCodexTopLevelInt(
+          setCodexTopLevelInt(
+            current,
+            "model_context_window",
+            HROUTER_CODEX_1M_CONTEXT_WINDOW,
+          ),
+          "model_auto_compact_token_limit",
+          HROUTER_CODEX_1M_AUTO_COMPACT_TOKEN_LIMIT,
+        ),
       );
     }
   };
 
-  const codexConfigPreview = `model_context_window = ${codexContextWindow || "<未设置>"}\nmodel_auto_compact_token_limit = ${codexAutoCompactTokenLimit || "<未设置>"}`;
+  const updateCodexConfig = (value: string) => {
+    setCodexConfig(value);
+    setCodexConfigError("");
+  };
+
+  useEffect(() => {
+    if (appId !== "codex" || !mapping.primary) return;
+    setCodexConfig((current) => setCodexModelName(current, mapping.primary));
+  }, [appId, mapping.primary]);
 
   useEffect(() => {
     if (!initialProvider || !initialState.apiKey) return;
@@ -284,15 +351,45 @@ export function HRouterProviderForm({
         return;
       }
 
+      let finalCodexConfig = codexConfig;
+      if (
+        appId === "codex" &&
+        !extractCodexModelName(finalCodexConfig)?.trim()
+      ) {
+        finalCodexConfig = setCodexModelName(
+          finalCodexConfig,
+          effectiveMapping.primary,
+        );
+      }
+      if (appId === "codex") {
+        try {
+          parseToml(finalCodexConfig);
+          setCodexConfigError("");
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : String(error);
+          setCodexConfigError(`config.toml 语法错误：${detail}`);
+          toast.error("请先修正 config.toml 语法错误");
+          return;
+        }
+      }
+
       const settingsConfig = buildHRouterSettingsConfig(
         appId,
         key,
         effectiveMapping,
         models,
         appId === "codex" && contextWindow && autoCompactTokenLimit
-          ? { contextWindow, autoCompactTokenLimit }
+          ? {
+              contextWindow,
+              autoCompactTokenLimit,
+              goalMode: codexGoalMode,
+              remoteCompaction: codexRemoteCompaction,
+            }
           : undefined,
       );
+      if (appId === "codex") {
+        settingsConfig.config = finalCodexConfig;
+      }
       const values: ProviderFormValues = {
         name: name.trim() || defaultName,
         websiteUrl: HROUTER_ORIGIN,
@@ -332,6 +429,9 @@ export function HRouterProviderForm({
     appId,
     codexAutoCompactTokenLimit,
     codexContextWindow,
+    codexConfig,
+    codexGoalMode,
+    codexRemoteCompaction,
     defaultName,
     fetchedModels,
     importModels,
@@ -559,11 +659,20 @@ export function HRouterProviderForm({
                   step={1000}
                   inputMode="numeric"
                   value={codexContextWindow}
-                  onChange={(event) =>
-                    setCodexContextWindow(
+                  onChange={(event) => {
+                    const value = parsePositiveInteger(
                       event.target.value.replace(/[^\d]/g, ""),
-                    )
-                  }
+                    );
+                    if (value) {
+                      updateCodexConfig(
+                        setCodexTopLevelInt(
+                          codexConfig,
+                          "model_context_window",
+                          value,
+                        ),
+                      );
+                    }
+                  }}
                 />
               </div>
               <div className="space-y-2">
@@ -577,27 +686,69 @@ export function HRouterProviderForm({
                   step={1000}
                   inputMode="numeric"
                   value={codexAutoCompactTokenLimit}
-                  onChange={(event) =>
-                    setCodexAutoCompactTokenLimit(
+                  onChange={(event) => {
+                    const value = parsePositiveInteger(
                       event.target.value.replace(/[^\d]/g, ""),
-                    )
-                  }
+                    );
+                    if (value) {
+                      updateCodexConfig(
+                        setCodexTopLevelInt(
+                          codexConfig,
+                          "model_auto_compact_token_limit",
+                          value,
+                        ),
+                      );
+                    }
+                  }}
                 />
               </div>
             </div>
           )}
 
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ToggleRow
+              icon={<Flag className="h-4 w-4 text-emerald-500" />}
+              title="Goal 模式"
+              description="写入 [features] goals = true，用于支持目标驱动的长任务。"
+              checked={codexGoalMode}
+              onCheckedChange={(checked) =>
+                updateCodexConfig(setCodexGoalMode(codexConfig, checked))
+              }
+            />
+            <ToggleRow
+              icon={<CloudCog className="h-4 w-4 text-emerald-500" />}
+              title="远程压缩"
+              description="将 Provider 标识为 OpenAI，让 Codex 尝试使用远程压缩。"
+              checked={codexRemoteCompaction}
+              onCheckedChange={(checked) =>
+                updateCodexConfig(
+                  setCodexRemoteCompaction(codexConfig, checked, "HRouter"),
+                )
+              }
+            />
+          </div>
+
           <div className="overflow-hidden rounded-lg border bg-muted/25">
             <div className="flex items-center gap-2 border-b px-3 py-2 text-xs font-medium text-muted-foreground">
               <FileCode2 className="h-3.5 w-3.5" />
               <span>config.toml</span>
+              <span className="ml-auto">可直接编辑完整配置</span>
             </div>
-            <pre
-              aria-label="config.toml 配置预览"
-              className="overflow-x-auto px-3 py-3 text-xs leading-5 text-foreground"
-            >
-              <code>{codexConfigPreview}</code>
-            </pre>
+            <div aria-label="config.toml 完整配置编辑器">
+              <JsonEditor
+                value={codexConfig}
+                onChange={updateCodexConfig}
+                darkMode={document.documentElement.classList.contains("dark")}
+                rows={16}
+                showValidation={false}
+                language="javascript"
+              />
+            </div>
+            {codexConfigError && (
+              <p className="px-3 pb-3 text-xs text-destructive">
+                {codexConfigError}
+              </p>
+            )}
           </div>
         </section>
       )}

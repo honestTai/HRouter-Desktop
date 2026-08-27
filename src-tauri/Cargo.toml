@@ -1,6 +1,6 @@
 [package]
 name = "hrouter"
-version = "0.2.2"
+version = "0.2.3"
 description = "HRouter configuration manager for AI coding agents"
 authors = ["HRouter Contributors"]
 license = "MIT"
