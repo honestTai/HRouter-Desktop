@@ -102,7 +102,10 @@ jobs:
             if ($matches.Count -ne 1) {
               throw "Could not map updater asset URL for $($platform.Name): $($platform.Value.url)"
             }
-            $platform.Value.url = $matches[0].url
+            # Draft releases expose temporary untagged URLs. Build the stable URL
+            # from the matched asset name before publishing the release.
+            $assetName = [Uri]::EscapeDataString($matches[0].name)
+            $platform.Value.url = "$expectedPrefix$assetName"
             if (-not $platform.Value.url.StartsWith($expectedPrefix)) {
               throw "Unexpected public updater URL for $($platform.Name): $($platform.Value.url)"
             }
