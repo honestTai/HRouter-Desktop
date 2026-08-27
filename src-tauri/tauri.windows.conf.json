@@ -4,6 +4,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "HRouter",
         "titleBarStyle": "Visible",
         "visible": false,

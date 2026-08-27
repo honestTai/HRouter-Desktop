@@ -373,6 +373,17 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         // 拦截窗口关闭：根据设置决定是否最小化到托盘
         .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                if let Some(state) = window
+                    .app_handle()
+                    .try_state::<commands::EmbeddedTerminalState>()
+                {
+                    commands::stop_embedded_terminals_for_window(&state, window.label());
+                }
+            }
+            if window.label() != "main" {
+                return;
+            }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 // 数据库版本过新的恢复模式下没有托盘可唤回，关闭即退出，避免应用隐身后台
                 let in_db_recovery = crate::init_status::get_init_error()
@@ -414,6 +425,8 @@ pub fn run() {
         )
         .setup(|app| {
             let _ = rustls::crypto::ring::default_provider().install_default();
+
+            lightweight::create_main_window(app.handle()).map_err(std::io::Error::other)?;
 
             // 预先刷新 Store 覆盖配置，确保后续路径读取正确（日志/数据库等）
             app_store::refresh_app_config_dir_override(app.handle());
@@ -1088,6 +1101,7 @@ pub fn run() {
             );
             // 将同一个实例注入到全局状态，避免重复创建导致的不一致
             app.manage(app_state);
+            app.manage(commands::EmbeddedTerminalState::default());
 
             // 初始化 SkillService
             let skill_service = SkillService::new();
@@ -1563,6 +1577,11 @@ pub fn run() {
             commands::probe_tool_installations,
             // Provider terminal
             commands::open_provider_terminal,
+            commands::open_terminal_workspace_window,
+            commands::start_embedded_terminal,
+            commands::write_embedded_terminal,
+            commands::resize_embedded_terminal,
+            commands::stop_embedded_terminal,
             // Universal Provider management
             commands::get_universal_providers,
             commands::get_universal_provider,

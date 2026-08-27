@@ -600,6 +600,35 @@ fn npm_install_command_for(tool: &str) -> Option<&'static str> {
     }
 }
 
+fn command_installs_with_npm(command: &str) -> bool {
+    command.contains("npm i -g ")
+}
+
+#[cfg(target_os = "windows")]
+const NPM_BOOTSTRAP_WINDOWS_BATCH: &str = concat!(
+    "set \"PATH=%LOCALAPPDATA%\\Microsoft\\WindowsApps;%ProgramFiles%\\nodejs;%APPDATA%\\npm;%PATH%\"\r\n",
+    "where npm.cmd >nul 2>nul || (\r\n",
+    "  echo Node.js/npm not found. Installing Node.js LTS...\r\n",
+    "  where winget.exe >nul 2>nul || (echo winget is required to install Node.js/npm automatically. & exit /b 127)\r\n",
+    "  winget.exe install --id OpenJS.NodeJS.LTS --exact --silent --accept-package-agreements --accept-source-agreements --disable-interactivity\r\n",
+    "  if errorlevel 1 exit /b 1\r\n",
+    ")\r\n",
+    "where npm.cmd >nul 2>nul || (echo Node.js was installed but npm is not available yet. Please restart HRouter and try again. & exit /b 127)"
+);
+
+#[cfg(not(target_os = "windows"))]
+const NPM_BOOTSTRAP_POSIX: &str = concat!(
+    "if ! command -v npm >/dev/null 2>&1; then\n",
+    "  echo 'Node.js/npm not found. Installing Node.js...'\n",
+    "  if command -v brew >/dev/null 2>&1; then\n",
+    "    brew install node\n",
+    "  else\n",
+    "    echo 'Homebrew is required to install Node.js/npm automatically.' >&2\n",
+    "    exit 127\n",
+    "  fi\n",
+    "fi"
+);
+
 fn official_update_args(tool: &str) -> Option<&'static str> {
     match tool {
         "claude" | "codex" | "grok" | "hermes" => Some("update"),
@@ -754,7 +783,11 @@ fn build_tool_action_line(
         // (npm/pnpm)或 .exe(volta),静态命令头部是 `npm`(也是 .cmd)、`py` 等——
         // 全部加 `call ` 前缀,风格统一且语义正确。含空格的头部已被 `win_quote_path_for_batch`
         // 加上双引号,call 对带引号的路径解析正常。
-        Ok(format!("call {command}"))
+        if matches!(action, ToolLifecycleAction::Install) && command_installs_with_npm(&command) {
+            Ok(format!("{NPM_BOOTSTRAP_WINDOWS_BATCH}\r\ncall {command}"))
+        } else {
+            Ok(format!("call {command}"))
+        }
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -774,7 +807,11 @@ fn build_tool_action_line(
         if command.is_empty() {
             return Err(format!("Unsupported tool action target: {tool}"));
         }
-        Ok(command)
+        if matches!(action, ToolLifecycleAction::Install) && command_installs_with_npm(&command) {
+            Ok(format!("{NPM_BOOTSTRAP_POSIX}\n{command}"))
+        } else {
+            Ok(command)
+        }
     }
 }
 
@@ -3442,7 +3479,7 @@ pub async fn open_provider_terminal(
 }
 
 /// 从提供商配置中提取环境变量
-fn extract_env_vars_from_config(
+pub(crate) fn extract_env_vars_from_config(
     config: &serde_json::Value,
     app_type: &AppType,
 ) -> Vec<(String, String)> {
@@ -3491,7 +3528,7 @@ fn extract_env_vars_from_config(
     env_vars
 }
 
-fn resolve_launch_cwd(cwd: Option<String>) -> Result<Option<PathBuf>, String> {
+pub(crate) fn resolve_launch_cwd(cwd: Option<String>) -> Result<Option<PathBuf>, String> {
     let Some(raw_path) = cwd.filter(|value| !value.trim().is_empty()) else {
         return Ok(None);
     };
@@ -4979,6 +5016,27 @@ mod tests {
     #[cfg(target_os = "windows")]
     mod windows_helpers {
         use super::super::*;
+
+        #[test]
+        fn native_npm_install_bootstraps_node_before_cli() {
+            let line =
+                build_tool_action_line("codex", ToolLifecycleAction::Install, None, None).unwrap();
+            assert!(
+                line.starts_with("set \"PATH="),
+                "bootstrap should run first: {line}"
+            );
+            assert!(line.contains("where npm.cmd >nul 2>nul"));
+            assert!(line.contains("winget.exe install --id OpenJS.NodeJS.LTS"));
+            assert!(line.ends_with("call npm i -g @openai/codex@latest"));
+        }
+
+        #[test]
+        fn non_npm_installer_skips_node_bootstrap() {
+            let line =
+                build_tool_action_line("hermes", ToolLifecycleAction::Install, None, None).unwrap();
+            assert!(!line.contains("OpenJS.NodeJS.LTS"));
+            assert!(!line.contains("where npm.cmd"));
+        }
 
         #[test]
         fn win_quote_clean_path_stays_bare() {

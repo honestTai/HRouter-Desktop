@@ -3099,6 +3099,21 @@
     "suggestedDefaults": "Apply Suggested Defaults",
     "suggestedDefaultsHint": "Use this preset's recommended default model configuration"
   },
+  "terminalWorkspace": {
+    "title": "CLI Workspace",
+    "provider": "Provider",
+    "workingDirectory": "Working directory",
+    "nativePty": "Uses the operating system's native PTY. Closing this window ends the CLI process.",
+    "clear": "Clear",
+    "restart": "Restart agent",
+    "startFailed": "Terminal failed to start",
+    "state": {
+      "connecting": "Connecting",
+      "connected": "Running",
+      "exited": "Exited",
+      "error": "Failed"
+    }
+  },
   "subscription": {
     "title": "Subscription Quota",
     "fiveHour": "5-Hour",

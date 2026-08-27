@@ -4,6 +4,26 @@ use tauri::Manager;
 
 static LIGHTWEIGHT_MODE: AtomicBool = AtomicBool::new(false);
 
+pub fn create_main_window(app: &tauri::AppHandle) -> Result<(), String> {
+    use tauri::{webview::NewWindowResponse, WebviewWindowBuilder};
+
+    let window_config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|window| window.label == "main")
+        .ok_or("主窗口配置未找到")?;
+
+    WebviewWindowBuilder::from_config(app, window_config)
+        .map_err(|error| format!("加载主窗口配置失败: {error}"))?
+        .on_new_window(|_url, _features| NewWindowResponse::Allow)
+        .build()
+        .map_err(|error| format!("创建主窗口失败: {error}"))?;
+
+    Ok(())
+}
+
 pub fn enter_lightweight_mode(app: &tauri::AppHandle) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
@@ -31,8 +51,6 @@ pub fn enter_lightweight_mode(app: &tauri::AppHandle) -> Result<(), String> {
 }
 
 pub fn exit_lightweight_mode(app: &tauri::AppHandle) -> Result<(), String> {
-    use tauri::WebviewWindowBuilder;
-
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.show();
@@ -55,18 +73,7 @@ pub fn exit_lightweight_mode(app: &tauri::AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
-    let window_config = app
-        .config()
-        .app
-        .windows
-        .iter()
-        .find(|w| w.label == "main")
-        .ok_or("主窗口配置未找到")?;
-
-    WebviewWindowBuilder::from_config(app, window_config)
-        .map_err(|e| format!("加载主窗口配置失败: {e}"))?
-        .build()
-        .map_err(|e| format!("创建主窗口失败: {e}"))?;
+    create_main_window(app)?;
 
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();

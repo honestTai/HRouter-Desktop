@@ -3099,6 +3099,21 @@
     "suggestedDefaults": "应用建议默认配置",
     "suggestedDefaultsHint": "使用此预设推荐的默认模型配置"
   },
+  "terminalWorkspace": {
+    "title": "CLI 工作台",
+    "provider": "供应商",
+    "workingDirectory": "工作目录",
+    "nativePty": "使用操作系统原生 PTY，关闭窗口会结束当前 CLI 进程。",
+    "clear": "清屏",
+    "restart": "重启 Agent",
+    "startFailed": "终端启动失败",
+    "state": {
+      "connecting": "连接中",
+      "connected": "运行中",
+      "exited": "已退出",
+      "error": "启动失败"
+    }
+  },
   "subscription": {
     "title": "订阅额度",
     "fiveHour": "5小时",

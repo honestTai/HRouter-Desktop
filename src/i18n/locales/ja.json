@@ -3099,6 +3099,21 @@
     "suggestedDefaults": "推奨デフォルト設定を適用",
     "suggestedDefaultsHint": "このプリセットの推奨デフォルトモデル設定を使用します"
   },
+  "terminalWorkspace": {
+    "title": "CLI ワークスペース",
+    "provider": "プロバイダー",
+    "workingDirectory": "作業ディレクトリ",
+    "nativePty": "OS ネイティブ PTY を使用します。ウィンドウを閉じると CLI プロセスが終了します。",
+    "clear": "クリア",
+    "restart": "Agent を再起動",
+    "startFailed": "ターミナルを起動できませんでした",
+    "state": {
+      "connecting": "接続中",
+      "connected": "実行中",
+      "exited": "終了",
+      "error": "起動失敗"
+    }
+  },
   "subscription": {
     "title": "サブスクリプションクォータ",
     "fiveHour": "5時間",

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -35,6 +35,7 @@ import type { EnvConflict } from "@/types/env";
 import { proxyKeys, useProvidersQuery, useSettingsQuery } from "@/lib/query";
 import {
   providersApi,
+  embeddedTerminalApi,
   settingsApi,
   type AppId,
   type ProviderSwitchEvent,
@@ -102,6 +103,13 @@ import ToolsPanel from "@/components/openclaw/ToolsPanel";
 import AgentsDefaultsPanel from "@/components/openclaw/AgentsDefaultsPanel";
 import OpenClawHealthBanner from "@/components/openclaw/OpenClawHealthBanner";
 import HermesMemoryPanel from "@/components/hermes/HermesMemoryPanel";
+import type { TerminalWorkspaceTarget } from "@/components/terminal/TerminalWorkspace";
+
+const TerminalWorkspace = lazy(() =>
+  import("@/components/terminal/TerminalWorkspace").then((module) => ({
+    default: module.TerminalWorkspace,
+  })),
+);
 
 type View =
   | "providers"
@@ -160,7 +168,28 @@ const getInitialView = (): View => {
   return "providers";
 };
 
-function App() {
+const readTerminalWorkspaceTarget = (): TerminalWorkspaceTarget | null => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("terminalWorkspace") !== "1") return null;
+
+  const appId = params.get("app") as AppId | null;
+  const providerId = params.get("providerId")?.trim();
+  const providerName = params.get("providerName")?.trim();
+  const cwd = params.get("cwd")?.trim();
+  if (
+    !appId ||
+    !VALID_APPS.includes(appId) ||
+    !providerId ||
+    !providerName ||
+    !cwd
+  ) {
+    return null;
+  }
+
+  return { appId, providerId, providerName, cwd };
+};
+
+function MainApp() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
@@ -819,14 +848,11 @@ function App() {
         return;
       }
 
-      await providersApi.openTerminal(provider.id, activeApp, {
+      await embeddedTerminalApi.openWorkspace({
+        providerId: provider.id,
+        app: activeApp,
         cwd: selectedDir,
       });
-      toast.success(
-        t("provider.terminalOpened", {
-          defaultValue: "终端已打开",
-        }),
-      );
     } catch (error) {
       console.error("[App] Failed to open terminal", error);
       const errorMessage = extractErrorMessage(error);
@@ -1036,7 +1062,9 @@ function App() {
                       onConfigureUsage={setUsageProvider}
                       onOpenWebsite={handleOpenWebsite}
                       onOpenTerminal={
-                        activeApp === "claude" ? handleOpenTerminal : undefined
+                        activeApp === "claude-desktop"
+                          ? undefined
+                          : handleOpenTerminal
                       }
                       onCreate={() => setIsAddOpen(true)}
                       onSetAsDefault={
@@ -1753,6 +1781,17 @@ function App() {
 
       <DeepLinkImportDialog />
     </div>
+  );
+}
+
+function App() {
+  const terminalTarget = useMemo(readTerminalWorkspaceTarget, []);
+  return terminalTarget ? (
+    <Suspense fallback={<div className="h-screen bg-[#111311]" />}>
+      <TerminalWorkspace target={terminalTarget} />
+    </Suspense>
+  ) : (
+    <MainApp />
   );
 }
 
