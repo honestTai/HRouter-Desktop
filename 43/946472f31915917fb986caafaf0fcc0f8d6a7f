@@ -1,0 +1,73 @@
+src/lib/hrouter.ts
+  s_ac4335f49891e4::t_a03bac214c98df 9,11-13,49-50,220-221,487-489
+  s_ac4335f49891e4::t_497b7bf163e617 10,222-236
+tests/components/HRouterProviderForm.test.tsx
+  s_ac4335f49891e4::t_f8cbef5db7dbf1 36-38,66,82-84,95-97
+src/components/providers/forms/HRouterProviderForm.tsx
+  s_ac4335f49891e4::t_f8cbef5db7dbf1 50,354-362,366,391
+  s_ac4335f49891e4::t_a03bac214c98df 7-8,20,144-145,382-387,433-434,708-713,717-722,728-729
+  s_ac4335f49891e4::t_23ed7acaa2a2bd 191-192
+  s_ac4335f49891e4::t_c2cfc00b733b7a 3,21,48-49,51-57,158-173,186-190,193,195-197,201-202,207-216,219-228,233-241,363-365,367-374,390,392,432
+  s_ac4335f49891e4::t_73c9effe5e67f9 662-663,665-675,689-690,692-702,714-716,723-727,735,737-751
+  s_ac4335f49891e4::t_427990bbd3e43d 174,178,194,198-200,205
+  s_815e909be94b5d::t_78373f4e223012 203,375,730
+src/i18n/locales/zh-TW.json
+  s_ac4335f49891e4::t_b5e8b2ec348e7a 2086-2088
+package.json
+  s_fd1a6b7dfac722::t_851b0051080ba7 3
+src-tauri/tauri.conf.json
+  s_fd1a6b7dfac722::t_851b0051080ba7 4
+.github/workflows/macos-dmg.yml
+  s_fd1a6b7dfac722::t_851b0051080ba7 9
+src-tauri/Cargo.toml
+  s_fd1a6b7dfac722::t_851b0051080ba7 3
+.github/workflows/release.yml
+  s_fd1a6b7dfac722::t_851b0051080ba7 73-78
+src/i18n/locales/zh.json
+  s_ac4335f49891e4::t_b5e8b2ec348e7a 2085-2087
+src/i18n/locales/en.json
+  s_ac4335f49891e4::t_b5e8b2ec348e7a 2085-2087
+src/lib/hrouter.test.ts
+  s_ac4335f49891e4::t_a03bac214c98df 69,80-88,90-98,119-120
+  s_ac4335f49891e4::t_321fc4aa84398e 89
+src/components/profiles/ProfileSwitcher.tsx
+  s_ac4335f49891e4::t_23aeeb0fbf6cce 160
+  s_ac4335f49891e4::t_b5e8b2ec348e7a 8,10,44-46,77-79,94-108,110-114,168-207,210-240
+  s_ac4335f49891e4::t_b3cb2af8b973a1 109,208-209
+src/i18n/locales/ja.json
+  s_ac4335f49891e4::t_b5e8b2ec348e7a 2085-2087
+src-tauri/Cargo.lock
+  s_fd1a6b7dfac722::t_9dcbc5b0c5804d 2246
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "43946472f31915917fb986caafaf0fcc0f8d6a7f",
+  "prompts": {},
+  "sessions": {
+    "s_815e909be94b5d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a041be-2dda-78d3-b39d-1fa9f60f510c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    },
+    "s_ac4335f49891e4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0421d-a8f7-7ac1-81c4-1d36a457d930",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    },
+    "s_fd1a6b7dfac722": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a041e1-88aa-7bd2-a4ca-61e5c9389296",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    }
+  }
+}
