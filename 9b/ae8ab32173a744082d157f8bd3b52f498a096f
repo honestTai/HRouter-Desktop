@@ -1,0 +1,19 @@
+src-tauri/src/commands/misc.rs
+  s_e4eacacd71e01e::t_7401d11d194716 109,113,151
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "9bae8ab32173a744082d157f8bd3b52f498a096f",
+  "prompts": {},
+  "sessions": {
+    "s_e4eacacd71e01e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a040b6-3925-79e3-8538-82d8c1e5987b",
+        "model": "unknown"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    }
+  }
+}
