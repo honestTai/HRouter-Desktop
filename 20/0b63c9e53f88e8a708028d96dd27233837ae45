@@ -1,0 +1,19 @@
+.github/workflows/macos-dmg.yml
+  s_e4eacacd71e01e::t_d1dd4f11d8368a 1-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "200b63c9e53f88e8a708028d96dd27233837ae45",
+  "prompts": {},
+  "sessions": {
+    "s_e4eacacd71e01e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a040b6-3925-79e3-8538-82d8c1e5987b",
+        "model": "unknown"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    }
+  }
+}
