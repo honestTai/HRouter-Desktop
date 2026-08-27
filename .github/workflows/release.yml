@@ -70,9 +70,11 @@ jobs:
           releaseBody: |
             HRouter Desktop v__VERSION__
 
-            - Codex context window and automatic compaction threshold are now configurable.
-            - New HRouter Codex providers default to a 272K context window.
-            - This release starts a new updater signing chain. Users on v0.2.0 must install v0.2.1 manually once; later releases can update in the app.
+            - 使用统计与 HRouter 用量统一展示人民币，模型价格直接读取模型广场公开数据。
+            - Codex 上下文支持官方 272K、官方 1M 和自定义配置，并展示对应 config.toml。
+            - 新增内置 HRouter 前台浏览器，打开网页时保留桌面端完整顶部导航。
+            - 新增首次使用 FAQ、醒目的售后 QQ 群入口和带更新内容的版本弹窗。
+            - 新增 Agent 安装/更新中心，并内置微软签名的 Codex Windows GUI 安装器。
           releaseDraft: true
           prerelease: false
           uploadUpdaterJson: true

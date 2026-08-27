@@ -35,6 +35,20 @@ const requiredKeys = [
   "toolUpgradeWillRun",
   "toolUpgradeConfirmBtn",
   "toolUpgradeUnanchoredHint",
+  "agentInstallUpdate",
+  "agentInstallUpdateHint",
+  "commandLineAgents",
+  "desktopAgents",
+  "agentCount",
+  "agentName",
+  "agentAction",
+  "agentStatusLoadFailed",
+  "codexGuiInstalled",
+  "codexGuiNotInstalled",
+  "codexGuiWindowsOnly",
+  "codexGuiInstallerHint",
+  "codexGuiInstallerOpened",
+  "codexGuiInstallerFailed",
 ] as const;
 
 type SettingsTranslations = Record<string, unknown>;

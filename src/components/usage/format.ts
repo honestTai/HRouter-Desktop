@@ -21,14 +21,14 @@ export function fmtInt(
   return new Intl.NumberFormat(locale).format(Math.trunc(num));
 }
 
-export function fmtUsd(
+export function fmtCny(
   value: unknown,
   digits: number,
   fallback: string = "--",
 ): string {
   const num = parseFiniteNumber(value);
   if (num == null) return fallback;
-  return `$${num.toFixed(digits)}`;
+  return `¥${num.toFixed(digits)}`;
 }
 
 function normalizeLanguageTag(language: string): string {

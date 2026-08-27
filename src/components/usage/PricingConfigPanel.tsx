@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { isTauri } from "@tauri-apps/api/core";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   Table,
@@ -10,14 +12,6 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -26,13 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useModelPricing, useDeleteModelPricing } from "@/lib/query/usage";
-import { PricingEditModal } from "./PricingEditModal";
-import { isNonNegativeDecimalString, type ModelPricing } from "@/types/usage";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { useModelPricing } from "@/lib/query/usage";
+import { isNonNegativeDecimalString } from "@/types/usage";
+import { Database, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { proxyApi } from "@/lib/api/proxy";
-import { ModelsDevAutoSyncPanel } from "./ModelsDevAutoSyncPanel";
+import {
+  HROUTER_MODEL_PLAZA_QUERY_KEY,
+  syncHRouterModelPlazaPricing,
+} from "@/lib/hrouterModelPlazaPricing";
 
 const PRICING_APPS = ["claude", "codex", "gemini", "grokbuild"] as const;
 type PricingApp = (typeof PRICING_APPS)[number];
@@ -47,11 +43,18 @@ type AppConfigState = Record<PricingApp, AppConfig>;
 
 export function PricingConfigPanel() {
   const { t } = useTranslation();
-  const { data: pricing, isLoading, error } = useModelPricing();
-  const deleteMutation = useDeleteModelPricing();
-  const [editingModel, setEditingModel] = useState<ModelPricing | null>(null);
-  const [isAddingNew, setIsAddingNew] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const localPricingQuery = useModelPricing();
+  const plazaPricingQuery = useQuery({
+    queryKey: HROUTER_MODEL_PLAZA_QUERY_KEY,
+    queryFn: syncHRouterModelPlazaPricing,
+    staleTime: 10 * 60 * 1000,
+    retry: 1,
+  });
+  const pricing =
+    plazaPricingQuery.data?.pricing ?? localPricingQuery.data ?? [];
+  const isUsingLocalFallback =
+    !plazaPricingQuery.data && (localPricingQuery.data?.length ?? 0) > 0;
 
   // 三个应用的配置状态
   const [appConfigs, setAppConfigs] = useState<AppConfigState>({
@@ -80,6 +83,12 @@ export function PricingConfigPanel() {
     let isMounted = true;
 
     const loadAllConfigs = async () => {
+      if (!isTauri()) {
+        setOriginalConfigs(appConfigs);
+        setIsConfigLoading(false);
+        return;
+      }
+
       setIsConfigLoading(true);
       try {
         const results = await Promise.all(
@@ -182,25 +191,21 @@ export function PricingConfigPanel() {
     }
   };
 
-  const handleDelete = (modelId: string) => {
-    deleteMutation.mutate(modelId, {
-      onSuccess: () => setDeleteConfirm(null),
-    });
+  const handleRefreshPlazaPricing = async () => {
+    const result = await plazaPricingQuery.refetch();
+    if (result.data) {
+      await queryClient.invalidateQueries({ queryKey: ["usage"] });
+      toast.success(
+        t("usage.modelPlazaSyncSuccess", {
+          count: result.data.pricing.length,
+        }),
+      );
+      return;
+    }
+    toast.error(t("usage.modelPlazaSyncFailed"));
   };
 
-  const handleAddNew = () => {
-    setIsAddingNew(true);
-    setEditingModel({
-      modelId: "",
-      displayName: "",
-      inputCostPerMillion: "0",
-      outputCostPerMillion: "0",
-      cacheReadCostPerMillion: "0",
-      cacheCreationCostPerMillion: "0",
-    });
-  };
-
-  if (isLoading) {
+  if (plazaPricingQuery.isLoading && localPricingQuery.isLoading) {
     return (
       <div className="flex items-center justify-center p-4">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -208,11 +213,11 @@ export function PricingConfigPanel() {
     );
   }
 
-  if (error) {
+  if (pricing.length === 0 && plazaPricingQuery.error) {
     return (
       <Alert variant="destructive">
         <AlertDescription>
-          {t("usage.loadPricingError")}: {String(error)}
+          {t("usage.loadPricingError")}: {String(plazaPricingQuery.error)}
         </AlertDescription>
       </Alert>
     );
@@ -342,26 +347,43 @@ export function PricingConfigPanel() {
 
       {/* 模型定价配置 */}
       <div className="space-y-4">
-        <ModelsDevAutoSyncPanel />
-
-        <div className="flex items-center justify-between">
-          <h4 className="text-sm font-medium text-muted-foreground">
-            {t("usage.modelPricingDesc")} {t("usage.perMillion")}
-          </h4>
+        <div className="flex flex-col gap-3 rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <Database className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div className="min-w-0">
+              <h4 className="text-sm font-medium">
+                {t("usage.modelPlazaPricingTitle")}
+              </h4>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                {isUsingLocalFallback
+                  ? t("usage.modelPlazaPricingFallback")
+                  : t("usage.modelPlazaPricingDescription")}
+              </p>
+            </div>
+          </div>
           <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleAddNew();
-            }}
+            type="button"
+            variant="outline"
             size="sm"
+            className="shrink-0 gap-1.5"
+            disabled={plazaPricingQuery.isFetching}
+            onClick={() => void handleRefreshPlazaPricing()}
           >
-            <Plus className="mr-1 h-4 w-4" />
-            {t("common.add")}
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${
+                plazaPricingQuery.isFetching ? "animate-spin" : ""
+              }`}
+            />
+            {t("common.refresh")}
           </Button>
         </div>
 
+        <h4 className="text-sm font-medium text-muted-foreground">
+          {t("usage.modelPricingDesc")} {t("usage.perMillion")}
+        </h4>
+
         <div className="space-y-4">
-          {!pricing || pricing.length === 0 ? (
+          {pricing.length === 0 ? (
             <Alert>
               <AlertDescription>{t("usage.noPricingData")}</AlertDescription>
             </Alert>
@@ -384,9 +406,6 @@ export function PricingConfigPanel() {
                     <TableHead className="text-right">
                       {t("usage.cacheWriteCost")}
                     </TableHead>
-                    <TableHead className="text-right">
-                      {t("common.actions")}
-                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -397,40 +416,16 @@ export function PricingConfigPanel() {
                       </TableCell>
                       <TableCell>{model.displayName}</TableCell>
                       <TableCell className="text-right font-mono text-sm">
-                        ${model.inputCostPerMillion}
+                        ¥{model.inputCostPerMillion}
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">
-                        ${model.outputCostPerMillion}
+                        ¥{model.outputCostPerMillion}
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">
-                        ${model.cacheReadCostPerMillion}
+                        ¥{model.cacheReadCostPerMillion}
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">
-                        ${model.cacheCreationCostPerMillion}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setIsAddingNew(false);
-                              setEditingModel(model);
-                            }}
-                            title={t("common.edit")}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteConfirm(model.modelId)}
-                            title={t("common.delete")}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        ¥{model.cacheCreationCostPerMillion}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -440,46 +435,6 @@ export function PricingConfigPanel() {
           )}
         </div>
       </div>
-
-      {editingModel && (
-        <PricingEditModal
-          open={!!editingModel}
-          model={editingModel}
-          isNew={isAddingNew}
-          onClose={() => {
-            setEditingModel(null);
-            setIsAddingNew(false);
-          }}
-        />
-      )}
-
-      <Dialog
-        open={!!deleteConfirm}
-        onOpenChange={() => setDeleteConfirm(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("usage.deleteConfirmTitle")}</DialogTitle>
-            <DialogDescription>
-              {t("usage.deleteConfirmDesc")}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending
-                ? t("common.deleting")
-                : t("common.delete")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

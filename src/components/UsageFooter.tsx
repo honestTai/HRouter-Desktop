@@ -177,23 +177,23 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
           {isSubscription ? (
             <>
               {hrouterData.total !== undefined && (
-                <span>总额度 {formatUsd(hrouterData.total)}</span>
+                <span>总额度 {formatCny(hrouterData.total)}</span>
               )}
               {hrouterData.used !== undefined && (
-                <span>已用 {formatUsd(hrouterData.used)}</span>
+                <span>已用 {formatCny(hrouterData.used)}</span>
               )}
               {hrouterData.remaining !== undefined && (
                 <span className="text-emerald-600 dark:text-emerald-400">
-                  剩余 {formatUsd(hrouterData.remaining)}
+                  剩余 {formatCny(hrouterData.remaining)}
                 </span>
               )}
             </>
           ) : (
             <>
-              <span>累计消费 {formatUsd(hrouterExtra.totalActualCost)}</span>
+              <span>累计消费 {formatCny(hrouterExtra.totalActualCost)}</span>
               {hrouterData.remaining !== undefined && (
                 <span className="text-muted-foreground">
-                  余额 {formatUsd(hrouterData.remaining)}
+                  余额 {formatCny(hrouterData.remaining)}
                 </span>
               )}
             </>
@@ -235,15 +235,15 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
             <>
               <UsageMetric
                 label="总额度"
-                value={formatOptionalUsd(hrouterData.total)}
+                value={formatOptionalCny(hrouterData.total)}
               />
               <UsageMetric
                 label="已用"
-                value={formatOptionalUsd(hrouterData.used)}
+                value={formatOptionalCny(hrouterData.used)}
               />
               <UsageMetric
                 label="剩余"
-                value={formatOptionalUsd(hrouterData.remaining)}
+                value={formatOptionalCny(hrouterData.remaining)}
                 accent
               />
             </>
@@ -251,11 +251,11 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
             <>
               <UsageMetric
                 label="累计消费"
-                value={formatUsd(hrouterExtra.totalActualCost)}
+                value={formatCny(hrouterExtra.totalActualCost)}
               />
               <UsageMetric
                 label="钱包余额"
-                value={formatOptionalUsd(hrouterData.remaining)}
+                value={formatOptionalCny(hrouterData.remaining)}
                 accent
               />
               <UsageMetric
@@ -305,7 +305,7 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
                       {formatCount(stat.total_tokens)}
                     </td>
                     <td className="px-3 py-2 text-right font-medium tabular-nums">
-                      {formatUsd(stat.actual_cost)}
+                      {formatCny(stat.actual_cost)}
                     </td>
                   </tr>
                 ))}
@@ -491,10 +491,10 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
   );
 };
 
-const formatUsd = (value: number): string => `$${value.toFixed(2)}`;
+const formatCny = (value: number): string => `¥${value.toFixed(2)}`;
 
-const formatOptionalUsd = (value: number | undefined): string =>
-  value === undefined ? "--" : formatUsd(value);
+const formatOptionalCny = (value: number | undefined): string =>
+  value === undefined ? "--" : formatCny(value);
 
 const formatCount = (value: number): string =>
   new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 0 }).format(value);

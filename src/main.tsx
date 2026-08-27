@@ -23,6 +23,10 @@ import {
   MODELS_DEV_SYNC_CONFIG_QUERY_KEY,
   syncModelsDevPricingOnStartup,
 } from "./lib/modelsDevAutoSync";
+import {
+  HROUTER_MODEL_PLAZA_QUERY_KEY,
+  syncHRouterModelPlazaPricing,
+} from "./lib/hrouterModelPlazaPricing";
 import { initializeWindowActivity } from "@/lib/windowActivity";
 
 installGlobalErrorHandlers();
@@ -132,24 +136,31 @@ async function bootstrap() {
     </React.StrictMode>,
   );
 
-  void syncModelsDevPricingOnStartup()
-    .then((result) => {
+  void (async () => {
+    try {
+      const result = await syncModelsDevPricingOnStartup();
       if (!result.skipped) {
-        return Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["usage"] }),
-          queryClient.invalidateQueries({
-            queryKey: MODELS_DEV_SYNC_CONFIG_QUERY_KEY,
-          }),
-        ]);
+        await queryClient.invalidateQueries({ queryKey: ["usage"] });
       }
-    })
-    .catch((error) => {
-      // 离线或 models.dev 暂时不可用不应阻塞应用启动。
+    } catch (error) {
+      // 离线或 models.dev 暂时不可用不应阻塞 HRouter 价格同步。
       reportFrontendError("models_dev_startup_sync", error);
-      void queryClient.invalidateQueries({
+    } finally {
+      await queryClient.invalidateQueries({
         queryKey: MODELS_DEV_SYNC_CONFIG_QUERY_KEY,
       });
-    });
+    }
+
+    try {
+      // 模型广场价格最后写入，确保 HRouter 的人民币售价是统计计费的权威来源。
+      const result = await syncHRouterModelPlazaPricing();
+      queryClient.setQueryData(HROUTER_MODEL_PLAZA_QUERY_KEY, result);
+      await queryClient.invalidateQueries({ queryKey: ["usage"] });
+    } catch (error) {
+      // 网络不可用时继续使用上次成功同步到本地的价格。
+      reportFrontendError("hrouter_model_plaza_startup_sync", error);
+    }
+  })();
 }
 
 void bootstrap();

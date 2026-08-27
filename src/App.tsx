@@ -27,6 +27,7 @@ import {
   LayoutDashboard,
   Loader2,
   RefreshCw,
+  Globe2,
 } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Provider, VisibleApps } from "@/types";
@@ -66,6 +67,9 @@ import { EditProviderDialog } from "@/components/providers/EditProviderDialog";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SettingsPage } from "@/components/settings/SettingsPage";
 import { UpdateBadge } from "@/components/UpdateBadge";
+import { SupportGroupButton } from "@/components/SupportGroupButton";
+import { AgentManagerButton } from "@/components/AgentManagerButton";
+import { HRouterWebView } from "@/components/HRouterWebView";
 import { EnvWarningBanner } from "@/components/env/EnvWarningBanner";
 import { ProxyToggle } from "@/components/proxy/ProxyToggle";
 import { ClaudeDesktopRouteToggle } from "@/components/proxy/ClaudeDesktopRouteToggle";
@@ -82,7 +86,7 @@ import UnifiedSkillsPanel, {
   type SkillsCheckUpdatesState,
 } from "@/components/skills/UnifiedSkillsPanel";
 import { DeepLinkImportDialog } from "@/components/DeepLinkImportDialog";
-import { FirstRunNoticeDialog } from "@/components/FirstRunNoticeDialog";
+import { HelpCenterButton } from "@/components/HelpCenterButton";
 import { AgentsPanel } from "@/components/agents/AgentsPanel";
 import { UniversalProviderPanel } from "@/components/universal";
 import { McpIcon } from "@/components/BrandIcons";
@@ -113,7 +117,8 @@ type View =
   | "openclawEnv"
   | "openclawTools"
   | "openclawAgents"
-  | "hermesMemory";
+  | "hermesMemory"
+  | "hrouterWeb";
 
 interface SyncStatusUpdatedPayload {
   source?: string;
@@ -922,6 +927,8 @@ function App() {
           );
         case "hermesMemory":
           return <HermesMemoryPanel />;
+        case "hrouterWeb":
+          return <HRouterWebView />;
         case "skills":
           return (
             <UnifiedSkillsPanel
@@ -1064,6 +1071,9 @@ function App() {
     );
   };
 
+  const isMainHeaderView =
+    currentView === "providers" || currentView === "hrouterWeb";
+
   return (
     <div
       className="flex flex-col h-screen overflow-hidden bg-background text-foreground selection:bg-primary/30 pb-4"
@@ -1164,7 +1174,7 @@ function App() {
             className="flex items-center gap-1"
             style={{ WebkitAppRegion: "no-drag" } as any}
           >
-            {currentView !== "providers" ? (
+            {!isMainHeaderView ? (
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -1210,10 +1220,11 @@ function App() {
             ) : (
               <div className="flex items-center gap-2">
                 <div className="relative inline-flex items-center">
-                  <a
-                    href="https://hrouter.net/"
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => setCurrentView("hrouterWeb")}
+                    title={t("hrouterWeb.open")}
+                    aria-label={t("hrouterWeb.open")}
                     className={cn(
                       "text-xl font-semibold transition-colors",
                       isProxyRunning && isCurrentAppTakeoverActive
@@ -1222,7 +1233,7 @@ function App() {
                     )}
                   >
                     HRouter
-                  </a>
+                  </button>
                 </div>
                 <Button
                   variant="ghost"
@@ -1236,12 +1247,23 @@ function App() {
                 >
                   <Settings className="w-4 h-4" />
                 </Button>
-                <UpdateBadge
-                  onClick={() => {
-                    setSettingsDefaultTab("about");
-                    setCurrentView("settings");
-                  }}
-                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentView("hrouterWeb")}
+                  title={t("hrouterWeb.open")}
+                  aria-label={t("hrouterWeb.open")}
+                  className="relative h-8 gap-1.5 rounded-md border-blue-500/35 bg-blue-500/10 px-2.5 text-xs font-medium text-blue-700 shadow-sm hover:border-blue-500/50 hover:bg-blue-500/15 dark:text-blue-300"
+                >
+                  <Globe2 className="h-4 w-4" />
+                  <span>{t("hrouterWeb.entry")}</span>
+                  <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-background bg-red-500" />
+                </Button>
+                <HelpCenterButton />
+                <SupportGroupButton />
+                <UpdateBadge />
+                <AgentManagerButton />
                 {isCurrentAppTakeoverActive && (
                   <Button
                     variant="ghost"
@@ -1263,7 +1285,7 @@ function App() {
           </div>
 
           <div className="flex flex-1 min-w-0 items-center justify-end gap-1.5">
-            {currentView === "providers" &&
+            {isMainHeaderView &&
               activeApp !== "opencode" &&
               activeApp !== "openclaw" &&
               activeApp !== "hermes" && (
@@ -1284,7 +1306,7 @@ function App() {
                     )}
                 </div>
               )}
-            {currentView === "providers" &&
+            {isMainHeaderView &&
               (settingsData?.showProfileSwitcher ?? true) && (
                 <div
                   className="hidden shrink-0 items-center"
@@ -1296,10 +1318,15 @@ function App() {
             {/* 弹性中段：空间不足时由 AppSwitcher 自行收纳溢出应用；
                 justify-end + overflow-hidden 只裁剪 resize 瞬间的过渡帧 */}
             <div className="flex flex-1 min-w-0 items-center justify-end overflow-hidden py-4">
-              {currentView === "providers" && (
+              {isMainHeaderView && (
                 <AppSwitcher
                   activeApp={activeApp}
-                  onSwitch={setActiveApp}
+                  onSwitch={(app) => {
+                    setActiveApp(app);
+                    if (currentView === "hrouterWeb") {
+                      setCurrentView("providers");
+                    }
+                  }}
                   visibleApps={visibleApps}
                 />
               )}
@@ -1452,7 +1479,7 @@ function App() {
                     )}
                   </>
                 )}
-                {currentView === "providers" && (
+                {isMainHeaderView && (
                   <>
                     <div
                       className="hidden items-center gap-1 p-1 bg-muted rounded-xl"
@@ -1619,7 +1646,12 @@ function App() {
                     </div>
 
                     <Button
-                      onClick={() => setIsAddOpen(true)}
+                      onClick={() => {
+                        if (currentView === "hrouterWeb") {
+                          setCurrentView("providers");
+                        }
+                        setIsAddOpen(true);
+                      }}
                       size="icon"
                       className={`ml-2 ${addActionButtonClass}`}
                     >
@@ -1720,7 +1752,6 @@ function App() {
       />
 
       <DeepLinkImportDialog />
-      <FirstRunNoticeDialog />
     </div>
   );
 }

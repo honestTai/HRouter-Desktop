@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   CheckCircle2,
+  FileCode2,
   Eye,
   EyeOff,
   Gauge,
@@ -27,6 +28,8 @@ import {
   buildHRouterSettingsConfig,
   deriveHRouterModelMapping,
   extractHRouterProviderState,
+  HROUTER_CODEX_1M_AUTO_COMPACT_TOKEN_LIMIT,
+  HROUTER_CODEX_1M_CONTEXT_WINDOW,
   HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT,
   HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW,
   HROUTER_APP_NAMES,
@@ -62,6 +65,27 @@ const parsePositiveInteger = (value: string): number | undefined => {
 
 const formatTokenValue = (value: string): string =>
   parsePositiveInteger(value)?.toLocaleString("zh-CN") ?? "未设置";
+
+type CodexContextMode = "official-272k" | "official-1m" | "custom";
+
+const getCodexContextMode = (
+  contextWindow: number,
+  autoCompactTokenLimit: number,
+): CodexContextMode => {
+  if (
+    contextWindow === HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW &&
+    autoCompactTokenLimit === HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT
+  ) {
+    return "official-272k";
+  }
+  if (
+    contextWindow === HROUTER_CODEX_1M_CONTEXT_WINDOW &&
+    autoCompactTokenLimit === HROUTER_CODEX_1M_AUTO_COMPACT_TOKEN_LIMIT
+  ) {
+    return "official-1m";
+  }
+  return "custom";
+};
 
 const uniqueProviderKey = (): string => {
   const suffix =
@@ -120,11 +144,34 @@ export function HRouterProviderForm({
   const [codexAutoCompactTokenLimit, setCodexAutoCompactTokenLimit] = useState(
     String(initialState.codexContextConfig.autoCompactTokenLimit),
   );
+  const [codexContextMode, setCodexContextMode] = useState<CodexContextMode>(
+    getCodexContextMode(
+      initialState.codexContextConfig.contextWindow,
+      initialState.codexContextConfig.autoCompactTokenLimit,
+    ),
+  );
   const [isFetching, setIsFetching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [providerKey] = useState(initialProvider?.id ?? uniqueProviderKey);
 
   const isClaudeApp = appId === "claude" || appId === "claude-desktop";
+
+  const selectCodexContextMode = (mode: CodexContextMode) => {
+    setCodexContextMode(mode);
+    if (mode === "official-272k") {
+      setCodexContextWindow(String(HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW));
+      setCodexAutoCompactTokenLimit(
+        String(HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT),
+      );
+    } else if (mode === "official-1m") {
+      setCodexContextWindow(String(HROUTER_CODEX_1M_CONTEXT_WINDOW));
+      setCodexAutoCompactTokenLimit(
+        String(HROUTER_CODEX_1M_AUTO_COMPACT_TOKEN_LIMIT),
+      );
+    }
+  };
+
+  const codexConfigPreview = `model_context_window = ${codexContextWindow || "<未设置>"}\nmodel_auto_compact_token_limit = ${codexAutoCompactTokenLimit || "<未设置>"}`;
 
   useEffect(() => {
     if (!initialProvider || !initialState.apiKey) return;
@@ -469,41 +516,88 @@ export function HRouterProviderForm({
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="hrouter-codex-context-window">上下文窗口</Label>
-              <Input
-                id="hrouter-codex-context-window"
-                type="number"
-                min={1}
-                step={1000}
-                inputMode="numeric"
-                value={codexContextWindow}
-                onChange={(event) =>
-                  setCodexContextWindow(
-                    event.target.value.replace(/[^\d]/g, ""),
-                  )
-                }
-              />
+          <div
+            className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1"
+            role="radiogroup"
+            aria-label="上下文配置"
+          >
+            {(
+              [
+                ["official-272k", "官方 272K"],
+                ["official-1m", "官方 1M"],
+                ["custom", "自定义"],
+              ] as const
+            ).map(([mode, label]) => {
+              const active = codexContextMode === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  className={`min-h-9 rounded-md px-2 py-1.5 text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  onClick={() => selectCodexContextMode(mode)}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          {codexContextMode === "custom" && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="hrouter-codex-context-window">上下文窗口</Label>
+                <Input
+                  id="hrouter-codex-context-window"
+                  type="number"
+                  min={1}
+                  step={1000}
+                  inputMode="numeric"
+                  value={codexContextWindow}
+                  onChange={(event) =>
+                    setCodexContextWindow(
+                      event.target.value.replace(/[^\d]/g, ""),
+                    )
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="hrouter-codex-auto-compact-limit">
+                  自动压缩阈值
+                </Label>
+                <Input
+                  id="hrouter-codex-auto-compact-limit"
+                  type="number"
+                  min={1}
+                  step={1000}
+                  inputMode="numeric"
+                  value={codexAutoCompactTokenLimit}
+                  onChange={(event) =>
+                    setCodexAutoCompactTokenLimit(
+                      event.target.value.replace(/[^\d]/g, ""),
+                    )
+                  }
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="hrouter-codex-auto-compact-limit">
-                自动压缩阈值
-              </Label>
-              <Input
-                id="hrouter-codex-auto-compact-limit"
-                type="number"
-                min={1}
-                step={1000}
-                inputMode="numeric"
-                value={codexAutoCompactTokenLimit}
-                onChange={(event) =>
-                  setCodexAutoCompactTokenLimit(
-                    event.target.value.replace(/[^\d]/g, ""),
-                  )
-                }
-              />
+          )}
+
+          <div className="overflow-hidden rounded-lg border bg-muted/25">
+            <div className="flex items-center gap-2 border-b px-3 py-2 text-xs font-medium text-muted-foreground">
+              <FileCode2 className="h-3.5 w-3.5" />
+              <span>config.toml</span>
             </div>
+            <pre
+              aria-label="config.toml 配置预览"
+              className="overflow-x-auto px-3 py-3 text-xs leading-5 text-foreground"
+            >
+              <code>{codexConfigPreview}</code>
+            </pre>
           </div>
         </section>
       )}

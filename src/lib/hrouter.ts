@@ -16,6 +16,10 @@ export const HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW = 272_000;
 export const HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT = Math.floor(
   HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW * 0.9,
 );
+export const HROUTER_CODEX_1M_CONTEXT_WINDOW = 1_000_000;
+export const HROUTER_CODEX_1M_AUTO_COMPACT_TOKEN_LIMIT = Math.floor(
+  HROUTER_CODEX_1M_CONTEXT_WINDOW * 0.9,
+);
 
 export const HROUTER_APP_NAMES: Record<AppId, string> = {
   claude: "Claude Code",
@@ -327,7 +331,7 @@ const HROUTER_USAGE_SCRIPT_CODE = `({
         total: Number(response.quota.limit || 0),
         used: Number(response.quota.used || 0),
         remaining: Number(response.quota.remaining || 0),
-        unit: response.quota.unit || "USD",
+        unit: "CNY",
         extra: JSON.stringify(baseExtra)
       };
     }
@@ -345,7 +349,7 @@ const HROUTER_USAGE_SCRIPT_CODE = `({
         total: Number(rate.limit || 0),
         used: Number(rate.used || 0),
         remaining: Number(rate.remaining || 0),
-        unit: response.unit || "USD",
+        unit: "CNY",
         extra: JSON.stringify(baseExtra)
       };
     }
@@ -370,7 +374,7 @@ const HROUTER_USAGE_SCRIPT_CODE = `({
         planName: response.planName || "订阅套餐",
         isValid: response.isValid !== false,
         used: selected ? Number(selected.used || 0) : totalActualCost,
-        unit: response.unit || "USD",
+        unit: "CNY",
         extra: JSON.stringify(baseExtra)
       };
       if (selected) {
@@ -387,7 +391,7 @@ const HROUTER_USAGE_SCRIPT_CODE = `({
       isValid: response.isValid !== false,
       used: totalActualCost,
       remaining: baseExtra.balance,
-      unit: response.unit || "USD",
+      unit: "CNY",
       extra: JSON.stringify(baseExtra)
     };
   }

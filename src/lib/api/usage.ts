@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import type {
   UsageSummary,
   UsageSummaryByApp,
@@ -18,6 +18,10 @@ import type {
 import type { UsageResult } from "@/types";
 import type { AppId } from "./types";
 import type { TemplateType } from "@/config/constants";
+
+const HROUTER_MODEL_PLAZA_BROWSER_URL = import.meta.env.DEV
+  ? "/hrouter-api/v1/model-plaza"
+  : "https://hrouter.net/api/v1/model-plaza";
 
 export const usageApi = {
   // Provider usage script methods
@@ -144,7 +148,22 @@ export const usageApi = {
     return invoke("get_request_detail", { requestId });
   },
 
+  fetchHRouterModelPlaza: async (): Promise<unknown> => {
+    if (isTauri()) {
+      return invoke("fetch_hrouter_model_plaza");
+    }
+
+    const response = await fetch(HROUTER_MODEL_PLAZA_BROWSER_URL, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) {
+      throw new Error(`模型广场返回 HTTP ${response.status}`);
+    }
+    return response.json();
+  },
+
   getModelPricing: async (): Promise<ModelPricing[]> => {
+    if (!isTauri()) return [];
     return invoke("get_model_pricing");
   },
 
@@ -167,6 +186,7 @@ export const usageApi = {
   },
 
   updateModelPricingBatch: async (entries: ModelPricing[]): Promise<number> => {
+    if (!isTauri()) return 0;
     return invoke("update_model_pricing_batch", { entries });
   },
 

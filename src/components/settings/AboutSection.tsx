@@ -14,6 +14,7 @@ import {
   ArrowUpCircle,
   ChevronDown,
   Stethoscope,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,7 +39,9 @@ import appIcon from "@/assets/icons/hrouter.svg";
 import {
   PRODUCT_NAME,
   PRODUCT_UPDATES_ENABLED,
+  PRODUCT_RELEASES_URL,
   PRODUCT_WEBSITE,
+  SUPPORT_QQ_GROUP,
   UPSTREAM_SOURCE_URL,
 } from "@/config/brand";
 import { APP_ICON_MAP } from "@/config/appConfig";
@@ -442,14 +445,12 @@ export function AboutSection({ isPortable }: AboutSectionProps) {
           : "";
 
       if (!displayVersion) {
-        await settingsApi.openExternal(
-          "https://github.com/farion1231/cc-switch/releases",
-        );
+        await settingsApi.openExternal(PRODUCT_RELEASES_URL);
         return;
       }
 
       await settingsApi.openExternal(
-        `https://github.com/farion1231/cc-switch/releases/tag/${displayVersion}`,
+        `${PRODUCT_RELEASES_URL}/tag/${displayVersion}`,
       );
     } catch (error) {
       console.error("[AboutSection] Failed to open release notes", error);
@@ -513,6 +514,16 @@ export function AboutSection({ isPortable }: AboutSectionProps) {
     } catch (error) {
       console.error("[AboutSection] Failed to copy install commands", error);
       toast.error(t("settings.installCommandsCopyFailed"));
+    }
+  }, [t]);
+
+  const handleCopySupportGroup = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(SUPPORT_QQ_GROUP);
+      toast.success(t("settings.supportGroupCopied"), { closeButton: true });
+    } catch (error) {
+      console.error("[AboutSection] Failed to copy support QQ group", error);
+      toast.error(t("settings.supportGroupCopyFailed"));
     }
   }, [t]);
 
@@ -945,6 +956,32 @@ export function AboutSection({ isPortable }: AboutSectionProps) {
             Original project: farion1231/cc-switch · Original copyright © 2025
             Jason Young。HRouter 保留原项目许可证与版权声明。
           </p>
+        </div>
+
+        <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-background/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium">
+                {t("settings.afterSalesSupport")}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {t("settings.afterSalesSupportHint", {
+                  group: SUPPORT_QQ_GROUP,
+                })}
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 shrink-0 gap-1.5 text-xs"
+            onClick={() => void handleCopySupportGroup()}
+          >
+            <Copy className="h-3.5 w-3.5" />
+            {t("settings.copySupportGroup")}
+          </Button>
         </div>
 
         {hasUpdate && updateInfo && (

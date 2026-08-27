@@ -72,6 +72,92 @@ pub async fn is_portable_mode() -> Result<bool, String> {
     }
 }
 
+#[derive(serde::Serialize)]
+pub struct CodexGuiStatus {
+    supported: bool,
+    installed: bool,
+    version: Option<String>,
+}
+
+/// 检测 Windows Store 版 Codex GUI 是否已安装。
+#[tauri::command]
+pub async fn get_codex_gui_status() -> Result<CodexGuiStatus, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        use std::process::Command;
+
+        let output = Command::new("powershell.exe")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "$package = Get-AppxPackage -Name OpenAI.Codex -ErrorAction SilentlyContinue | Select-Object -First 1; if ($package) { $package.Version.ToString() }",
+            ])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .map_err(|e| format!("检测 Codex GUI 失败: {e}"))?;
+
+        if !output.status.success() {
+            return Err(format!(
+                "检测 Codex GUI 失败: {}",
+                decode_command_output(&output.stderr).trim()
+            ));
+        }
+
+        let version = decode_command_output(&output.stdout).trim().to_string();
+        return Ok(CodexGuiStatus {
+            supported: true,
+            installed: !version.is_empty(),
+            version: (!version.is_empty()).then_some(version),
+        });
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    Ok(CodexGuiStatus {
+        supported: false,
+        installed: false,
+        version: None,
+    })
+}
+
+/// 启动随 HRouter 打包的微软签名 Codex Store Installer。
+#[tauri::command]
+pub async fn launch_codex_gui_installer(app: AppHandle) -> Result<bool, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use sha2::{Digest, Sha256};
+        use std::process::Command;
+        use tauri::path::BaseDirectory;
+        use tauri::Manager;
+
+        const INSTALLER_SHA256: &str =
+            "05FBBC5DCF5F209B94A51AC2CB5B6761CC9DCD51791644ADB0030244F2625237";
+
+        let installer_path = app
+            .path()
+            .resolve("codex-gui-installer.exe", BaseDirectory::Resource)
+            .map_err(|e| format!("定位 Codex GUI 安装器失败: {e}"))?;
+        let installer = std::fs::read(&installer_path)
+            .map_err(|e| format!("读取 Codex GUI 安装器失败: {e}"))?;
+        let actual_hash = format!("{:X}", Sha256::digest(&installer));
+        if actual_hash != INSTALLER_SHA256 {
+            return Err("Codex GUI 安装器校验失败，已阻止启动".to_string());
+        }
+
+        Command::new(&installer_path)
+            .spawn()
+            .map_err(|e| format!("启动 Codex GUI 安装器失败: {e}"))?;
+        return Ok(true);
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app;
+        Err("Codex GUI 安装器仅支持 Windows".to_string())
+    }
+}
+
 /// 获取应用启动阶段的初始化错误（若有）。
 /// 用于前端在早期主动拉取，避免事件订阅竞态导致的提示缺失。
 #[tauri::command]

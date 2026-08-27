@@ -165,7 +165,7 @@ describe("HRouter provider configuration", () => {
       total: 100,
       used: 27.5,
       remaining: 72.5,
-      unit: "USD",
+      unit: "CNY",
     });
     expect(JSON.parse(result.extra as string)).toMatchObject({
       billingMode: "subscription",
@@ -193,7 +193,7 @@ describe("HRouter provider configuration", () => {
       planName: "按量计费",
       used: 12.75,
       remaining: 45.25,
-      unit: "USD",
+      unit: "CNY",
     });
     expect(JSON.parse(result.extra as string)).toMatchObject({
       billingMode: "payg",

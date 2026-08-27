@@ -222,7 +222,7 @@ export function RequestDetailPanel({
                   </span>
                 </dt>
                 <dd className="font-mono">
-                  ${parseFloat(request.inputCostUsd).toFixed(6)}
+                  ¥{parseFloat(request.inputCostUsd).toFixed(6)}
                 </dd>
               </div>
               <div>
@@ -233,7 +233,7 @@ export function RequestDetailPanel({
                   </span>
                 </dt>
                 <dd className="font-mono">
-                  ${parseFloat(request.outputCostUsd).toFixed(6)}
+                  ¥{parseFloat(request.outputCostUsd).toFixed(6)}
                 </dd>
               </div>
               <div>
@@ -244,7 +244,7 @@ export function RequestDetailPanel({
                   </span>
                 </dt>
                 <dd className="font-mono">
-                  ${parseFloat(request.cacheReadCostUsd).toFixed(6)}
+                  ¥{parseFloat(request.cacheReadCostUsd).toFixed(6)}
                 </dd>
               </div>
               <div>
@@ -255,7 +255,7 @@ export function RequestDetailPanel({
                   </span>
                 </dt>
                 <dd className="font-mono">
-                  ${parseFloat(request.cacheCreationCostUsd).toFixed(6)}
+                  ¥{parseFloat(request.cacheCreationCostUsd).toFixed(6)}
                 </dd>
               </div>
               {/* 显示成本倍率（如果不等于1） */}
@@ -287,7 +287,7 @@ export function RequestDetailPanel({
                 >
                   {unpriced
                     ? t("usage.unpriced", "未定价")
-                    : `$${parseFloat(request.totalCostUsd).toFixed(6)}`}
+                    : `¥${parseFloat(request.totalCostUsd).toFixed(6)}`}
                 </dd>
               </div>
             </dl>

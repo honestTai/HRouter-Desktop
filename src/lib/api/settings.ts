@@ -26,6 +26,12 @@ export interface CodexUnifyHistoryRestoreResult {
   skippedReason?: string;
 }
 
+export interface CodexGuiStatus {
+  supported: boolean;
+  installed: boolean;
+  version: string | null;
+}
+
 export interface WebDavSyncResult {
   status: string;
 }
@@ -63,6 +69,14 @@ export const settingsApi = {
 
   async isPortable(): Promise<boolean> {
     return await invoke("is_portable_mode");
+  },
+
+  async getCodexGuiStatus(): Promise<CodexGuiStatus> {
+    return await invoke("get_codex_gui_status");
+  },
+
+  async launchCodexGuiInstaller(): Promise<boolean> {
+    return await invoke("launch_codex_gui_installer");
   },
 
   async getConfigDir(appId: AppId): Promise<string> {

@@ -15,6 +15,7 @@ interface UpdateContextValue {
   hasUpdate: boolean;
   updateInfo: UpdateInfo | null;
   isChecking: boolean;
+  hasChecked: boolean;
   error: string | null;
 
   // 提示状态
@@ -35,6 +36,7 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
   const [hasUpdate, setHasUpdate] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [isChecking, setIsChecking] = useState(false);
+  const [hasChecked, setHasChecked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDismissed, setIsDismissed] = useState(false);
 
@@ -97,6 +99,7 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
       setHasUpdate(false);
       throw err; // 抛出错误让调用方处理
     } finally {
+      setHasChecked(true);
       setIsChecking(false);
       isCheckingRef.current = false;
     }
@@ -132,6 +135,7 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
     hasUpdate,
     updateInfo,
     isChecking,
+    hasChecked,
     error,
     isDismissed,
     dismissUpdate,
