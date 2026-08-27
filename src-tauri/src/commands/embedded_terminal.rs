@@ -11,6 +11,8 @@ use tauri::{AppHandle, Emitter, State, WebviewUrl, WebviewWindowBuilder};
 
 use crate::{app_config::AppType, services::ProviderService, store::AppState};
 
+#[cfg(target_os = "windows")]
+use super::misc::effective_path_string;
 use super::misc::{extract_env_vars_from_config, resolve_launch_cwd};
 
 const OUTPUT_EVENT: &str = "embedded-terminal-output";
@@ -99,11 +101,16 @@ fn agent_shell_command(app: &AppType) -> Result<CommandBuilder, String> {
 fn windows_terminal_path() -> Option<std::ffi::OsString> {
     let mut paths = Vec::new();
     if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
+        let local_app_data = std::path::PathBuf::from(local_app_data);
+        paths.push(local_app_data.join("Microsoft").join("WindowsApps"));
         paths.push(
-            std::path::PathBuf::from(local_app_data)
-                .join("Microsoft")
-                .join("WindowsApps"),
+            local_app_data
+                .join("Programs")
+                .join("OpenAI")
+                .join("Codex")
+                .join("bin"),
         );
+        paths.push(local_app_data.join("Programs").join("claude"));
     }
     if let Some(program_files) = std::env::var_os("ProgramFiles") {
         paths.push(std::path::PathBuf::from(program_files).join("nodejs"));
@@ -111,9 +118,9 @@ fn windows_terminal_path() -> Option<std::ffi::OsString> {
     if let Some(app_data) = std::env::var_os("APPDATA") {
         paths.push(std::path::PathBuf::from(app_data).join("npm"));
     }
-    if let Some(inherited) = std::env::var_os("PATH") {
-        paths.extend(std::env::split_paths(&inherited));
-    }
+    paths.extend(std::env::split_paths(std::ffi::OsStr::new(
+        &effective_path_string(),
+    )));
     std::env::join_paths(paths).ok()
 }
 

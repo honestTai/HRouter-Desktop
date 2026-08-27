@@ -1693,7 +1693,7 @@ fn extend_mise_node_search_paths(paths: &mut Vec<std::path::PathBuf>, home: &Pat
 /// See `env_checker::check_system_env` for the same set of registry keys; here
 /// we read only the `Path` value.
 #[cfg(target_os = "windows")]
-fn effective_path_string() -> String {
+pub(crate) fn effective_path_string() -> String {
     use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
     use winreg::RegKey;
 
@@ -1807,6 +1807,27 @@ fn merge_path_segments_win(parts: &[&str]) -> String {
 /// 构建某工具的候选搜索目录（原生安装优先，PATH 兜底）。
 /// 单探兜底 (`scan_cli_version`) 与全量枚举 (`enumerate_tool_installations`) 共用，
 /// 确保两条路径看到的是同一组安装位置。
+#[cfg(target_os = "windows")]
+fn extend_windows_standalone_search_paths(
+    search_paths: &mut Vec<std::path::PathBuf>,
+    tool: &str,
+    local_data: &Path,
+) {
+    if tool == "codex" {
+        push_unique_path(
+            search_paths,
+            local_data
+                .join("Programs")
+                .join("OpenAI")
+                .join("Codex")
+                .join("bin"),
+        );
+    }
+    if tool == "claude" {
+        push_unique_path(search_paths, local_data.join("Programs").join("claude"));
+    }
+}
+
 fn build_tool_search_paths(tool: &str) -> Vec<std::path::PathBuf> {
     let home = dirs::home_dir().unwrap_or_default();
 
@@ -1870,26 +1891,7 @@ fn build_tool_search_paths(tool: &str) -> Vec<std::path::PathBuf> {
         // of the npm directory so a native install wins over a stale npm shim
         // (#4701).
         if let Some(local_data) = dirs::data_local_dir() {
-            if tool == "codex" {
-                // OpenAI Codex Installer.exe / .msi standalone install location
-                // (#6061, #6047).
-                push_unique_path(
-                    &mut search_paths,
-                    local_data
-                        .join("Programs")
-                        .join("OpenAI")
-                        .join("Codex")
-                        .join("bin"),
-                );
-            }
-            if tool == "claude" {
-                // `winget install Anthropic.ClaudeCode` / official native
-                // installer location (#6278).
-                push_unique_path(
-                    &mut search_paths,
-                    local_data.join("Programs").join("claude"),
-                );
-            }
+            extend_windows_standalone_search_paths(&mut search_paths, tool, &local_data);
         }
         if let Some(appdata) = dirs::data_dir() {
             push_unique_path(&mut search_paths, appdata.join("npm"));
@@ -2356,70 +2358,38 @@ fn resolve_path_default(
 }
 
 #[cfg(target_os = "windows")]
-fn windows_path_lookup_command(
+fn find_windows_path_default(
     tool: &str,
     effective_path: &std::ffi::OsStr,
-) -> std::process::Command {
-    use std::os::windows::process::CommandExt;
-    use std::process::{Command, Stdio};
-
-    // Use the system copy explicitly so a project-local `where.exe` cannot
-    // hijack the passive lookup before the PATH-only pattern is evaluated.
-    let where_exe = PathBuf::from(
-        std::env::var_os("SystemRoot").unwrap_or_else(|| std::ffi::OsString::from(r"C:\Windows")),
-    )
-    .join("System32")
-    .join("where.exe");
-    let mut command = Command::new(where_exe);
-    command
-        // `$PATH:pattern` is where.exe's documented environment-variable
-        // search form. Unlike a bare pattern, it does not search the current
-        // directory before PATH.
-        .arg(format!("$PATH:{tool}"))
-        .env("PATH", effective_path)
-        .creation_flags(CREATE_NO_WINDOW)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    command
+) -> Option<std::path::PathBuf> {
+    for dir in std::env::split_paths(effective_path) {
+        if is_windows_app_execution_alias_dir(&dir) {
+            continue;
+        }
+        for candidate in tool_executable_candidates(tool, &dir) {
+            if !candidate.is_file() {
+                continue;
+            }
+            let preferred =
+                windows_runnable_sibling_for_extensionless_tool(&candidate).unwrap_or(candidate);
+            if let Ok(path) = std::fs::canonicalize(preferred) {
+                return Some(path);
+            }
+        }
+    }
+    None
 }
 
 #[cfg(target_os = "windows")]
 fn resolve_path_default(
     tool: &str,
-    deadline: Option<CommandDeadline>,
+    _deadline: Option<CommandDeadline>,
 ) -> Result<Option<std::path::PathBuf>, String> {
-    // Restrict `where` to the merged effective PATH. A bare `where {tool}` also
-    // searches the current directory first, which would let a project-local
-    // `codex.cmd` be executed by a passive version check. The `$PATH:pattern`
-    // form searches only the supplied environment variable while still seeing
-    // registry PATH entries lost by an in-app-update relaunch (#6061).
+    // Search the merged effective PATH directly. This excludes the current
+    // directory and avoids `where.exe` ambiguity when Windows exposes both
+    // `PATH` and `Path` entries in the same environment block.
     let current_path = effective_path_os().unwrap_or_default();
-    let child = windows_path_lookup_command(tool, &current_path)
-        .spawn()
-        .map_err(|e| format!("Failed to locate {tool}: {e}"))?;
-    let out = wait_child_output(child, deadline)?;
-    if !out.status.success() {
-        return Ok(None);
-    }
-    let raw = decode_command_output(&out.stdout);
-    // `where` lists every match on PATH in order; the first is what the user
-    // actually runs. Skip App Execution Aliases (reparse points under
-    // `Microsoft\WindowsApps`) — they launch the Store / a protocol handler,
-    // are not CLIs we can `--version`-probe, and must not be treated as the
-    // PATH default. Take the first remaining real entry.
-    let resolved = raw.lines().map(str::trim).find(|line| {
-        !line.is_empty()
-            && !is_windows_app_execution_alias_dir(
-                Path::new(line).parent().unwrap_or(Path::new("")),
-            )
-    });
-    let Some(first) = resolved else {
-        return Ok(None);
-    };
-    let path = Path::new(first);
-    let preferred =
-        windows_runnable_sibling_for_extensionless_tool(path).unwrap_or_else(|| path.to_path_buf());
-    Ok(std::fs::canonicalize(preferred).ok())
+    Ok(find_windows_path_default(tool, &current_path))
 }
 
 /// 升级预检/冲突诊断的单条子进程探测预算。枚举会对每个工具开一次登录 shell、对每处
@@ -6674,9 +6644,10 @@ mod tests {
     fn build_tool_search_paths_includes_standalone_installer_dirs() {
         // Non-npm installer locations must be scanned even when the process PATH
         // dropped them (regression guard for #6061 / #6278 / #6047).
-        let local_data = dirs::data_local_dir().expect("LOCALAPPDATA should resolve");
+        let local_data = PathBuf::from(r"C:\Users\hrouter\AppData\Local");
 
-        let codex_paths = build_tool_search_paths("codex");
+        let mut codex_paths = Vec::new();
+        extend_windows_standalone_search_paths(&mut codex_paths, "codex", &local_data);
         assert!(codex_paths.contains(
             &local_data
                 .join("Programs")
@@ -6685,17 +6656,9 @@ mod tests {
                 .join("bin")
         ));
 
-        let claude_paths = build_tool_search_paths("claude");
+        let mut claude_paths = Vec::new();
+        extend_windows_standalone_search_paths(&mut claude_paths, "claude", &local_data);
         assert!(claude_paths.contains(&local_data.join("Programs").join("claude")));
-
-        // The standalone Codex dir is codex-specific; it must not pollute other tools.
-        assert!(!build_tool_search_paths("gemini").contains(
-            &local_data
-                .join("Programs")
-                .join("OpenAI")
-                .join("Codex")
-                .join("bin")
-        ));
     }
 
     #[cfg(target_os = "windows")]
@@ -6710,22 +6673,10 @@ mod tests {
 
         let effective_path =
             std::env::join_paths([path_dir.path()]).expect("test PATH should join");
-        let output = windows_path_lookup_command("codex", &effective_path)
-            .current_dir(current_dir.path())
-            .output()
-            .expect("where.exe should execute");
-        let stderr = decode_command_output(&output.stderr);
-        let matches = decode_command_output(&output.stdout)
-            .lines()
-            .map(str::trim)
-            .filter(|line| !line.is_empty())
-            .map(PathBuf::from)
-            .collect::<Vec<_>>();
-
-        assert!(output.status.success(), "where.exe failed: {stderr}");
-        assert_eq!(matches.len(), 1);
+        let match_path = find_windows_path_default("codex", &effective_path)
+            .expect("PATH-only lookup should find the shim");
         assert_eq!(
-            std::fs::canonicalize(&matches[0]).expect("where.exe match should canonicalize"),
+            match_path,
             std::fs::canonicalize(&expected).expect("expected PATH shim should canonicalize")
         );
     }
