@@ -16,6 +16,7 @@ export const HROUTER_ORIGIN = "https://hrouter.net";
 export const HROUTER_OPENAI_BASE_URL = `${HROUTER_ORIGIN}/v1`;
 export const HROUTER_MODELS_URL = `${HROUTER_OPENAI_BASE_URL}/models`;
 export const HROUTER_ICON_COLOR = "#10b981";
+export const HROUTER_CODEX_PROVIDER_ID = "hrouter";
 export const HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW = 272_000;
 export const HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT = Math.floor(
   HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW * 0.9,
@@ -183,6 +184,35 @@ export function resolveHRouterCodexContextConfig(
   };
 }
 
+const CODEX_ACTIVE_PROVIDER_PATTERN =
+  /^(\s*model_provider\s*=\s*)(["'])([^"'\r\n]+)\2(\s*(?:#.*)?)$/m;
+
+const escapeRegExp = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export function normalizeHRouterCodexProviderId(config: string): string {
+  const activeProvider = config.match(CODEX_ACTIVE_PROVIDER_PATTERN)?.[3];
+  if (!activeProvider || activeProvider === HROUTER_CODEX_PROVIDER_ID) {
+    return config;
+  }
+
+  const providerSectionPattern = new RegExp(
+    `^(\\s*\\[\\s*model_providers\\s*\\.\\s*)${escapeRegExp(activeProvider)}(\\s*\\]\\s*(?:#.*)?)$`,
+    "m",
+  );
+  if (!providerSectionPattern.test(config)) {
+    return config;
+  }
+
+  return config
+    .replace(
+      CODEX_ACTIVE_PROVIDER_PATTERN,
+      (_line, prefix: string, quote: string, _id: string, suffix: string) =>
+        `${prefix}${quote}${HROUTER_CODEX_PROVIDER_ID}${quote}${suffix}`,
+    )
+    .replace(providerSectionPattern, `$1${HROUTER_CODEX_PROVIDER_ID}$2`);
+}
+
 export function buildHRouterSettingsConfig(
   appId: AppId,
   apiKey: string,
@@ -223,12 +253,12 @@ export function buildHRouterSettingsConfig(
         "disable_response_storage = true",
         `model = ${tomlString(mapping.primary)}`,
         'model_reasoning_effort = "high"',
-        'model_provider = "4router"',
+        `model_provider = ${tomlString(HROUTER_CODEX_PROVIDER_ID)}`,
         `model_context_window = ${contextWindow}`,
         `model_auto_compact_token_limit = ${autoCompactTokenLimit}`,
         "",
         ...(goalMode ? ["[features]", "goals = true", ""] : []),
-        "[model_providers.4router]",
+        `[model_providers.${HROUTER_CODEX_PROVIDER_ID}]`,
         `name = ${tomlString(remoteCompaction ? "OpenAI" : "HRouter")}`,
         `base_url = ${tomlString(HROUTER_OPENAI_BASE_URL)}`,
         "requires_openai_auth = true",

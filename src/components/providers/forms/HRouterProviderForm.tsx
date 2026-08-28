@@ -41,6 +41,7 @@ import {
   HROUTER_ICON_COLOR,
   HROUTER_MODELS_URL,
   HROUTER_ORIGIN,
+  normalizeHRouterCodexProviderId,
   type HRouterModelMapping,
 } from "@/lib/hrouter";
 import type { Provider } from "@/types";
@@ -158,7 +159,7 @@ export function HRouterProviderForm({
   const initialCodexConfig = useMemo(() => {
     const savedConfig = initialProvider?.settingsConfig?.config;
     if (typeof savedConfig === "string" && savedConfig.trim()) {
-      return savedConfig;
+      return normalizeHRouterCodexProviderId(savedConfig);
     }
     const generated = buildHRouterSettingsConfig(
       "codex",

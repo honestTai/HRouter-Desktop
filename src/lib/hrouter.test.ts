@@ -8,9 +8,11 @@ import {
   extractHRouterProviderState,
   HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT,
   HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW,
+  HROUTER_CODEX_PROVIDER_ID,
   HROUTER_MODELS_URL,
   HROUTER_OPENAI_BASE_URL,
   HROUTER_ORIGIN,
+  normalizeHRouterCodexProviderId,
 } from "./hrouter";
 
 const models: FetchedModel[] = [
@@ -64,7 +66,12 @@ describe("HRouter provider configuration", () => {
     ) as { auth: Record<string, string>; config: string };
 
     expect(config.auth.OPENAI_API_KEY).toBe("sk-hrouter-test");
-    expect(config.config).toContain('model_provider = "4router"');
+    expect(config.config).toContain(
+      `model_provider = "${HROUTER_CODEX_PROVIDER_ID}"`,
+    );
+    expect(config.config).toContain(
+      `[model_providers.${HROUTER_CODEX_PROVIDER_ID}]`,
+    );
     expect(config.config).toContain('name = "OpenAI"');
     expect(config.config).not.toContain("goals = true");
     expect(config.config).toContain(`base_url = "${HROUTER_OPENAI_BASE_URL}"`);
@@ -94,6 +101,28 @@ describe("HRouter provider configuration", () => {
 
     expect(settingsConfig.config).toContain("[features]\ngoals = true");
     expect(settingsConfig.config).toContain('name = "HRouter"');
+  });
+
+  it("normalizes a saved HRouter Codex provider id without changing custom config", () => {
+    const savedConfig = `model = "gpt-5.6-sol"
+model_provider = "legacy-route" # keep this comment
+
+[model_providers.legacy-route]
+name = "HRouter"
+base_url = "https://hrouter.net/v1"
+
+[custom_section]
+keep_me = "preserved"
+`;
+
+    const normalized = normalizeHRouterCodexProviderId(savedConfig);
+
+    expect(normalized).toContain(
+      'model_provider = "hrouter" # keep this comment',
+    );
+    expect(normalized).toContain("[model_providers.hrouter]");
+    expect(normalized).toContain('[custom_section]\nkeep_me = "preserved"');
+    expect(normalized).not.toContain("legacy-route");
   });
 
   it("preserves custom Codex context settings when editing", () => {

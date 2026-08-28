@@ -35,7 +35,6 @@ import type { EnvConflict } from "@/types/env";
 import { proxyKeys, useProvidersQuery, useSettingsQuery } from "@/lib/query";
 import {
   providersApi,
-  embeddedTerminalApi,
   settingsApi,
   type AppId,
   type ProviderSwitchEvent,
@@ -103,7 +102,7 @@ import ToolsPanel from "@/components/openclaw/ToolsPanel";
 import AgentsDefaultsPanel from "@/components/openclaw/AgentsDefaultsPanel";
 import OpenClawHealthBanner from "@/components/openclaw/OpenClawHealthBanner";
 import HermesMemoryPanel from "@/components/hermes/HermesMemoryPanel";
-import type { TerminalWorkspaceTarget } from "@/components/terminal/TerminalWorkspace";
+import { WorkspaceLauncherButton } from "@/components/terminal/WorkspaceLauncherButton";
 
 const TerminalWorkspace = lazy(() =>
   import("@/components/terminal/TerminalWorkspace").then((module) => ({
@@ -168,25 +167,9 @@ const getInitialView = (): View => {
   return "providers";
 };
 
-const readTerminalWorkspaceTarget = (): TerminalWorkspaceTarget | null => {
+const isTerminalWorkspaceWindow = (): boolean => {
   const params = new URLSearchParams(window.location.search);
-  if (params.get("terminalWorkspace") !== "1") return null;
-
-  const appId = params.get("app") as AppId | null;
-  const providerId = params.get("providerId")?.trim();
-  const providerName = params.get("providerName")?.trim();
-  const cwd = params.get("cwd")?.trim();
-  if (
-    !appId ||
-    !VALID_APPS.includes(appId) ||
-    !providerId ||
-    !providerName ||
-    !cwd
-  ) {
-    return null;
-  }
-
-  return { appId, providerId, providerName, cwd };
+  return params.get("terminalWorkspace") === "1";
 };
 
 function MainApp() {
@@ -841,29 +824,6 @@ function MainApp() {
     await addProvider(duplicatedProvider);
   };
 
-  const handleOpenTerminal = async (provider: Provider) => {
-    try {
-      const selectedDir = await settingsApi.pickDirectory();
-      if (!selectedDir) {
-        return;
-      }
-
-      await embeddedTerminalApi.openWorkspace({
-        providerId: provider.id,
-        app: activeApp,
-        cwd: selectedDir,
-      });
-    } catch (error) {
-      console.error("[App] Failed to open terminal", error);
-      const errorMessage = extractErrorMessage(error);
-      toast.error(
-        t("provider.terminalOpenFailed", {
-          defaultValue: "打开终端失败",
-        }) + (errorMessage ? `: ${errorMessage}` : ""),
-      );
-    }
-  };
-
   const handleImportSuccess = async () => {
     try {
       await queryClient.invalidateQueries({
@@ -1061,11 +1021,6 @@ function MainApp() {
                       onDuplicate={handleDuplicateProvider}
                       onConfigureUsage={setUsageProvider}
                       onOpenWebsite={handleOpenWebsite}
-                      onOpenTerminal={
-                        activeApp === "claude-desktop"
-                          ? undefined
-                          : handleOpenTerminal
-                      }
                       onCreate={() => setIsAddOpen(true)}
                       onSetAsDefault={
                         activeApp === "openclaw"
@@ -1292,6 +1247,7 @@ function MainApp() {
                 <SupportGroupButton />
                 <UpdateBadge />
                 <AgentManagerButton />
+                <WorkspaceLauncherButton />
                 {isCurrentAppTakeoverActive && (
                   <Button
                     variant="ghost"
@@ -1785,10 +1741,10 @@ function MainApp() {
 }
 
 function App() {
-  const terminalTarget = useMemo(readTerminalWorkspaceTarget, []);
-  return terminalTarget ? (
+  const isTerminalWorkspace = useMemo(isTerminalWorkspaceWindow, []);
+  return isTerminalWorkspace ? (
     <Suspense fallback={<div className="h-screen bg-[#111311]" />}>
-      <TerminalWorkspace target={terminalTarget} />
+      <TerminalWorkspace />
     </Suspense>
   ) : (
     <MainApp />

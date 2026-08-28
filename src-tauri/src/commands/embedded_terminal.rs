@@ -34,11 +34,28 @@ pub struct EmbeddedTerminalState {
 #[serde(rename_all = "camelCase")]
 pub struct StartEmbeddedTerminalRequest {
     session_id: String,
-    provider_id: String,
-    app: String,
+    tool: WorkspaceTool,
     cwd: Option<String>,
     cols: u16,
     rows: u16,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum WorkspaceTool {
+    Claude,
+    Codex,
+    Terminal,
+}
+
+impl WorkspaceTool {
+    fn app_type(self) -> Option<AppType> {
+        match self {
+            Self::Claude => Some(AppType::Claude),
+            Self::Codex => Some(AppType::Codex),
+            Self::Terminal => None,
+        }
+    }
 }
 
 #[derive(Serialize, Clone)]
@@ -97,6 +114,36 @@ fn agent_shell_command(app: &AppType) -> Result<CommandBuilder, String> {
     }
 }
 
+fn platform_shell_command() -> CommandBuilder {
+    #[cfg(target_os = "windows")]
+    {
+        let shell = std::env::var_os("SystemRoot")
+            .map(std::path::PathBuf::from)
+            .map(|root| {
+                root.join("System32")
+                    .join("WindowsPowerShell")
+                    .join("v1.0")
+                    .join("powershell.exe")
+            })
+            .filter(|path| path.is_file())
+            .unwrap_or_else(|| std::path::PathBuf::from("powershell.exe"));
+        let mut command = CommandBuilder::new(shell);
+        command.args(["-NoLogo", "-NoExit"]);
+        command
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let shell = std::env::var("SHELL")
+            .ok()
+            .filter(|value| value.starts_with('/') && !value.contains(['\r', '\n']))
+            .unwrap_or_else(|| "/bin/zsh".to_string());
+        let mut command = CommandBuilder::new(shell);
+        command.arg("-l");
+        command
+    }
+}
+
 #[cfg(target_os = "windows")]
 fn windows_terminal_path() -> Option<std::ffi::OsString> {
     let mut paths = Vec::new();
@@ -133,31 +180,11 @@ fn validate_size(cols: u16, rows: u16) -> PtySize {
     }
 }
 
-#[allow(non_snake_case)]
 #[tauri::command]
-pub async fn open_terminal_workspace_window(
-    app_handle: AppHandle,
-    app_state: State<'_, AppState>,
-    providerId: String,
-    app: String,
-    cwd: String,
-) -> Result<String, String> {
-    let app_type: AppType = app
-        .parse()
-        .map_err(|error: crate::AppError| error.to_string())?;
-    let launch_cwd = resolve_launch_cwd(Some(cwd))?.ok_or_else(|| "请选择工作目录".to_string())?;
-    let providers = ProviderService::list(app_state.inner(), app_type)
-        .map_err(|error| format!("获取提供商列表失败: {error}"))?;
-    let provider = providers
-        .get(&providerId)
-        .ok_or_else(|| format!("提供商 {providerId} 不存在"))?;
+pub async fn open_terminal_workspace_window(app_handle: AppHandle) -> Result<String, String> {
     let label = format!("terminal-{}", uuid::Uuid::new_v4().simple());
     let query = url::form_urlencoded::Serializer::new(String::new())
         .append_pair("terminalWorkspace", "1")
-        .append_pair("app", &app)
-        .append_pair("providerId", &providerId)
-        .append_pair("providerName", &provider.name)
-        .append_pair("cwd", &launch_cwd.to_string_lossy())
         .finish();
 
     WebviewWindowBuilder::new(
@@ -165,9 +192,9 @@ pub async fn open_terminal_workspace_window(
         &label,
         WebviewUrl::App(format!("index.html?{query}").into()),
     )
-    .title(format!("{} CLI - HRouter", provider.name))
-    .inner_size(1120.0, 720.0)
-    .min_inner_size(760.0, 480.0)
+    .title("HRouter Workspace")
+    .inner_size(1180.0, 760.0)
+    .min_inner_size(860.0, 560.0)
     .center()
     .build()
     .map_err(|error| format!("创建 CLI 窗口失败: {error}"))?;
@@ -185,8 +212,7 @@ pub async fn start_embedded_terminal(
 ) -> Result<bool, String> {
     let StartEmbeddedTerminalRequest {
         session_id,
-        provider_id,
-        app,
+        tool,
         cwd,
         cols,
         rows,
@@ -194,28 +220,39 @@ pub async fn start_embedded_terminal(
     if session_id.trim().is_empty() || session_id.len() > 128 {
         return Err("Invalid terminal session id".to_string());
     }
-    let app_type: AppType = app
-        .parse()
-        .map_err(|error: crate::AppError| error.to_string())?;
     let launch_cwd = resolve_launch_cwd(cwd)?;
-    let providers = ProviderService::list(app_state.inner(), app_type.clone())
-        .map_err(|error| format!("获取提供商列表失败: {error}"))?;
-    let provider = providers
-        .get(&provider_id)
-        .ok_or_else(|| format!("提供商 {provider_id} 不存在"))?;
-    let env_vars = extract_env_vars_from_config(&provider.settings_config, &app_type);
 
     stop_session(&terminal_state, &session_id);
 
     let pair = native_pty_system()
         .openpty(validate_size(cols, rows))
         .map_err(|error| format!("创建 PTY 失败: {error}"))?;
-    let mut command = agent_shell_command(&app_type)?;
+    let mut command = match tool.app_type() {
+        Some(app_type) => {
+            let provider_id = ProviderService::current(app_state.inner(), app_type.clone())
+                .map_err(|error| format!("获取当前供应商失败: {error}"))?;
+            if provider_id.is_empty() {
+                return Err(format!(
+                    "请先在 HRouter 中启用 {} 的供应商",
+                    app_type.as_str()
+                ));
+            }
+            let providers = ProviderService::list(app_state.inner(), app_type.clone())
+                .map_err(|error| format!("获取供应商列表失败: {error}"))?;
+            let provider = providers
+                .get(&provider_id)
+                .ok_or_else(|| format!("当前供应商 {provider_id} 不存在"))?;
+            let env_vars = extract_env_vars_from_config(&provider.settings_config, &app_type);
+            let mut command = agent_shell_command(&app_type)?;
+            for (key, value) in env_vars {
+                command.env(key, value);
+            }
+            command
+        }
+        None => platform_shell_command(),
+    };
     if let Some(path) = launch_cwd {
         command.cwd(path);
-    }
-    for (key, value) in env_vars {
-        command.env(key, value);
     }
     #[cfg(target_os = "windows")]
     if let Some(path) = windows_terminal_path() {
@@ -380,6 +417,13 @@ mod tests {
         assert_eq!(agent_command(&AppType::Claude).unwrap(), "claude");
         assert_eq!(agent_command(&AppType::Codex).unwrap(), "codex");
         assert_eq!(agent_command(&AppType::Gemini).unwrap(), "gemini");
+    }
+
+    #[test]
+    fn workspace_tools_only_bind_agents_to_provider_apps() {
+        assert_eq!(WorkspaceTool::Claude.app_type(), Some(AppType::Claude));
+        assert_eq!(WorkspaceTool::Codex.app_type(), Some(AppType::Codex));
+        assert_eq!(WorkspaceTool::Terminal.app_type(), None);
     }
 
     #[cfg(target_os = "windows")]

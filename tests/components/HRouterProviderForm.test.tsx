@@ -34,7 +34,8 @@ describe("HRouterProviderForm Codex context settings", () => {
       "true",
     );
     const preview = screen.getByLabelText("config.toml 完整配置编辑器");
-    expect(preview).toHaveTextContent('model_provider = "4router"');
+    expect(preview).toHaveTextContent('model_provider = "hrouter"');
+    expect(preview).toHaveTextContent("[model_providers.hrouter]");
     expect(preview).toHaveTextContent('base_url = "https://hrouter.net/v1"');
     expect(preview).toHaveTextContent("model_context_window = 272000");
     expect(preview).toHaveTextContent(
@@ -95,5 +96,29 @@ keep_me = "preserved"
     expect(
       screen.getByLabelText("config.toml 完整配置编辑器"),
     ).toHaveTextContent('keep_me = "preserved"');
+  });
+
+  it("normalizes the provider id in a saved HRouter Codex config", () => {
+    renderForm({
+      id: "hrouter-codex",
+      name: "HRouter",
+      settingsConfig: {
+        auth: { OPENAI_API_KEY: "sk-existing" },
+        config: `model_provider = "legacy-route"
+
+[model_providers.legacy-route]
+base_url = "https://hrouter.net/v1"
+
+[custom_section]
+keep_me = "preserved"
+`,
+      },
+    });
+
+    const preview = screen.getByLabelText("config.toml 完整配置编辑器");
+    expect(preview).toHaveTextContent('model_provider = "hrouter"');
+    expect(preview).toHaveTextContent("[model_providers.hrouter]");
+    expect(preview).toHaveTextContent('keep_me = "preserved"');
+    expect(preview).not.toHaveTextContent("legacy-route");
   });
 });

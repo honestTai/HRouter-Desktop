@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { AppId } from "./types";
+
+export type WorkspaceTool = "claude" | "codex" | "terminal";
 
 export interface TerminalOutputEvent {
   sessionId: string;
@@ -12,18 +13,13 @@ export interface TerminalExitEvent {
 }
 
 export const embeddedTerminalApi = {
-  async openWorkspace(options: {
-    providerId: string;
-    app: AppId;
-    cwd: string;
-  }): Promise<string> {
-    return await invoke("open_terminal_workspace_window", options);
+  async openWorkspace(): Promise<string> {
+    return await invoke("open_terminal_workspace_window");
   },
 
   async start(options: {
     sessionId: string;
-    providerId: string;
-    app: AppId;
+    tool: WorkspaceTool;
     cwd?: string | null;
     cols: number;
     rows: number;

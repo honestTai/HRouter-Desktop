@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import "@xterm/xterm/css/xterm.css";
 
 import { Button } from "@/components/ui/button";
-import { embeddedTerminalApi, type AppId } from "@/lib/api";
+import { embeddedTerminalApi, type WorkspaceTool } from "@/lib/api";
 import { extractErrorMessage } from "@/utils/errorUtils";
 
 type ConnectionState = "connecting" | "connected" | "exited" | "error";
@@ -15,8 +15,7 @@ type ConnectionState = "connecting" | "connected" | "exited" | "error";
 interface EmbeddedTerminalPaneProps {
   title: string;
   subtitle: string;
-  providerId: string;
-  appId: AppId;
+  tool: WorkspaceTool;
   cwd: string;
 }
 
@@ -32,8 +31,7 @@ const decodeBase64 = (value: string) => {
 export function EmbeddedTerminalPane({
   title,
   subtitle,
-  providerId,
-  appId,
+  tool,
   cwd,
 }: EmbeddedTerminalPaneProps) {
   const { t } = useTranslation();
@@ -147,8 +145,7 @@ export function EmbeddedTerminalPane({
         fitAddon.fit();
         await embeddedTerminalApi.start({
           sessionId,
-          providerId,
-          app: appId,
+          tool,
           cwd,
           cols: terminal.cols,
           rows: terminal.rows,
@@ -192,14 +189,14 @@ export function EmbeddedTerminalPane({
       sessionRef.current = null;
       void embeddedTerminalApi.stop(sessionId);
     };
-  }, [appId, cwd, generation, providerId, t]);
+  }, [cwd, generation, t, tool]);
 
   const stateLabel = t(`terminalWorkspace.state.${connectionState}`, {
     defaultValue: connectionState,
   });
 
   return (
-    <section className="flex min-h-0 flex-col overflow-hidden bg-[#111311]">
+    <section className="flex h-full min-h-0 flex-col overflow-hidden bg-[#111311]">
       <header className="flex h-11 shrink-0 items-center gap-3 border-b border-white/10 bg-[#171a18] px-3 text-white">
         <div className="min-w-0 flex-1">
           <div className="truncate text-xs font-semibold">{title}</div>

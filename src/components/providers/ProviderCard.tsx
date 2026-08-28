@@ -55,7 +55,6 @@ interface ProviderCardProps {
   onOpenWebsite: (url: string) => void;
   onDuplicate: (provider: Provider) => void;
   onTest?: (provider: Provider) => void;
-  onOpenTerminal?: (provider: Provider) => void;
   isTesting?: boolean;
   isProxyRunning: boolean;
   isProxyTakeover?: boolean; // 代理接管模式（Live配置已被接管，切换为热切换）
@@ -154,7 +153,6 @@ export function ProviderCard({
   onOpenWebsite,
   onDuplicate,
   onTest,
-  onOpenTerminal,
   isTesting,
   isProxyRunning,
   isProxyTakeover = false,
@@ -602,9 +600,6 @@ export function ProviderCard({
                   : undefined
               }
               onDisableOmo={handleDisableAnyOmo}
-              onOpenTerminal={
-                onOpenTerminal ? () => onOpenTerminal(provider) : undefined
-              }
               isAutoFailoverEnabled={isAutoFailoverEnabled}
               isInFailoverQueue={isInFailoverQueue}
               onToggleFailover={onToggleFailover}
