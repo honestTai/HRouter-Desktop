@@ -10,7 +10,7 @@ import type { AppId } from "@/lib/api";
 /**
  * 供应商连通性检查。
  *
- * 只探测 base_url 是否可达（任何 HTTP 响应都算可达），不发真实大模型请求。
+ * 只探测 API 服务是否可达（任何 HTTP 响应都算可达），不发真实大模型请求。
  * 刻意 **不** 重置故障转移熔断器——可达 ≠ 配置正确，一个端口通但鉴权废的供应商
  * 不应被误判为"健康"而切回线上。熔断器只由真实转发流量驱动（见 proxy/forwarder.rs）。
  */
@@ -33,7 +33,8 @@ export function useStreamCheck(appId: AppId) {
             t("streamCheck.reachable", {
               providerName: providerName,
               responseTimeMs: result.responseTimeMs,
-              defaultValue: `${providerName} 连通正常 (${result.responseTimeMs}ms)`,
+              httpStatus: result.httpStatus,
+              defaultValue: `${providerName} 服务可达 · HTTP ${result.httpStatus ?? "-"} · ${result.responseTimeMs}ms`,
             }),
             { closeButton: true },
           );
@@ -42,7 +43,8 @@ export function useStreamCheck(appId: AppId) {
             t("streamCheck.reachableSlow", {
               providerName: providerName,
               responseTimeMs: result.responseTimeMs,
-              defaultValue: `${providerName} 连通但较慢 (${result.responseTimeMs}ms)`,
+              httpStatus: result.httpStatus,
+              defaultValue: `${providerName} 服务可达但响应较慢 · HTTP ${result.httpStatus ?? "-"} · ${result.responseTimeMs}ms`,
             }),
           );
         } else {
@@ -56,7 +58,7 @@ export function useStreamCheck(appId: AppId) {
             {
               description: t("streamCheck.unreachableHint", {
                 defaultValue:
-                  "无法建立连接（DNS / 连接 / TLS / 超时）。请检查 base_url 与网络。",
+                  "未收到 API 服务响应。请检查请求地址、系统网络或代理设置。",
               }),
               duration: 8000,
               closeButton: true,

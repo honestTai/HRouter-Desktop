@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.5
+
+- Reorganized HRouter Desktop around a persistent left navigation and a quieter task-focused header.
+- Embedded HRouter announcements and services inside the desktop application.
+- Reduced Settings to essential language, theme, Agent visibility, window behavior, and product information controls with automatic saving.
+- Fixed HRouter connectivity checks that previously failed while following the `/v1` redirect.
+- Removed the terminal workbench and its PTY dependencies while retaining the existing native OS terminal launch path.
+
 ## 0.2.1
 
 - Added editable Codex context-window and automatic-compaction settings for HRouter providers.

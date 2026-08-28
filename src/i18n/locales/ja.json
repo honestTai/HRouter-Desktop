@@ -76,13 +76,13 @@
     "agentsTitle": "Agent のインストールと更新",
     "agentsDescription": "7 種類の CLI Agent を検出・インストールします。Codex GUI は HRouter に同梱した Microsoft 署名済みインストーラーを使用します。",
     "updatesTitle": "HRouter の更新",
-    "updatesDescription": "ヘッダーから新しい HRouter を確認し、更新前にバージョン、公開日、更新内容を表示します。",
+    "updatesDescription": "サイドバーから新しい HRouter を確認し、更新前にバージョン、公開日、更新内容を表示します。",
     "supportTitle": "サポートが必要ですか？",
-    "supportDescription": "アフターサポート QQ グループ {{group}} に参加してください。ヘッダーからグループ番号をいつでもコピーできます。",
+    "supportDescription": "アフターサポート QQ グループ {{group}} に参加してください。このガイドからグループ番号をコピーできます。",
     "copyGroup": "グループ番号をコピー",
     "groupCopied": "アフターサポート QQ グループ番号をコピーしました",
     "groupCopyFailed": "グループ番号をコピーできませんでした。手動でコピーしてください。",
-    "footerHint": "このガイドはヘッダーの「機能 FAQ」からいつでも開けます。",
+    "footerHint": "このガイドはサイドバーの「機能 FAQ」からいつでも開けます。",
     "start": "利用を開始"
   },
   "hrouterWeb": {
@@ -93,6 +93,14 @@
     "refresh": "ページを更新",
     "openExternal": "外部ブラウザーで開く",
     "loading": "HRouter ポータルを読み込み中..."
+  },
+  "navigation": {
+    "productSubtitle": "Agent 設定センター",
+    "main": "メイン",
+    "providers": "設定センター",
+    "providersHint": "Agent、プロバイダー、HRouter Key を管理",
+    "announcements": "お知らせとサービス",
+    "announcementsHint": "HRouter.net のお知らせとサービスを表示"
   },
   "apiKeyInput": {
     "placeholder": "API Key を入力",
@@ -144,7 +152,7 @@
     "windowClose": "ウィンドウを閉じる"
   },
   "provider": {
-    "connectivityCheck": "接続チェック",
+    "connectivityCheck": "サービスを確認",
     "tabProvider": "プロバイダー",
     "tabUniversal": "統一プロバイダー",
     "noProviders": "まだプロバイダーがありません",
@@ -2832,10 +2840,10 @@
     "stopWithRestoreFailed": "停止に失敗しました: {{detail}}"
   },
   "streamCheck": {
-    "reachable": "{{providerName}} は接続可能 ({{responseTimeMs}}ms)",
-    "reachableSlow": "{{providerName}} は接続可能だが低速 ({{responseTimeMs}}ms)",
+    "reachable": "{{providerName}} のサービスに到達可能 · HTTP {{httpStatus}} · {{responseTimeMs}}ms",
+    "reachableSlow": "{{providerName}} のサービスに到達可能ですが低速 · HTTP {{httpStatus}} · {{responseTimeMs}}ms",
     "unreachable": "{{providerName}} に接続できません: {{message}}",
-    "unreachableHint": "接続を確立できませんでした（DNS / 接続 / TLS / タイムアウト）。base_url とネットワークを確認してください。",
+    "unreachableHint": "API サービスから応答がありません。エンドポイント、ネットワーク、プロキシ設定を確認してください。",
     "connectivityNote": "接続チェックはプロバイダーのアドレスに到達できるかを確認するだけで、実際のモデルリクエストは送信しません。何らかの応答があれば「到達可能」とみなされますが、認証やモデル設定が正しいことを保証するものではありません。",
     "configSaved": "接続チェック設定を保存しました",
     "configSaveFailed": "保存に失敗しました",

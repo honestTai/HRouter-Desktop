@@ -76,13 +76,13 @@
     "agentsTitle": "Agent installation and updates",
     "agentsDescription": "Detect and install seven CLI Agents. Codex GUI uses the Microsoft-signed installer bundled with HRouter for installation and updates.",
     "updatesTitle": "HRouter updates",
-    "updatesDescription": "Check for HRouter releases from the header and review the version, release date, and full release notes before updating.",
+    "updatesDescription": "Check for HRouter releases from the sidebar and review the version, release date, and full release notes before updating.",
     "supportTitle": "Need after-sales support?",
-    "supportDescription": "Join QQ group {{group}} for help. The group-number button in the header can also copy it at any time.",
+    "supportDescription": "Join QQ group {{group}} for help. You can copy the group number from this guide.",
     "copyGroup": "Copy group number",
     "groupCopied": "After-sales QQ group number copied",
     "groupCopyFailed": "Could not copy the group number. Please copy it manually.",
-    "footerHint": "Open this guide anytime from Feature FAQ in the header.",
+    "footerHint": "Open this guide anytime from Feature FAQ in the sidebar.",
     "start": "Start using HRouter"
   },
   "hrouterWeb": {
@@ -93,6 +93,14 @@
     "refresh": "Refresh page",
     "openExternal": "Open in external browser",
     "loading": "Loading the HRouter portal..."
+  },
+  "navigation": {
+    "productSubtitle": "Agent Configuration",
+    "main": "Main",
+    "providers": "Configuration",
+    "providersHint": "Manage Agents, providers, and HRouter Keys",
+    "announcements": "News & Services",
+    "announcementsHint": "HRouter.net announcements and platform services"
   },
   "apiKeyInput": {
     "placeholder": "Enter API Key",
@@ -144,7 +152,7 @@
     "windowClose": "Close window"
   },
   "provider": {
-    "connectivityCheck": "Connectivity check",
+    "connectivityCheck": "Check service",
     "tabProvider": "Provider",
     "tabUniversal": "Universal",
     "noProviders": "No providers added yet",
@@ -2832,10 +2840,10 @@
     "stopWithRestoreFailed": "Stop failed: {{detail}}"
   },
   "streamCheck": {
-    "reachable": "{{providerName}} is reachable ({{responseTimeMs}}ms)",
-    "reachableSlow": "{{providerName}} reachable but slow ({{responseTimeMs}}ms)",
+    "reachable": "{{providerName}} service reachable · HTTP {{httpStatus}} · {{responseTimeMs}}ms",
+    "reachableSlow": "{{providerName}} service reachable but slow · HTTP {{httpStatus}} · {{responseTimeMs}}ms",
     "unreachable": "{{providerName}} unreachable: {{message}}",
-    "unreachableHint": "Could not establish a connection (DNS / connect / TLS / timeout). Check the base_url and your network.",
+    "unreachableHint": "The API service did not respond. Check the endpoint, system network, or proxy settings.",
     "connectivityNote": "Connectivity check only probes whether the provider address is reachable; it does not send a real model request. Any response counts as \"reachable\" — which does not guarantee that auth or model settings are correct.",
     "configSaved": "Connectivity check settings saved",
     "configSaveFailed": "Save failed",

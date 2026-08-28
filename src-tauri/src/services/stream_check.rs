@@ -201,10 +201,7 @@ impl StreamCheckService {
         timeout: std::time::Duration,
         custom_ua: Option<HeaderValue>,
     ) -> Result<u16, AppError> {
-        let url = base_url.trim();
-        if url.is_empty() {
-            return Err(AppError::Message("base_url 为空".to_string()));
-        }
+        let url = Self::probe_url(base_url)?;
 
         let mut req = client
             .get(url)
@@ -220,6 +217,34 @@ impl StreamCheckService {
             Ok(resp) => Ok(resp.status().as_u16()),
             Err(e) => Err(Self::map_request_error(e)),
         }
+    }
+
+    /// Build a stable, non-generative probe target.
+    ///
+    /// API gateways commonly redirect a bare `/v1` path to `/v1/`; some
+    /// system proxy/TLS combinations fail while reqwest follows that redirect
+    /// even though the gateway itself is reachable. HRouter exposes the
+    /// standard `/v1/models` endpoint, which returns a direct HTTP response
+    /// (including 401 for a missing key) and therefore gives the reachability
+    /// check an unambiguous target without consuming model tokens.
+    fn probe_url(base_url: &str) -> Result<url::Url, AppError> {
+        let trimmed = base_url.trim();
+        if trimmed.is_empty() {
+            return Err(AppError::Message("base_url 为空".to_string()));
+        }
+
+        let mut parsed = url::Url::parse(trimmed)
+            .map_err(|error| AppError::Message(format!("base_url 无效: {error}")))?;
+        let host = parsed.host_str().unwrap_or_default().to_ascii_lowercase();
+        let path = parsed.path().trim_end_matches('/');
+
+        if host == "hrouter.net" && path == "/v1" {
+            parsed.set_path("/v1/models");
+            parsed.set_query(None);
+            parsed.set_fragment(None);
+        }
+
+        Ok(parsed)
     }
 
     /// 将探测原始结果包装成 `StreamCheckResult`。
@@ -273,8 +298,10 @@ impl StreamCheckService {
             AppError::Message("Request timeout".to_string())
         } else if e.is_connect() {
             AppError::Message(format!("Connection failed: {e}"))
+        } else if e.is_redirect() {
+            AppError::Message("服务返回了无效重定向".to_string())
         } else {
-            AppError::Message(e.to_string())
+            AppError::Message(format!("网络请求失败: {e}"))
         }
     }
 
@@ -451,6 +478,18 @@ mod tests {
         let r = StreamCheckService::build_result(Ok(200), 3000, 1500);
         assert!(r.success);
         assert_eq!(r.status, HealthStatus::Degraded);
+    }
+
+    #[test]
+    fn test_probe_url_uses_hrouter_models_endpoint() {
+        let url = StreamCheckService::probe_url("https://hrouter.net/v1").unwrap();
+        assert_eq!(url.as_str(), "https://hrouter.net/v1/models");
+    }
+
+    #[test]
+    fn test_probe_url_preserves_other_provider_paths() {
+        let url = StreamCheckService::probe_url("https://relay.example/v1").unwrap();
+        assert_eq!(url.as_str(), "https://relay.example/v1");
     }
 
     #[test]

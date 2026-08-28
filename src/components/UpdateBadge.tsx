@@ -15,6 +15,7 @@ import { settingsApi } from "@/lib/api";
 import { getCurrentVersion } from "@/lib/updater";
 import { extractErrorMessage } from "@/utils/errorUtils";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogClose,
@@ -151,11 +152,13 @@ export function UpdateBadge({ className = "" }: UpdateBadgeProps) {
         title={title}
         aria-label={title}
         onClick={() => setOpen(true)}
-        className={`relative h-8 gap-1.5 rounded-md px-2.5 text-xs ${
+        className={cn(
+          "relative h-8 gap-1.5 rounded-md px-2.5 text-xs",
           isActive
             ? "border-blue-500/30 bg-blue-500/10 text-blue-700 hover:bg-blue-500/15 dark:text-blue-300"
-            : "border-border-default bg-background/70 text-foreground hover:bg-muted/60"
-        } ${className}`}
+            : "border-border-default bg-background/70 text-foreground hover:bg-muted/60",
+          className,
+        )}
       >
         <ArrowUpCircle className="h-4 w-4" />
         <span>{t("settings.versionUpdate")}</span>

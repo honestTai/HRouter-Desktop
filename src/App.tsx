@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -6,7 +6,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
-  Settings,
   ArrowLeft,
   Minus,
   Maximize2,
@@ -16,7 +15,6 @@ import {
   Brain,
   Wrench,
   History,
-  BarChart2,
   Download,
   FolderArchive,
   Search,
@@ -27,7 +25,6 @@ import {
   LayoutDashboard,
   Loader2,
   RefreshCw,
-  Globe2,
 } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Provider, VisibleApps } from "@/types";
@@ -66,10 +63,8 @@ import { AddProviderDialog } from "@/components/providers/AddProviderDialog";
 import { EditProviderDialog } from "@/components/providers/EditProviderDialog";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SettingsPage } from "@/components/settings/SettingsPage";
-import { UpdateBadge } from "@/components/UpdateBadge";
-import { SupportGroupButton } from "@/components/SupportGroupButton";
-import { AgentManagerButton } from "@/components/AgentManagerButton";
 import { HRouterWebView } from "@/components/HRouterWebView";
+import { AppSidebar } from "@/components/layout/AppSidebar";
 import { EnvWarningBanner } from "@/components/env/EnvWarningBanner";
 import { ProxyToggle } from "@/components/proxy/ProxyToggle";
 import { ClaudeDesktopRouteToggle } from "@/components/proxy/ClaudeDesktopRouteToggle";
@@ -86,7 +81,6 @@ import UnifiedSkillsPanel, {
   type SkillsCheckUpdatesState,
 } from "@/components/skills/UnifiedSkillsPanel";
 import { DeepLinkImportDialog } from "@/components/DeepLinkImportDialog";
-import { HelpCenterButton } from "@/components/HelpCenterButton";
 import { AgentsPanel } from "@/components/agents/AgentsPanel";
 import { UniversalProviderPanel } from "@/components/universal";
 import { McpIcon } from "@/components/BrandIcons";
@@ -102,13 +96,6 @@ import ToolsPanel from "@/components/openclaw/ToolsPanel";
 import AgentsDefaultsPanel from "@/components/openclaw/AgentsDefaultsPanel";
 import OpenClawHealthBanner from "@/components/openclaw/OpenClawHealthBanner";
 import HermesMemoryPanel from "@/components/hermes/HermesMemoryPanel";
-import { WorkspaceLauncherButton } from "@/components/terminal/WorkspaceLauncherButton";
-
-const TerminalWorkspace = lazy(() =>
-  import("@/components/terminal/TerminalWorkspace").then((module) => ({
-    default: module.TerminalWorkspace,
-  })),
-);
 
 type View =
   | "providers"
@@ -135,6 +122,7 @@ interface SyncStatusUpdatedPayload {
 
 const DEFAULT_DRAG_BAR_HEIGHT = isWindows() || isLinux() ? 0 : 28; // px
 const HEADER_HEIGHT = 64; // px
+const SIDEBAR_WIDTH = 212; // px
 
 const STORAGE_KEY = "hrouter-last-app";
 const VALID_APPS: AppId[] = [
@@ -165,11 +153,6 @@ const getInitialView = (): View => {
     return saved;
   }
   return "providers";
-};
-
-const isTerminalWorkspaceWindow = (): boolean => {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("terminalWorkspace") === "1";
 };
 
 function MainApp() {
@@ -1054,13 +1037,20 @@ function MainApp() {
     );
   };
 
-  const isMainHeaderView =
-    currentView === "providers" || currentView === "hrouterWeb";
+  const isMainHeaderView = currentView === "providers";
+  const isPrimaryNavigationView =
+    currentView === "providers" ||
+    currentView === "hrouterWeb" ||
+    currentView === "settings";
 
   return (
     <div
       className="flex flex-col h-screen overflow-hidden bg-background text-foreground selection:bg-primary/30 pb-4"
-      style={{ overflowX: "hidden", paddingTop: contentTopOffset }}
+      style={{
+        overflowX: "hidden",
+        paddingLeft: SIDEBAR_WIDTH,
+        paddingTop: contentTopOffset,
+      }}
     >
       {(dragBarHeight > 0 || useAppWindowControls) && (
         <div
@@ -1137,14 +1127,30 @@ function MainApp() {
         />
       )}
 
+      <div
+        className="fixed bottom-0 left-0 z-[55]"
+        style={{ top: dragBarHeight, width: SIDEBAR_WIDTH }}
+      >
+        <AppSidebar
+          currentView={currentView}
+          onOpenProviders={() => setCurrentView("providers")}
+          onOpenAnnouncements={() => setCurrentView("hrouterWeb")}
+          onOpenSettings={() => {
+            setSettingsDefaultTab("general");
+            setCurrentView("settings");
+          }}
+        />
+      </div>
+
       <header
-        className="fixed z-50 w-full transition-all duration-300 bg-background/80 backdrop-blur-md"
+        className="fixed right-0 z-50 border-b border-border-default bg-background/95 backdrop-blur-md"
         {...DRAG_REGION_ATTR}
         style={
           {
             ...DRAG_REGION_STYLE,
             top: dragBarHeight,
             height: HEADER_HEIGHT,
+            left: SIDEBAR_WIDTH,
           } as any
         }
       >
@@ -1157,7 +1163,7 @@ function MainApp() {
             className="flex items-center gap-1"
             style={{ WebkitAppRegion: "no-drag" } as any}
           >
-            {!isMainHeaderView ? (
+            {!isPrimaryNavigationView ? (
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -1178,7 +1184,6 @@ function MainApp() {
                   <ArrowLeft className="w-4 h-4" />
                 </Button>
                 <h1 className="text-lg font-semibold">
-                  {currentView === "settings" && t("settings.title")}
                   {currentView === "prompts" &&
                     t("prompts.title", {
                       appName: t(`apps.${sharedFeatureApp}`),
@@ -1201,69 +1206,26 @@ function MainApp() {
                 </h1>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <div className="relative inline-flex items-center">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentView("hrouterWeb")}
-                    title={t("hrouterWeb.open")}
-                    aria-label={t("hrouterWeb.open")}
-                    className={cn(
-                      "text-xl font-semibold transition-colors",
-                      isProxyRunning && isCurrentAppTakeoverActive
-                        ? "text-emerald-500 hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300"
-                        : "text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300",
-                    )}
-                  >
-                    HRouter
-                  </button>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    setSettingsDefaultTab("general");
-                    setCurrentView("settings");
-                  }}
-                  title={t("common.settings")}
-                  className="hover:bg-black/5 dark:hover:bg-white/5"
-                >
-                  <Settings className="w-4 h-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentView("hrouterWeb")}
-                  title={t("hrouterWeb.open")}
-                  aria-label={t("hrouterWeb.open")}
-                  className="relative h-8 gap-1.5 rounded-md border-blue-500/35 bg-blue-500/10 px-2.5 text-xs font-medium text-blue-700 shadow-sm hover:border-blue-500/50 hover:bg-blue-500/15 dark:text-blue-300"
-                >
-                  <Globe2 className="h-4 w-4" />
-                  <span>{t("hrouterWeb.entry")}</span>
-                  <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-background bg-red-500" />
-                </Button>
-                <HelpCenterButton />
-                <SupportGroupButton />
-                <UpdateBadge />
-                <AgentManagerButton />
-                <WorkspaceLauncherButton />
-                {isCurrentAppTakeoverActive && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      setSettingsDefaultTab("usage");
-                      setCurrentView("settings");
-                    }}
-                    title={t("usage.title", {
-                      defaultValue: "使用统计",
+              <div className="min-w-0">
+                <h1 className="truncate text-base font-semibold">
+                  {currentView === "providers" &&
+                    t("navigation.providers", { defaultValue: "配置中心" })}
+                  {currentView === "hrouterWeb" &&
+                    t("navigation.announcements", {
+                      defaultValue: "公告与服务",
                     })}
-                    className="hover:bg-black/5 dark:hover:bg-white/5"
-                  >
-                    <BarChart2 className="w-4 h-4" />
-                  </Button>
-                )}
+                  {currentView === "settings" && t("settings.title")}
+                </h1>
+                <p className="truncate text-[11px] text-muted-foreground">
+                  {currentView === "providers" &&
+                    t("navigation.providersHint", {
+                      defaultValue: "管理 Agent、供应商与 HRouter Key",
+                    })}
+                  {currentView === "hrouterWeb" &&
+                    t("navigation.announcementsHint", {
+                      defaultValue: "查看 HRouter.net 公告与平台服务",
+                    })}
+                </p>
               </div>
             )}
           </div>
@@ -1307,9 +1269,6 @@ function MainApp() {
                   activeApp={activeApp}
                   onSwitch={(app) => {
                     setActiveApp(app);
-                    if (currentView === "hrouterWeb") {
-                      setCurrentView("providers");
-                    }
                   }}
                   visibleApps={visibleApps}
                 />
@@ -1631,9 +1590,6 @@ function MainApp() {
 
                     <Button
                       onClick={() => {
-                        if (currentView === "hrouterWeb") {
-                          setCurrentView("providers");
-                        }
                         setIsAddOpen(true);
                       }}
                       size="icon"
@@ -1741,14 +1697,7 @@ function MainApp() {
 }
 
 function App() {
-  const isTerminalWorkspace = useMemo(isTerminalWorkspaceWindow, []);
-  return isTerminalWorkspace ? (
-    <Suspense fallback={<div className="h-screen bg-[#111311]" />}>
-      <TerminalWorkspace />
-    </Suspense>
-  ) : (
-    <MainApp />
-  );
+  return <MainApp />;
 }
 
 export default App;

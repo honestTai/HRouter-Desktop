@@ -76,13 +76,13 @@
     "agentsTitle": "Agent 安装与更新",
     "agentsDescription": "检测并安装 7 个 CLI Agent；Codex GUI 使用随 HRouter 内置的微软签名安装包安装或检查更新。",
     "updatesTitle": "HRouter 版本更新",
-    "updatesDescription": "在顶部检查 HRouter 新版本，更新前可在弹窗中查看版本号、发布日期和完整更新内容。",
+    "updatesDescription": "从左侧菜单检查 HRouter 新版本，更新前可查看版本号、发布日期和完整更新内容。",
     "supportTitle": "需要售后支持？",
-    "supportDescription": "加入售后 QQ 群 {{group}} 获取使用帮助；顶部群号按钮也可随时一键复制。",
+    "supportDescription": "加入售后 QQ 群 {{group}} 获取使用帮助，可在本指南中一键复制群号。",
     "copyGroup": "复制群号",
     "groupCopied": "售后 QQ 群号已复制",
     "groupCopyFailed": "复制群号失败，请手动复制。",
-    "footerHint": "以后可从顶部“功能 FAQ”随时打开本指南。",
+    "footerHint": "以后可从左侧“功能 FAQ”随时打开本指南。",
     "start": "开始使用"
   },
   "hrouterWeb": {
@@ -93,6 +93,14 @@
     "refresh": "刷新网页",
     "openExternal": "在外部浏览器打开",
     "loading": "正在加载 HRouter 前台..."
+  },
+  "navigation": {
+    "productSubtitle": "Agent 配置中心",
+    "main": "主要功能",
+    "providers": "配置中心",
+    "providersHint": "管理 Agent、供应商与 HRouter Key",
+    "announcements": "公告与服务",
+    "announcementsHint": "查看 HRouter.net 公告与平台服务"
   },
   "apiKeyInput": {
     "placeholder": "请输入API Key",
@@ -144,7 +152,7 @@
     "windowClose": "关闭窗口"
   },
   "provider": {
-    "connectivityCheck": "检测连通",
+    "connectivityCheck": "检测服务",
     "tabProvider": "供应商",
     "tabUniversal": "统一供应商",
     "noProviders": "还没有添加任何供应商",
@@ -2832,10 +2840,10 @@
     "stopWithRestoreFailed": "停止失败: {{detail}}"
   },
   "streamCheck": {
-    "reachable": "{{providerName}} 连通正常 ({{responseTimeMs}}ms)",
-    "reachableSlow": "{{providerName}} 连通但较慢 ({{responseTimeMs}}ms)",
+    "reachable": "{{providerName}} 服务可达 · HTTP {{httpStatus}} · {{responseTimeMs}}ms",
+    "reachableSlow": "{{providerName}} 服务可达但响应较慢 · HTTP {{httpStatus}} · {{responseTimeMs}}ms",
     "unreachable": "{{providerName}} 无法连通: {{message}}",
-    "unreachableHint": "无法建立连接（DNS / 连接 / TLS / 超时）。请检查 base_url 与网络。",
+    "unreachableHint": "未收到 API 服务响应。请检查请求地址、系统网络或代理设置。",
     "connectivityNote": "连通检测仅探测供应商地址是否可达，不发送真实模型请求。收到任意响应即视为“可达”——这不代表鉴权或模型配置一定正确。",
     "configSaved": "连通检测配置已保存",
     "configSaveFailed": "保存失败",

@@ -1,14 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { HROUTER_HOME_URL, HRouterWebView } from "@/components/HRouterWebView";
-
-vi.mock("@tauri-apps/api/core", () => ({
-  isTauri: () => false,
-}));
-
-vi.mock("@/lib/api", () => ({
-  settingsApi: { openExternal: vi.fn() },
-}));
 
 describe("HRouterWebView", () => {
   it("embeds the hosted portal without copying its implementation", () => {
@@ -22,18 +14,15 @@ describe("HRouterWebView", () => {
     expect(screen.queryByText("hrouterWeb.loading")).not.toBeInTheDocument();
   });
 
-  it("opens the hosted portal in an external browser when requested", () => {
-    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+  it("keeps HRouter portal navigation inside the app", () => {
     render(<HRouterWebView />);
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "hrouterWeb.openExternal" }),
-    );
-
-    expect(open).toHaveBeenCalledWith(
+    expect(
+      screen.queryByRole("button", { name: "hrouterWeb.openExternal" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTitle("hrouterWeb.title")).toHaveAttribute(
+      "src",
       HROUTER_HOME_URL,
-      "_blank",
-      "noopener,noreferrer",
     );
   });
 });

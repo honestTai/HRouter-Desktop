@@ -2,17 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-.terminal-host .xterm,
-.terminal-host .xterm-viewport,
-.terminal-host .xterm-screen {
-  height: 100%;
-}
-
-.terminal-host .xterm-viewport {
-  scrollbar-color: rgb(101 113 105 / 55%) transparent;
-  scrollbar-width: thin;
-}
-
 @layer base {
   :root {
     --background: 0 0% 100%;

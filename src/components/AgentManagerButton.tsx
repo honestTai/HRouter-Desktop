@@ -32,6 +32,7 @@ import type {
 } from "@/lib/api/settings";
 import { isUpdateAvailable } from "@/lib/version";
 import { extractErrorMessage } from "@/utils/errorUtils";
+import { cn } from "@/lib/utils";
 
 const AGENT_TOOLS = [
   { name: "claude", label: "Claude Code", icon: "claude" },
@@ -66,7 +67,15 @@ function toolDisplayName(name: string): string {
   return AGENT_TOOLS.find((tool) => tool.name === name)?.label ?? name;
 }
 
-export function AgentManagerButton() {
+interface AgentManagerButtonProps {
+  className?: string;
+  showLabel?: boolean;
+}
+
+export function AgentManagerButton({
+  className,
+  showLabel = false,
+}: AgentManagerButtonProps = {}) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [toolVersions, setToolVersions] = useState<AgentToolVersion[]>([]);
@@ -258,10 +267,13 @@ export function AgentManagerButton() {
           onClick={() => setOpen(true)}
           title={t("settings.agentInstallUpdate")}
           aria-label={t("settings.agentInstallUpdate")}
-          className="relative h-8 gap-1.5 rounded-md border-emerald-500/25 bg-emerald-500/5 px-2.5 text-xs text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-300"
+          className={cn(
+            "relative h-8 gap-1.5 rounded-md border-emerald-500/25 bg-emerald-500/5 px-2.5 text-xs text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-300",
+            className,
+          )}
         >
           <Bot className="h-4 w-4" />
-          <span className="hidden 2xl:inline">
+          <span className={showLabel ? "inline" : "hidden 2xl:inline"}>
             {t("settings.agentInstallUpdate")}
           </span>
           {hasAgentUpdates && (

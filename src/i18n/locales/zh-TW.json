@@ -76,13 +76,13 @@
     "agentsTitle": "Agent 安裝與更新",
     "agentsDescription": "偵測並安裝 7 個 CLI Agent；Codex GUI 使用隨 HRouter 內建的微軟簽名安裝包安裝或檢查更新。",
     "updatesTitle": "HRouter 版本更新",
-    "updatesDescription": "在頂部檢查 HRouter 新版本，更新前可在彈窗中查看版本號、發布日期和完整更新內容。",
+    "updatesDescription": "從左側選單檢查 HRouter 新版本，更新前可查看版本號、發布日期和完整更新內容。",
     "supportTitle": "需要售後支援？",
-    "supportDescription": "加入售後 QQ 群 {{group}} 取得使用協助；頂部群號按鈕也可隨時一鍵複製。",
+    "supportDescription": "加入售後 QQ 群 {{group}} 取得使用協助，可在本指南中一鍵複製群號。",
     "copyGroup": "複製群號",
     "groupCopied": "售後 QQ 群號已複製",
     "groupCopyFailed": "複製群號失敗，請手動複製。",
-    "footerHint": "以後可從頂部「功能 FAQ」隨時開啟本指南。",
+    "footerHint": "以後可從左側「功能 FAQ」隨時開啟本指南。",
     "start": "開始使用"
   },
   "hrouterWeb": {
@@ -93,6 +93,14 @@
     "refresh": "重新整理網頁",
     "openExternal": "在外部瀏覽器開啟",
     "loading": "正在載入 HRouter 前台..."
+  },
+  "navigation": {
+    "productSubtitle": "Agent 設定中心",
+    "main": "主要功能",
+    "providers": "設定中心",
+    "providersHint": "管理 Agent、供應商與 HRouter Key",
+    "announcements": "公告與服務",
+    "announcementsHint": "查看 HRouter.net 公告與平台服務"
   },
   "apiKeyInput": {
     "placeholder": "請輸入 API Key",
@@ -144,7 +152,7 @@
     "windowClose": "關閉視窗"
   },
   "provider": {
-    "connectivityCheck": "檢測連通",
+    "connectivityCheck": "檢測服務",
     "tabProvider": "供應商",
     "tabUniversal": "通用供應商",
     "noProviders": "尚未新增任何供應商",
@@ -2833,10 +2841,10 @@
     "stopWithRestoreFailed": "停止失敗：{{detail}}"
   },
   "streamCheck": {
-    "reachable": "{{providerName}} 連通正常 ({{responseTimeMs}}ms)",
-    "reachableSlow": "{{providerName}} 連通但較慢 ({{responseTimeMs}}ms)",
+    "reachable": "{{providerName}} 服務可達 · HTTP {{httpStatus}} · {{responseTimeMs}}ms",
+    "reachableSlow": "{{providerName}} 服務可達但回應較慢 · HTTP {{httpStatus}} · {{responseTimeMs}}ms",
     "unreachable": "{{providerName}} 無法連通: {{message}}",
-    "unreachableHint": "無法建立連線（DNS / 連線 / TLS / 逾時）。請檢查 base_url 與網路。",
+    "unreachableHint": "未收到 API 服務回應。請檢查請求位址、系統網路或代理設定。",
     "connectivityNote": "連通檢測僅探測供應商位址是否可達，不發送真實模型請求。收到任意回應即視為「可達」——這不代表驗證或模型設定一定正確。",
     "configSaved": "連通檢測設定已儲存",
     "configSaveFailed": "儲存失敗",

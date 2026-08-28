@@ -1,14 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { isTauri } from "@tauri-apps/api/core";
-import {
-  ExternalLink,
-  Home,
-  Loader2,
-  LockKeyhole,
-  RefreshCw,
-} from "lucide-react";
-import { settingsApi } from "@/lib/api";
+import { Home, Loader2, LockKeyhole, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const HROUTER_HOME_URL = "https://hrouter.net/home";
@@ -21,14 +13,6 @@ export function HRouterWebView() {
   const reload = () => {
     setIsLoading(true);
     setFrameKey((current) => current + 1);
-  };
-
-  const openExternal = async () => {
-    if (!isTauri()) {
-      window.open(HROUTER_HOME_URL, "_blank", "noopener,noreferrer");
-      return;
-    }
-    await settingsApi.openExternal(HROUTER_HOME_URL);
   };
 
   return (
@@ -61,18 +45,6 @@ export function HRouterWebView() {
           <LockKeyhole className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
           <span className="truncate font-mono">hrouter.net/home</span>
         </div>
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={() => void openExternal()}
-          title={t("hrouterWeb.openExternal")}
-          aria-label={t("hrouterWeb.openExternal")}
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-        </Button>
       </div>
 
       <div className="relative min-h-0 flex-1 bg-white">

@@ -21,6 +21,7 @@ import { SUPPORT_QQ_GROUP } from "@/config/brand";
 import { settingsApi } from "@/lib/api";
 import { useSettingsQuery } from "@/lib/query";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogClose,
@@ -45,7 +46,15 @@ const FEATURES = [
   { key: "updates", icon: ArrowUpCircle, tone: "text-rose-600 bg-rose-500/10" },
 ] as const;
 
-export function HelpCenterButton() {
+interface HelpCenterButtonProps {
+  className?: string;
+  showLabel?: boolean;
+}
+
+export function HelpCenterButton({
+  className,
+  showLabel = false,
+}: HelpCenterButtonProps = {}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { data: settings } = useSettingsQuery();
@@ -97,10 +106,15 @@ export function HelpCenterButton() {
         onClick={() => setManualOpen(true)}
         title={t("faq.button")}
         aria-label={t("faq.button")}
-        className="h-8 gap-1.5 rounded-md border-cyan-500/25 bg-cyan-500/5 px-2.5 text-xs text-cyan-700 hover:bg-cyan-500/10 dark:text-cyan-300"
+        className={cn(
+          "h-8 gap-1.5 rounded-md border-cyan-500/25 bg-cyan-500/5 px-2.5 text-xs text-cyan-700 hover:bg-cyan-500/10 dark:text-cyan-300",
+          className,
+        )}
       >
         <CircleHelp className="h-4 w-4" />
-        <span className="hidden 2xl:inline">{t("faq.button")}</span>
+        <span className={showLabel ? "inline" : "hidden 2xl:inline"}>
+          {t("faq.button")}
+        </span>
       </Button>
 
       <DialogContent className="h-[min(780px,90vh)] max-w-5xl overflow-hidden">

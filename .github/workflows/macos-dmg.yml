@@ -6,7 +6,7 @@ on:
       tag:
         description: "Existing release tag to receive the DMG"
         required: true
-        default: "v0.2.4"
+        default: "v0.2.5"
 
 permissions:
   contents: write
