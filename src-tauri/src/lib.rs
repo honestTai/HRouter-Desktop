@@ -1562,6 +1562,8 @@ pub fn run() {
             commands::get_request_logs,
             commands::get_request_detail,
             commands::fetch_hrouter_model_plaza,
+            commands::fetch_hrouter_announcements,
+            commands::hrouter_platform_request,
             commands::get_model_pricing,
             commands::update_model_pricing,
             commands::update_model_pricing_batch,

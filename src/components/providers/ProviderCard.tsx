@@ -30,7 +30,6 @@ import {
 import { useProviderHealth } from "@/lib/query/failover";
 import { useUsageQuery } from "@/lib/query/queries";
 import { resolveProviderIcon } from "@/utils/providerIcon";
-import { parseHRouterUsageExtra } from "@/lib/hrouter";
 
 interface DragHandleProps {
   attributes: DraggableAttributes;
@@ -253,11 +252,7 @@ export function ProviderCard({
   const hasMultiplePlans =
     usage?.success && usage.data && usage.data.length > 1 && !isTokenPlan;
   const isHRouter = provider.meta?.providerType === "hrouter";
-  const hrouterUsageExtra = isHRouter
-    ? parseHRouterUsageExtra(usage?.data?.[0]?.extra)
-    : null;
-  const hasHRouterStats = (hrouterUsageExtra?.modelStats.length ?? 0) > 0;
-  const canExpandUsage = Boolean(hasMultiplePlans || hasHRouterStats);
+  const canExpandUsage = Boolean(hasMultiplePlans);
 
   const [isExpanded, setIsExpanded] = useState(false);
 

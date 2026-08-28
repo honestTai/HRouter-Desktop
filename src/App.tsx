@@ -63,7 +63,11 @@ import { AddProviderDialog } from "@/components/providers/AddProviderDialog";
 import { EditProviderDialog } from "@/components/providers/EditProviderDialog";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SettingsPage } from "@/components/settings/SettingsPage";
-import { HRouterWebView } from "@/components/HRouterWebView";
+import { HRouterAnnouncements } from "@/components/HRouterAnnouncements";
+import { HRouterDashboard } from "@/components/HRouterDashboard";
+import { HRouterApiKeysPage } from "@/components/hrouter/HRouterApiKeysPage";
+import { HRouterBillingPage } from "@/components/hrouter/HRouterBillingPage";
+import { HRouterUsagePage } from "@/components/hrouter/HRouterUsagePage";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { EnvWarningBanner } from "@/components/env/EnvWarningBanner";
 import { ProxyToggle } from "@/components/proxy/ProxyToggle";
@@ -98,6 +102,10 @@ import OpenClawHealthBanner from "@/components/openclaw/OpenClawHealthBanner";
 import HermesMemoryPanel from "@/components/hermes/HermesMemoryPanel";
 
 type View =
+  | "dashboard"
+  | "usage"
+  | "billing"
+  | "apiKeys"
   | "providers"
   | "settings"
   | "prompts"
@@ -112,7 +120,7 @@ type View =
   | "openclawTools"
   | "openclawAgents"
   | "hermesMemory"
-  | "hrouterWeb";
+  | "announcements";
 
 interface SyncStatusUpdatedPayload {
   source?: string;
@@ -122,7 +130,7 @@ interface SyncStatusUpdatedPayload {
 
 const DEFAULT_DRAG_BAR_HEIGHT = isWindows() || isLinux() ? 0 : 28; // px
 const HEADER_HEIGHT = 64; // px
-const SIDEBAR_WIDTH = 212; // px
+const SIDEBAR_WIDTH = 232; // px
 
 const STORAGE_KEY = "hrouter-last-app";
 const VALID_APPS: AppId[] = [
@@ -145,14 +153,22 @@ const getInitialApp = (): AppId => {
 };
 
 const VIEW_STORAGE_KEY = "hrouter-last-view";
-const VALID_VIEWS: View[] = ["providers", "settings"];
+const VALID_VIEWS: View[] = [
+  "dashboard",
+  "usage",
+  "billing",
+  "apiKeys",
+  "providers",
+  "announcements",
+  "settings",
+];
 
 const getInitialView = (): View => {
   const saved = localStorage.getItem(VIEW_STORAGE_KEY) as View | null;
   if (saved && VALID_VIEWS.includes(saved)) {
     return saved;
   }
-  return "providers";
+  return "dashboard";
 };
 
 function MainApp() {
@@ -874,6 +890,14 @@ function MainApp() {
   const renderContent = () => {
     const content = (() => {
       switch (currentView) {
+        case "dashboard":
+          return <HRouterDashboard />;
+        case "usage":
+          return <HRouterUsagePage />;
+        case "billing":
+          return <HRouterBillingPage />;
+        case "apiKeys":
+          return <HRouterApiKeysPage />;
         case "settings":
           return (
             <SettingsPage
@@ -896,8 +920,8 @@ function MainApp() {
           );
         case "hermesMemory":
           return <HermesMemoryPanel />;
-        case "hrouterWeb":
-          return <HRouterWebView />;
+        case "announcements":
+          return <HRouterAnnouncements />;
         case "skills":
           return (
             <UnifiedSkillsPanel
@@ -1038,9 +1062,14 @@ function MainApp() {
   };
 
   const isMainHeaderView = currentView === "providers";
+  const showsAgentSwitcher = currentView === "providers";
   const isPrimaryNavigationView =
+    currentView === "dashboard" ||
+    currentView === "usage" ||
+    currentView === "billing" ||
+    currentView === "apiKeys" ||
     currentView === "providers" ||
-    currentView === "hrouterWeb" ||
+    currentView === "announcements" ||
     currentView === "settings";
 
   return (
@@ -1133,8 +1162,12 @@ function MainApp() {
       >
         <AppSidebar
           currentView={currentView}
+          onOpenDashboard={() => setCurrentView("dashboard")}
+          onOpenUsage={() => setCurrentView("usage")}
+          onOpenBilling={() => setCurrentView("billing")}
+          onOpenApiKeys={() => setCurrentView("apiKeys")}
           onOpenProviders={() => setCurrentView("providers")}
-          onOpenAnnouncements={() => setCurrentView("hrouterWeb")}
+          onOpenAnnouncements={() => setCurrentView("announcements")}
           onOpenSettings={() => {
             setSettingsDefaultTab("general");
             setCurrentView("settings");
@@ -1208,20 +1241,44 @@ function MainApp() {
             ) : (
               <div className="min-w-0">
                 <h1 className="truncate text-base font-semibold">
+                  {currentView === "dashboard" &&
+                    t("navigation.dashboard", { defaultValue: "仪表盘" })}
+                  {currentView === "usage" &&
+                    t("navigation.usage", { defaultValue: "使用记录" })}
+                  {currentView === "billing" &&
+                    t("navigation.billing", { defaultValue: "充值支付" })}
+                  {currentView === "apiKeys" &&
+                    t("navigation.apiKeys", { defaultValue: "API 密钥" })}
                   {currentView === "providers" &&
                     t("navigation.providers", { defaultValue: "配置中心" })}
-                  {currentView === "hrouterWeb" &&
+                  {currentView === "announcements" &&
                     t("navigation.announcements", {
                       defaultValue: "公告与服务",
                     })}
                   {currentView === "settings" && t("settings.title")}
                 </h1>
                 <p className="truncate text-[11px] text-muted-foreground">
+                  {currentView === "dashboard" &&
+                    t("navigation.dashboardHint", {
+                      defaultValue: "查看 HRouter 余额、消费与模型用量",
+                    })}
+                  {currentView === "usage" &&
+                    t("navigation.usageHint", {
+                      defaultValue: "查看请求、Token 与实际消费明细",
+                    })}
+                  {currentView === "billing" &&
+                    t("navigation.billingHint", {
+                      defaultValue: "充值账户余额并查看支付订单",
+                    })}
+                  {currentView === "apiKeys" &&
+                    t("navigation.apiKeysHint", {
+                      defaultValue: "创建并管理 HRouter 调用密钥",
+                    })}
                   {currentView === "providers" &&
                     t("navigation.providersHint", {
                       defaultValue: "管理 Agent、供应商与 HRouter Key",
                     })}
-                  {currentView === "hrouterWeb" &&
+                  {currentView === "announcements" &&
                     t("navigation.announcementsHint", {
                       defaultValue: "查看 HRouter.net 公告与平台服务",
                     })}
@@ -1264,7 +1321,7 @@ function MainApp() {
             {/* 弹性中段：空间不足时由 AppSwitcher 自行收纳溢出应用；
                 justify-end + overflow-hidden 只裁剪 resize 瞬间的过渡帧 */}
             <div className="flex flex-1 min-w-0 items-center justify-end overflow-hidden py-4">
-              {isMainHeaderView && (
+              {showsAgentSwitcher && (
                 <AppSwitcher
                   activeApp={activeApp}
                   onSwitch={(app) => {

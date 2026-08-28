@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.6
+
+- Added native HRouter.net account sign-in and registration with locally stored account sessions.
+- Added native dashboard, usage records, billing, order history, and API key management views.
+- Read platform announcements from the public HRouter.net API without sending local provider keys.
+- Reorganized the sidebar around HRouter platform services and local Agent configuration, with the after-sales QQ group above Settings.
+- Fixed blank release notes by reading updater `notes`, `body`, and publication metadata.
+- Removed the obsolete embedded web entry and related iframe permission.
+
 ## 0.2.5
 
 - Reorganized HRouter Desktop around a persistent left navigation and a quieter task-focused header.

@@ -76,27 +76,31 @@ describe("FAQ locale coverage", () => {
   );
 });
 
-const portalKeys = [
+const announcementKeys = [
   "title",
-  "open",
-  "entry",
-  "home",
-  "refresh",
-  "openExternal",
+  "description",
   "loading",
+  "unavailableTitle",
+  "unavailableDescription",
+  "emptyTitle",
+  "emptyDescription",
 ] as const;
 
-describe("HRouter portal locale coverage", () => {
+describe("HRouter announcement locale coverage", () => {
   it.each([
-    ["en", en.hrouterWeb],
-    ["ja", ja.hrouterWeb],
-    ["zh", zh.hrouterWeb],
-    ["zh-TW", zhTW.hrouterWeb],
-  ] as const)("defines every portal key in %s", (_locale, portal) => {
-    expect(
-      portalKeys.filter(
-        (key) => !portal[key] || portal[key].trim().length === 0,
-      ),
-    ).toEqual([]);
-  });
+    ["en", en.hrouterAnnouncements],
+    ["ja", ja.hrouterAnnouncements],
+    ["zh", zh.hrouterAnnouncements],
+    ["zh-TW", zhTW.hrouterAnnouncements],
+  ] as const)(
+    "defines every announcement key in %s",
+    (_locale, announcements) => {
+      expect(
+        announcementKeys.filter(
+          (key) =>
+            !announcements[key] || announcements[key].trim().length === 0,
+        ),
+      ).toEqual([]);
+    },
+  );
 });

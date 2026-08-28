@@ -14,6 +14,15 @@ export interface CheckOptions {
   channel?: UpdateChannel;
 }
 
+function firstNonBlank(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
 export async function getCurrentVersion(): Promise<string> {
   try {
     return await getVersion();
@@ -38,11 +47,22 @@ export async function checkForUpdate(
   }
 
   const updateWithLegacyNotes = update as typeof update & { notes?: string };
+  const rawJson = update.rawJson ?? {};
   const info: UpdateInfo = {
     currentVersion,
     availableVersion: update.version ?? "",
-    notes: update.body ?? updateWithLegacyNotes.notes,
-    pubDate: update.date,
+    notes: firstNonBlank(
+      update.body,
+      updateWithLegacyNotes.notes,
+      rawJson.notes,
+      rawJson.body,
+    ),
+    pubDate: firstNonBlank(
+      update.date,
+      rawJson.pub_date,
+      rawJson.pubDate,
+      rawJson.date,
+    ),
   };
 
   return { status: "available", info };

@@ -194,7 +194,7 @@ describe("App integration with MSW", () => {
     skillsPanelMocks.checkUpdates.mockReset();
     skillsPanelMocks.openDiscovery.mockReset();
     localStorage.removeItem("cc-switch-last-view");
-    localStorage.removeItem("hrouter-last-view");
+    localStorage.setItem("hrouter-last-view", "providers");
   });
 
   it("covers basic provider flows via real hooks", async () => {
@@ -398,12 +398,14 @@ describe("App integration with MSW", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("falls back to providers for unsupported HRouter views", async () => {
+  it("falls back to the HRouter dashboard for unsupported views", async () => {
     localStorage.setItem("hrouter-last-view", "skills");
     const { default: App } = await import("@/App");
     renderApp(App);
 
-    expect(await screen.findByTestId("provider-list")).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText("登录 HRouter")).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.queryByTestId("unified-skills-panel"),
     ).not.toBeInTheDocument();

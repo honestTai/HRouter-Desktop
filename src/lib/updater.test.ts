@@ -53,4 +53,24 @@ describe("checkForUpdate", () => {
       info: { notes: "兼容旧版更新字段" },
     });
   });
+
+  it("falls back to raw updater JSON when the mapped body is blank", async () => {
+    updaterMocks.check.mockResolvedValue({
+      version: "0.2.5",
+      body: "  ",
+      date: "",
+      rawJson: {
+        notes: "完整更新说明",
+        pub_date: "2026-08-28T12:00:00Z",
+      },
+    });
+
+    await expect(checkForUpdate()).resolves.toMatchObject({
+      status: "available",
+      info: {
+        notes: "完整更新说明",
+        pubDate: "2026-08-28T12:00:00Z",
+      },
+    });
+  });
 });
