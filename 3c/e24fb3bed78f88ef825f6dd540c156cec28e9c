@@ -1,0 +1,32 @@
+.github/release-notes/v0.2.4.md
+  s_fd1a6b7dfac722::t_d4827f9927420a 3
+  s_fd1a6b7dfac722::t_b70899b535347f 1-2,4-8
+src/lib/updater.test.ts
+  s_fd1a6b7dfac722::t_b70899b535347f 1-56
+.github/release-notes/README.md
+  s_fd1a6b7dfac722::t_b70899b535347f 1-5
+.github/workflows/macos-dmg.yml
+  s_fd1a6b7dfac722::t_347615a4b46518 54-58
+  s_fd1a6b7dfac722::t_b70899b535347f 46-53,59
+.github/workflows/release.yml
+  s_fd1a6b7dfac722::t_b70899b535347f 41-54,60-69,99,160-167
+  s_fd1a6b7dfac722::t_347615a4b46518 55-59
+src/lib/updater.ts
+  s_fd1a6b7dfac722::t_b70899b535347f 40,43-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "3ce24fb3bed78f88ef825f6dd540c156cec28e9c",
+  "prompts": {},
+  "sessions": {
+    "s_fd1a6b7dfac722": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a041e1-88aa-7bd2-a4ca-61e5c9389296",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    }
+  }
+}
