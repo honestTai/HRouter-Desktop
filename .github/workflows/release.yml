@@ -38,6 +38,35 @@ jobs:
             throw "Release versions do not match: tag=$tagVersion package=$packageVersion tauri=$tauriVersion cargo=$cargoVersion"
           }
 
+      - name: Load required release notes
+        id: release_notes
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $notesPath = ".github/release-notes/$tag.md"
+          if (-not (Test-Path -LiteralPath $notesPath -PathType Leaf)) {
+            throw "Missing release notes: $notesPath"
+          }
+
+          $releaseBody = (Get-Content -LiteralPath $notesPath -Raw).Trim()
+          if ([string]::IsNullOrWhiteSpace($releaseBody)) {
+            throw "Release notes must not be empty: $notesPath"
+          }
+          $expectedTitle = "HRouter Desktop $tag"
+          $firstLine = ($releaseBody -split "`r?`n", 2)[0].Trim()
+          if ($firstLine -ne $expectedTitle) {
+            throw "Release notes must start with '$expectedTitle': $notesPath"
+          }
+          $detailLines = @($releaseBody -split "`r?`n" | Where-Object { $_ -match '^\s*[-*]\s+\S' })
+          if ($detailLines.Count -eq 0) {
+            throw "Release notes must contain at least one bullet item: $notesPath"
+          }
+
+          $delimiter = "RELEASE_NOTES_$([Guid]::NewGuid().ToString('N'))"
+          "body<<$delimiter" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          $releaseBody | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          $delimiter | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -67,15 +96,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "HRouter Desktop v__VERSION__"
-          releaseBody: |
-            HRouter Desktop v__VERSION__
-
-            - 新增系统原生 PTY 终端工作区，支持 Windows ConPTY 与 macOS 登录 Shell，并可多开独立窗口。
-            - HRouter 外部链接可正常打开新窗口，不再被内置页面拦截。
-            - Agent CLI 安装时若缺少 npm，会先安装 Node.js/npm 再继续。
-            - Codex 支持完整 config.toml 编辑、Goal 模式、远程压缩和自定义上下文配置。
-            - Profile 切换器展示 Provider、MCP 与 Skill 摘要，查找和切换更直观。
-            - 合入 CC Switch 的 Windows CLI 检测、WSL 写入、启动闪屏和升级预检修复，同时保留 HRouter 独有能力。
+          releaseBody: ${{ steps.release_notes.outputs.body }}
           releaseDraft: true
           prerelease: false
           uploadUpdaterJson: true
@@ -135,6 +156,14 @@ jobs:
           $expectedPrefix = "https://github.com/${{ github.repository }}/releases/download/$tag/"
           if ($manifest.version -ne $expectedVersion) {
             throw "Unexpected updater version: $($manifest.version)"
+          }
+          $notesPath = ".github/release-notes/$tag.md"
+          $expectedNotes = (Get-Content -LiteralPath $notesPath -Raw).Trim()
+          if ([string]::IsNullOrWhiteSpace($manifest.notes)) {
+            throw "Updater release notes are missing"
+          }
+          if ($manifest.notes.Trim() -ne $expectedNotes) {
+            throw "Updater release notes do not match $notesPath"
           }
           foreach ($platform in $manifest.platforms.PSObject.Properties) {
             if (-not $platform.Value.url.StartsWith($expectedPrefix)) {

@@ -43,6 +43,20 @@ jobs:
             throw "Release versions do not match: tag=$tagVersion package=$packageVersion tauri=$tauriVersion cargo=$cargoVersion"
           }
 
+          $notesPath = ".github/release-notes/$tag.md"
+          if (-not (Test-Path -LiteralPath $notesPath -PathType Leaf)) {
+            throw "Missing release notes: $notesPath"
+          }
+          $releaseBody = (Get-Content -LiteralPath $notesPath -Raw).Trim()
+          if ([string]::IsNullOrWhiteSpace($releaseBody)) {
+            throw "Release notes must not be empty: $notesPath"
+          }
+          $expectedTitle = "HRouter Desktop $tag"
+          $firstLine = ($releaseBody -split "`r?`n", 2)[0].Trim()
+          if ($firstLine -ne $expectedTitle) {
+            throw "Release notes must start with '$expectedTitle': $notesPath"
+          }
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:

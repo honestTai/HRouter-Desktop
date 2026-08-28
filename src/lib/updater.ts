@@ -37,11 +37,12 @@ export async function checkForUpdate(
     return { status: "up-to-date" };
   }
 
+  const updateWithLegacyNotes = update as typeof update & { notes?: string };
   const info: UpdateInfo = {
     currentVersion,
-    availableVersion: (update as any).version ?? "",
-    notes: (update as any).notes,
-    pubDate: (update as any).date,
+    availableVersion: update.version ?? "",
+    notes: update.body ?? updateWithLegacyNotes.notes,
+    pubDate: update.date,
   };
 
   return { status: "available", info };
