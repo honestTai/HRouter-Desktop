@@ -1,0 +1,88 @@
+src/i18n/locales/ja.json
+  s_fd1a6b7dfac722::t_93d10dfa17581c 3103-3112
+src/components/terminal/TerminalWorkspace.tsx
+  s_fd1a6b7dfac722::t_d32b0d87376a70 1-8,10,13-14,16-17,20-23,25,28-30,32-56,59-82,84-95,97-98,101,103-117,119-142,144-152,155-172,174-216,218-224,226-265
+  s_fd1a6b7dfac722::t_58e154de8f67f4 118
+  s_fd1a6b7dfac722::t_5ae7731aed2d59 15,27,57
+src-tauri/src/commands/embedded_terminal.rs
+  s_fd1a6b7dfac722::t_171e5128890adc 184
+  s_fd1a6b7dfac722::t_ea86b06c17ce77 37,43-60,117-145,195-197,215,230-253,422-427
+  s_fd1a6b7dfac722::t_2bf8b0470831e9 146,428
+src/lib/api/index.ts
+  s_fd1a6b7dfac722::t_58e154de8f67f4 16
+tests/components/TerminalWorkspace.test.tsx
+  s_fd1a6b7dfac722::t_5ae7731aed2d59 16,26-29
+  s_fd1a6b7dfac722::t_7deb8b8e879be7 1-15,17-25,30-58
+src-tauri/tauri.conf.json
+  s_fd1a6b7dfac722::t_e197d6556c44af 4
+src-tauri/Cargo.toml
+  s_fd1a6b7dfac722::t_e197d6556c44af 3
+src/i18n/locales/en.json
+  s_fd1a6b7dfac722::t_93d10dfa17581c 3103-3112
+src/i18n/locales/zh-TW.json
+  s_fd1a6b7dfac722::t_93d10dfa17581c 3104-3113
+src/App.tsx
+  s_fd1a6b7dfac722::t_25fe38555c944e 105,170,172,1250,1744-1745,1747
+package.json
+  s_fd1a6b7dfac722::t_e197d6556c44af 3
+src/components/terminal/EmbeddedTerminalPane.tsx
+  s_fd1a6b7dfac722::t_d32b0d87376a70 10,18,34,148,192,199
+.github/workflows/macos-dmg.yml
+  s_fd1a6b7dfac722::t_e197d6556c44af 9
+src/lib/hrouter.ts
+  s_fd1a6b7dfac722::t_e197d6556c44af 19,187-212,214-215,256,261
+  s_fd1a6b7dfac722::t_6c86f345c01135 213
+src/components/terminal/WorkspaceLauncherButton.tsx
+  s_fd1a6b7dfac722::t_25fe38555c944e 1-48,50-52
+  s_fd1a6b7dfac722::t_5ae7731aed2d59 49
+src/lib/api/embeddedTerminal.ts
+  s_fd1a6b7dfac722::t_25fe38555c944e 4,16-17,22
+  s_815e909be94b5d::t_9c917488761c6c 3
+src/components/providers/forms/HRouterProviderForm.tsx
+  s_fd1a6b7dfac722::t_e197d6556c44af 44,162
+tests/components/HRouterProviderForm.test.tsx
+  s_fd1a6b7dfac722::t_e197d6556c44af 37-38,100-122
+  s_fd1a6b7dfac722::t_73938c6d510510 123
+tests/components/WorkspaceLauncherButton.test.tsx
+  s_fd1a6b7dfac722::t_7deb8b8e879be7 1-26
+src/i18n/locales/zh.json
+  s_fd1a6b7dfac722::t_93d10dfa17581c 3103-3112
+src/lib/hrouter.test.ts
+  s_fd1a6b7dfac722::t_e197d6556c44af 11,15,69-74,106-119,123-125
+  s_fd1a6b7dfac722::t_6c86f345c01135 120-122
+  s_fd1a6b7dfac722::t_7d6bdb155769e8 126-127
+src-tauri/Cargo.lock
+  s_2ef9288c052326::t_35c98a0399883b 2246
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "33e016e0eae25eb35d27afc56c372cce81e52d71",
+  "prompts": {},
+  "sessions": {
+    "s_2ef9288c052326": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04355-28f2-7ba0-81b0-4bea154f2e39",
+        "model": "unknown"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    },
+    "s_815e909be94b5d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a041be-2dda-78d3-b39d-1fa9f60f510c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    },
+    "s_fd1a6b7dfac722": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a041e1-88aa-7bd2-a4ca-61e5c9389296",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "honest.tai <honest.tai@outlook.com>"
+    }
+  }
+}
