@@ -637,10 +637,14 @@ export function HRouterBillingPage() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold">
-                  {t("hrouterPlatform.inviteRewardTitle", {
-                    defaultValue: "邀请好友，享 {{rate}}% 返利",
-                    rate: affiliate.data?.effective_rebate_rate_percent ?? 0,
-                  })}
+                  {affiliate.data
+                    ? t("hrouterPlatform.inviteRewardTitle", {
+                        defaultValue: "邀请好友，享 {{rate}}% 返利",
+                        rate: affiliate.data.effective_rebate_rate_percent,
+                      })
+                    : t("hrouterPlatform.inviteRewards", {
+                        defaultValue: "邀请返利",
+                      })}
                 </h3>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {t("hrouterPlatform.inviteRewardSubtitle", {

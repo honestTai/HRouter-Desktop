@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.8
+
+- Fixed the desktop API allowlist so the account features added in 0.2.7 can reach HRouter.net after sign-in.
+- Covered referral rewards, usage statistics, groups, model pricing, redemption, profile, and password routes with allowlist regression tests.
+- Avoided showing a misleading 0% referral rate when referral data cannot be loaded.
+
 ## 0.2.7
 
 - Expanded the HRouter dashboard with filterable usage charts, model rankings, response-time gauges, and consistent live account totals.

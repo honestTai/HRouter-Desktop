@@ -45,10 +45,18 @@ fn is_allowed_request(method: &Method, path: &str) -> bool {
         | (&Method::GET, "/auth/me")
         | (&Method::GET, "/user/profile")
         | (&Method::GET, "/usage")
+        | (&Method::GET, "/usage/stats")
         | (&Method::GET, "/usage/dashboard/stats")
         | (&Method::GET, "/usage/dashboard/models")
+        | (&Method::GET, "/groups/available")
         | (&Method::GET, "/keys")
         | (&Method::POST, "/keys")
+        | (&Method::GET, "/model-plaza")
+        | (&Method::GET, "/user/aff")
+        | (&Method::POST, "/user/aff/transfer")
+        | (&Method::POST, "/redeem")
+        | (&Method::PUT, "/user")
+        | (&Method::PUT, "/user/password")
         | (&Method::GET, "/payment/checkout-info")
         | (&Method::GET, "/payment/orders/my")
         | (&Method::POST, "/payment/orders")
@@ -161,8 +169,24 @@ mod tests {
 
     #[test]
     fn only_allows_user_platform_routes() {
-        assert!(is_allowed_request(&Method::POST, "/auth/login"));
-        assert!(is_allowed_request(&Method::GET, "/usage"));
+        let fixed_routes = [
+            (Method::POST, "/auth/login"),
+            (Method::GET, "/usage"),
+            (Method::GET, "/usage/stats"),
+            (Method::GET, "/groups/available"),
+            (Method::GET, "/model-plaza"),
+            (Method::GET, "/user/aff"),
+            (Method::POST, "/user/aff/transfer"),
+            (Method::POST, "/redeem"),
+            (Method::PUT, "/user"),
+            (Method::PUT, "/user/password"),
+        ];
+        for (method, path) in fixed_routes {
+            assert!(
+                is_allowed_request(&method, path),
+                "expected {method} {path} to be allowed"
+            );
+        }
         assert!(is_allowed_request(&Method::PUT, "/keys/42"));
         assert!(is_allowed_request(
             &Method::POST,
