@@ -45,8 +45,10 @@ const requiredKeys = [
   "agentStatusLoadFailed",
   "codexGuiInstalled",
   "codexGuiNotInstalled",
-  "codexGuiWindowsOnly",
+  "codexGuiUnsupported",
+  "codexGuiMacIntelUnsupported",
   "codexGuiInstallerHint",
+  "codexGuiDownload",
   "codexGuiInstallerOpened",
   "codexGuiInstallerFailed",
 ] as const;

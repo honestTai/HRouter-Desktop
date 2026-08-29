@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import type {
   Settings,
   WebDavSyncSettings,
@@ -27,9 +27,38 @@ export interface CodexUnifyHistoryRestoreResult {
 }
 
 export interface CodexGuiStatus {
+  platform: "windows" | "macos" | "linux" | "unknown";
+  arch: "x64" | "arm64" | "unknown";
   supported: boolean;
   installed: boolean;
   version: string | null;
+}
+
+const CODEX_GUI_DOWNLOAD_URL = "https://pan.quark.cn/s/f2781358ae9f?pwd=x6yF";
+
+function getBrowserPreviewCodexGuiStatus(): CodexGuiStatus {
+  const platformToken =
+    `${navigator.platform} ${navigator.userAgent}`.toLowerCase();
+  const platform: CodexGuiStatus["platform"] = platformToken.includes("win")
+    ? "windows"
+    : platformToken.includes("mac")
+      ? "macos"
+      : platformToken.includes("linux")
+        ? "linux"
+        : "unknown";
+  const arch: CodexGuiStatus["arch"] = /arm64|aarch64/.test(platformToken)
+    ? "arm64"
+    : platform === "windows"
+      ? "x64"
+      : "unknown";
+
+  return {
+    platform,
+    arch,
+    supported: platform === "windows" || platform === "macos",
+    installed: false,
+    version: null,
+  };
 }
 
 export interface WebDavSyncResult {
@@ -72,10 +101,21 @@ export const settingsApi = {
   },
 
   async getCodexGuiStatus(): Promise<CodexGuiStatus> {
+    if (!isTauri()) return getBrowserPreviewCodexGuiStatus();
     return await invoke("get_codex_gui_status");
   },
 
   async launchCodexGuiInstaller(): Promise<boolean> {
+    if (!isTauri()) {
+      const opened = window.open("about:blank", "_blank");
+      if (!opened) {
+        window.location.assign(CODEX_GUI_DOWNLOAD_URL);
+        return true;
+      }
+      opened.opener = null;
+      opened.location.replace(CODEX_GUI_DOWNLOAD_URL);
+      return true;
+    }
     return await invoke("launch_codex_gui_installer");
   },
 
@@ -235,6 +275,16 @@ export const settingsApi = {
       }
     } catch {
       throw new Error("Invalid URL");
+    }
+    if (!isTauri()) {
+      const opened = window.open("about:blank", "_blank");
+      if (!opened) {
+        window.location.assign(url);
+        return;
+      }
+      opened.opener = null;
+      opened.location.replace(url);
+      return;
     }
     await invoke("open_external", { url });
   },

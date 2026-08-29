@@ -32,8 +32,8 @@ export function HRouterPageShell({
   });
 
   return (
-    <div className="h-full overflow-y-auto bg-muted/20 px-6 py-5">
-      <div className="mx-auto w-full max-w-6xl">
+    <div className="h-full min-h-0 overflow-y-auto overscroll-contain bg-muted/20 px-6 py-5 [scrollbar-gutter:stable]">
+      <div className="mx-auto w-full max-w-[1500px]">
         <div className="mb-4 flex h-8 items-center justify-end gap-2">
           {onRefresh && (
             <Button

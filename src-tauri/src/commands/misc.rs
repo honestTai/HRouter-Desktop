@@ -74,12 +74,70 @@ pub async fn is_portable_mode() -> Result<bool, String> {
 
 #[derive(serde::Serialize)]
 pub struct CodexGuiStatus {
+    platform: &'static str,
+    arch: &'static str,
     supported: bool,
     installed: bool,
     version: Option<String>,
 }
 
-/// 检测 Windows Store 版 Codex GUI 是否已安装。
+fn codex_gui_platform() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "windows"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        "unknown"
+    }
+}
+
+fn codex_gui_arch() -> &'static str {
+    match std::env::consts::ARCH {
+        "x86_64" => "x64",
+        "aarch64" => "arm64",
+        _ => "unknown",
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn find_macos_codex_app() -> Option<PathBuf> {
+    let mut candidates = vec![
+        PathBuf::from("/Applications/Codex.app"),
+        PathBuf::from("/Applications/ChatGPT.app"),
+    ];
+
+    if let Some(home) = dirs::home_dir() {
+        candidates.push(home.join("Applications/Codex.app"));
+        candidates.push(home.join("Applications/ChatGPT.app"));
+    }
+
+    candidates.into_iter().find(|path| path.is_dir())
+}
+
+#[cfg(target_os = "macos")]
+fn read_macos_bundle_version(app_path: &Path) -> Option<String> {
+    use std::process::Command;
+
+    let plist_path = app_path.join("Contents/Info.plist");
+    for key in ["CFBundleShortVersionString", "CFBundleVersion"] {
+        let output = Command::new("/usr/bin/plutil")
+            .args(["-extract", key, "raw", "-o", "-"])
+            .arg(&plist_path)
+            .output()
+            .ok()?;
+        if output.status.success() {
+            let version = decode_command_output(&output.stdout).trim().to_string();
+            if !version.is_empty() {
+                return Some(version);
+            }
+        }
+    }
+    None
+}
+
+/// 仅检测当前操作系统上的 Codex GUI 安装状态。
 #[tauri::command]
 pub async fn get_codex_gui_status() -> Result<CodexGuiStatus, String> {
     #[cfg(target_os = "windows")]
@@ -107,55 +165,53 @@ pub async fn get_codex_gui_status() -> Result<CodexGuiStatus, String> {
 
         let version = decode_command_output(&output.stdout).trim().to_string();
         Ok(CodexGuiStatus {
+            platform: codex_gui_platform(),
+            arch: codex_gui_arch(),
             supported: true,
             installed: !version.is_empty(),
             version: (!version.is_empty()).then_some(version),
         })
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
+    {
+        let app_path = find_macos_codex_app();
+        let version = app_path.as_deref().and_then(read_macos_bundle_version);
+        Ok(CodexGuiStatus {
+            platform: codex_gui_platform(),
+            arch: codex_gui_arch(),
+            supported: cfg!(target_arch = "aarch64"),
+            installed: app_path.is_some(),
+            version,
+        })
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     Ok(CodexGuiStatus {
+        platform: codex_gui_platform(),
+        arch: codex_gui_arch(),
         supported: false,
         installed: false,
         version: None,
     })
 }
 
-/// 启动随 HRouter 打包的微软签名 Codex Store Installer。
+/// 打开 Codex GUI 离线安装包下载页。
 #[tauri::command]
 pub async fn launch_codex_gui_installer(app: AppHandle) -> Result<bool, String> {
-    #[cfg(target_os = "windows")]
-    {
-        use sha2::{Digest, Sha256};
-        use std::process::Command;
-        use tauri::path::BaseDirectory;
-        use tauri::Manager;
+    const CODEX_GUI_DOWNLOAD_URL: &str = "https://pan.quark.cn/s/f2781358ae9f?pwd=x6yF";
 
-        const INSTALLER_SHA256: &str =
-            "05FBBC5DCF5F209B94A51AC2CB5B6761CC9DCD51791644ADB0030244F2625237";
-
-        let installer_path = app
-            .path()
-            .resolve("codex-gui-installer.exe", BaseDirectory::Resource)
-            .map_err(|e| format!("定位 Codex GUI 安装器失败: {e}"))?;
-        let installer = std::fs::read(&installer_path)
-            .map_err(|e| format!("读取 Codex GUI 安装器失败: {e}"))?;
-        let actual_hash = format!("{:X}", Sha256::digest(&installer));
-        if actual_hash != INSTALLER_SHA256 {
-            return Err("Codex GUI 安装器校验失败，已阻止启动".to_string());
-        }
-
-        Command::new(&installer_path)
-            .spawn()
-            .map_err(|e| format!("启动 Codex GUI 安装器失败: {e}"))?;
-        Ok(true)
+    if cfg!(target_os = "macos") && !cfg!(target_arch = "aarch64") {
+        return Err("Codex GUI 当前仅支持 Apple Silicon Mac".to_string());
+    }
+    if !cfg!(any(target_os = "windows", target_os = "macos")) {
+        return Err("当前操作系统不支持 Codex GUI".to_string());
     }
 
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = app;
-        Err("Codex GUI 安装器仅支持 Windows".to_string())
-    }
+    app.opener()
+        .open_url(CODEX_GUI_DOWNLOAD_URL, None::<String>)
+        .map_err(|e| format!("打开 Codex GUI 下载页失败: {e}"))?;
+    Ok(true)
 }
 
 /// 获取应用启动阶段的初始化错误（若有）。

@@ -54,7 +54,7 @@ describe("HelpCenterButton", () => {
     renderHelpCenter();
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "faq.start" }));
+    fireEvent.click(screen.getByRole("button", { name: /功能导览/ }));
 
     await waitFor(() => {
       expect(state.save).toHaveBeenCalledWith(

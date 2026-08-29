@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.7
+
+- Expanded the HRouter dashboard with filterable usage charts, model rankings, response-time gauges, and consistent live account totals.
+- Rebuilt usage records with complete request fields, filters, pagination, responsive scrolling, and collapsible details.
+- Upgraded billing with payment methods, recharge estimates, referral rewards, redemption, and a dedicated personal order history.
+- Added API key group selection, editing, model mapping, and guided one-click import into supported Agents.
+- Added profile and password management, direct website access, refreshed FAQ guidance, and an interactive feature tour.
+- Added operating-system-aware Codex GUI detection with Windows and Apple Silicon macOS offline downloads.
+
 ## 0.2.6
 
 - Added native HRouter.net account sign-in and registration with locally stored account sessions.

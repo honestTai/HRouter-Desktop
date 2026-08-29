@@ -39,25 +39,91 @@ export interface HRouterApiKey {
   id: number;
   key: string;
   name: string;
+  group_id: number | null;
+  group?: HRouterGroup | null;
   status: "active" | "inactive" | "quota_exhausted" | "expired";
   quota: number;
   quota_used: number;
+  current_concurrency?: number;
   last_used_at: string | null;
   expires_at: string | null;
+  ip_whitelist?: string[];
+  ip_blacklist?: string[];
+  rate_limit_5h?: number;
+  rate_limit_1d?: number;
+  rate_limit_7d?: number;
   created_at: string;
+}
+
+export interface HRouterKeyCreateInput {
+  name: string;
+  group_id: number;
+  custom_key?: string;
+  ip_whitelist?: string[];
+  ip_blacklist?: string[];
+  quota?: number;
+  expires_in_days?: number;
+  expires_at?: string;
+  rate_limit_5h?: number;
+  rate_limit_1d?: number;
+  rate_limit_7d?: number;
+}
+
+export interface HRouterKeyUpdateInput {
+  name?: string;
+  group_id?: number;
+  status?: HRouterApiKey["status"];
+  ip_whitelist?: string[];
+  ip_blacklist?: string[];
+  quota?: number;
+  expires_at?: string | null;
+  rate_limit_5h?: number;
+  rate_limit_1d?: number;
+  rate_limit_7d?: number;
+}
+
+export interface HRouterGroup {
+  id: number;
+  name: string;
+  description?: string;
+  platform: string;
+  rate_multiplier: number;
+  subscription_type: "standard" | "subscription" | string;
+  daily_limit_usd?: number;
+  weekly_limit_usd?: number;
+  monthly_limit_usd?: number;
+  rpm_limit?: number;
+  claude_code_only?: boolean;
+  max_reasoning_effort?: string;
 }
 
 export interface HRouterUsageLog {
   id: number;
   request_id: string;
+  api_key_id?: number;
+  group_id?: number;
+  api_key?: Pick<HRouterApiKey, "id" | "name" | "key"> | null;
+  group?: HRouterGroup | null;
   model: string;
+  request_type?: string;
+  billing_type?: number;
+  billing_mode?: string;
+  stream?: boolean;
   input_tokens: number;
   output_tokens: number;
   cache_creation_tokens: number;
   cache_read_tokens: number;
   total_tokens?: number;
+  input_cost?: number;
+  output_cost?: number;
+  cache_creation_cost?: number;
+  cache_read_cost?: number;
+  total_cost?: number;
   actual_cost: number;
+  rate_multiplier?: number;
   duration_ms: number | null;
+  first_token_ms?: number | null;
+  inbound_endpoint?: string;
   created_at: string;
 }
 
@@ -67,14 +133,62 @@ export interface HRouterDashboardStats {
   total_requests: number;
   total_input_tokens: number;
   total_output_tokens: number;
+  total_cache_creation_tokens?: number;
+  total_cache_read_tokens?: number;
   total_tokens: number;
+  total_cost?: number;
   total_actual_cost: number;
   today_requests: number;
+  today_input_tokens?: number;
+  today_output_tokens?: number;
+  today_cache_creation_tokens?: number;
+  today_cache_read_tokens?: number;
   today_tokens: number;
+  today_cost?: number;
   today_actual_cost: number;
   average_duration_ms: number;
   rpm: number;
   tpm: number;
+  by_platform?: Array<{
+    platform: string;
+    total_requests: number;
+    total_tokens: number;
+    total_actual_cost: number;
+    today_requests: number;
+    today_tokens: number;
+    today_actual_cost: number;
+  }>;
+}
+
+export interface HRouterUsageStats {
+  total_requests: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cache_tokens: number;
+  total_cache_creation_tokens: number;
+  total_cache_read_tokens: number;
+  total_tokens: number;
+  total_cost: number;
+  total_actual_cost: number;
+  average_duration_ms: number;
+  endpoints: Array<{
+    endpoint: string;
+    requests: number;
+    total_tokens: number;
+    cost: number;
+    actual_cost: number;
+  }>;
+}
+
+export interface HRouterUsageFilters {
+  startDate?: string;
+  endDate?: string;
+  apiKeyId?: number;
+  groupId?: number;
+  model?: string;
+  requestType?: string;
+  billingType?: number;
+  billingMode?: string;
 }
 
 export interface HRouterModelStat {
@@ -102,7 +216,14 @@ export interface HRouterPaymentMethod {
   single_min: number;
   single_max: number;
   fee_rate: number;
-  available: boolean;
+  available?: boolean;
+  enabled?: boolean;
+}
+
+export interface HRouterRechargeRebateTier {
+  min_amount: number;
+  max_amount?: number | null;
+  rate: number;
 }
 
 export interface HRouterCheckoutInfo {
@@ -112,7 +233,54 @@ export interface HRouterCheckoutInfo {
   balance_disabled: boolean;
   balance_recharge_multiplier: number;
   recharge_fee_rate: number;
+  recharge_rebate_enabled?: boolean;
+  recharge_rebate_rate?: number;
+  recharge_rebate_tiers?: HRouterRechargeRebateTier[];
   help_text?: string;
+}
+
+export interface HRouterModelPlazaTokenPricing {
+  billing_mode?: string;
+  input_price?: number | null;
+  output_price?: number | null;
+  cache_read_price?: number | null;
+  cache_write_price?: number | null;
+}
+
+export interface HRouterModelPlazaEntry {
+  name: string;
+  group_id: number;
+  group_name: string;
+  group_description?: string;
+  plaza_status?: string;
+  rate_multiplier?: number;
+  user_rate_multiplier?: number;
+  pricing?: HRouterModelPlazaTokenPricing | null;
+  official_pricing?: HRouterModelPlazaTokenPricing | null;
+}
+
+interface HRouterModelPlazaGroup {
+  id: number;
+  name: string;
+  description?: string;
+  plaza_status?: string;
+  rate_multiplier?: number;
+  user_rate_multiplier?: number;
+  models?: Array<
+    Omit<
+      HRouterModelPlazaEntry,
+      | "group_id"
+      | "group_name"
+      | "group_description"
+      | "plaza_status"
+      | "rate_multiplier"
+      | "user_rate_multiplier"
+    >
+  >;
+}
+
+interface HRouterModelPlazaResponse {
+  groups?: HRouterModelPlazaGroup[];
 }
 
 export interface HRouterPaymentOrder {
@@ -126,6 +294,26 @@ export interface HRouterPaymentOrder {
   order_type: string;
   created_at: string;
   expires_at: string;
+}
+
+export interface HRouterAffiliateInvitee {
+  id?: number;
+  username?: string;
+  email?: string;
+  created_at?: string;
+  total_recharged?: number;
+  rebate_amount?: number;
+}
+
+export interface HRouterAffiliateInfo {
+  user_id: number;
+  aff_code: string;
+  aff_count: number;
+  aff_quota: number;
+  aff_frozen_quota: number;
+  aff_history_quota: number;
+  effective_rebate_rate_percent: number;
+  invitees: HRouterAffiliateInvitee[];
 }
 
 export interface HRouterOrderResult {
@@ -448,23 +636,53 @@ export const hrouterAccountApi = {
         },
       },
     ),
-  usage: (page = 1, pageSize = 20) =>
+  usage: (page = 1, pageSize = 20, filters: HRouterUsageFilters = {}) =>
     authenticatedRequest<PaginatedResponse<HRouterUsageLog>>("GET", "/usage", {
       query: {
         page,
         page_size: pageSize,
+        start_date: filters.startDate,
+        end_date: filters.endDate,
+        api_key_id: filters.apiKeyId,
+        group_id: filters.groupId,
+        model: filters.model,
+        request_type: filters.requestType,
+        billing_type: filters.billingType,
+        billing_mode: filters.billingMode,
+        sort_by: "created_at",
+        sort_order: "desc",
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       },
     }),
+  usageStats: (
+    startDate?: string,
+    endDate?: string,
+    filters: HRouterUsageFilters = {},
+  ) =>
+    authenticatedRequest<HRouterUsageStats>("GET", "/usage/stats", {
+      query: {
+        start_date: startDate,
+        end_date: endDate,
+        api_key_id: filters.apiKeyId,
+        group_id: filters.groupId,
+        model: filters.model,
+        request_type: filters.requestType,
+        billing_type: filters.billingType,
+        billing_mode: filters.billingMode,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      },
+    }),
+  groups: () =>
+    authenticatedRequest<HRouterGroup[]>("GET", "/groups/available"),
   keys: (page = 1, pageSize = 50) =>
     authenticatedRequest<PaginatedResponse<HRouterApiKey>>("GET", "/keys", {
       query: { page, page_size: pageSize },
     }),
-  createKey: (name: string) =>
+  createKey: (input: HRouterKeyCreateInput) =>
     authenticatedRequest<HRouterApiKey>("POST", "/keys", {
-      body: { name },
+      body: input,
     }),
-  updateKey: (id: number, updates: Record<string, unknown>) =>
+  updateKey: (id: number, updates: HRouterKeyUpdateInput) =>
     authenticatedRequest<HRouterApiKey>("PUT", `/keys/${id}`, {
       body: updates,
     }),
@@ -472,11 +690,36 @@ export const hrouterAccountApi = {
     authenticatedRequest<{ message: string }>("DELETE", `/keys/${id}`),
   checkoutInfo: () =>
     authenticatedRequest<HRouterCheckoutInfo>("GET", "/payment/checkout-info"),
-  orders: (page = 1, pageSize = 20) =>
+  async modelPlaza() {
+    const response = await authenticatedRequest<HRouterModelPlazaResponse>(
+      "GET",
+      "/model-plaza",
+    );
+    return (response.groups ?? []).flatMap((group) =>
+      (group.models ?? []).map((model) => ({
+        ...model,
+        group_id: group.id,
+        group_name: group.name,
+        group_description: group.description,
+        plaza_status: group.plaza_status,
+        rate_multiplier: group.rate_multiplier,
+        user_rate_multiplier: group.user_rate_multiplier,
+      })),
+    );
+  },
+  affiliate: () =>
+    authenticatedRequest<HRouterAffiliateInfo>("GET", "/user/aff"),
+  transferAffiliate: () =>
+    authenticatedRequest<Record<string, unknown>>("POST", "/user/aff/transfer"),
+  redeemCode: (code: string) =>
+    authenticatedRequest<Record<string, unknown>>("POST", "/redeem", {
+      body: { code },
+    }),
+  orders: (page = 1, pageSize = 20, status?: string) =>
     authenticatedRequest<PaginatedResponse<HRouterPaymentOrder>>(
       "GET",
       "/payment/orders/my",
-      { query: { page, page_size: pageSize } },
+      { query: { page, page_size: pageSize, status } },
     ),
   createOrder: (amount: number, paymentType: string) =>
     authenticatedRequest<HRouterOrderResult>("POST", "/payment/orders", {
@@ -491,4 +734,20 @@ export const hrouterAccountApi = {
     }),
   cancelOrder: (id: number) =>
     authenticatedRequest("POST", `/payment/orders/${id}/cancel`),
+  async updateProfile(username: string) {
+    await authenticatedRequest("PUT", "/user", {
+      body: { username },
+    });
+    const user = await authenticatedRequest<HRouterUser>(
+      "GET",
+      "/user/profile",
+    );
+    const session = getHRouterSession();
+    if (session) saveHRouterSession({ ...session, user });
+    return user;
+  },
+  changePassword: (oldPassword: string, newPassword: string) =>
+    authenticatedRequest<{ message?: string }>("PUT", "/user/password", {
+      body: { old_password: oldPassword, new_password: newPassword },
+    }),
 };

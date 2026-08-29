@@ -133,4 +133,175 @@ describe("HRouter platform API", () => {
     expect(request.accessToken).toBeUndefined();
     expect(JSON.stringify(request)).not.toMatch(/api.?key|provider.?key/i);
   });
+
+  it("forwards usage filters supported by the public frontend", async () => {
+    saveHRouterSession({
+      accessToken: "access-token",
+      expiresAt: Date.now() + 3_600_000,
+      user: {
+        id: 10,
+        username: "desktop-user",
+        email: "user@example.com",
+        balance: 0,
+        concurrency: 1,
+        status: "active",
+        created_at: "2026-08-28T00:00:00Z",
+      },
+    });
+    tauriMocks.invoke.mockResolvedValue({
+      status: 200,
+      data: {
+        code: 0,
+        data: { items: [], total: 0, page: 2, page_size: 50, pages: 0 },
+      },
+    });
+
+    await hrouterAccountApi.usage(2, 50, {
+      startDate: "2026-08-21",
+      endDate: "2026-08-28",
+      apiKeyId: 3,
+      groupId: 8,
+      model: "gpt-5.6-sol",
+      requestType: "stream",
+      billingType: 1,
+      billingMode: "token",
+    });
+
+    expect(tauriMocks.invoke).toHaveBeenCalledWith(
+      "hrouter_platform_request",
+      expect.objectContaining({
+        request: expect.objectContaining({
+          path: "/usage",
+          query: expect.objectContaining({
+            page: "2",
+            page_size: "50",
+            start_date: "2026-08-21",
+            end_date: "2026-08-28",
+            api_key_id: "3",
+            group_id: "8",
+            model: "gpt-5.6-sol",
+            request_type: "stream",
+            billing_type: "1",
+            billing_mode: "token",
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("creates API keys in the selected group", async () => {
+    saveHRouterSession({
+      accessToken: "access-token",
+      expiresAt: Date.now() + 3_600_000,
+      user: {
+        id: 11,
+        username: "desktop-user",
+        email: "user@example.com",
+        balance: 0,
+        concurrency: 1,
+        status: "active",
+        created_at: "2026-08-28T00:00:00Z",
+      },
+    });
+    tauriMocks.invoke.mockResolvedValue({
+      status: 200,
+      data: {
+        code: 0,
+        data: { id: 1, name: "Codex", key: "sk-test", group_id: 8 },
+      },
+    });
+
+    await hrouterAccountApi.createKey({ name: "Codex", group_id: 8 });
+
+    expect(tauriMocks.invoke).toHaveBeenCalledWith(
+      "hrouter_platform_request",
+      expect.objectContaining({
+        request: expect.objectContaining({
+          method: "POST",
+          path: "/keys",
+          body: { name: "Codex", group_id: 8 },
+        }),
+      }),
+    );
+  });
+
+  it("uses the public recharge APIs and flattens model groups", async () => {
+    saveHRouterSession({
+      accessToken: "access-token",
+      expiresAt: Date.now() + 3_600_000,
+      user: {
+        id: 12,
+        username: "desktop-user",
+        email: "user@example.com",
+        balance: 0,
+        concurrency: 1,
+        status: "active",
+        created_at: "2026-08-28T00:00:00Z",
+      },
+    });
+    tauriMocks.invoke
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          code: 0,
+          data: {
+            groups: [
+              {
+                id: 8,
+                name: "GPT Pro Fast - 0.45",
+                rate_multiplier: 0.45,
+                models: [
+                  {
+                    name: "gpt-5.6-sol",
+                    pricing: { billing_mode: "token", input_price: 0.000004 },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        data: { code: 0, data: { message: "兑换成功" } },
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        data: { code: 0, data: { transferred: 10 } },
+      });
+
+    const models = await hrouterAccountApi.modelPlaza();
+    await hrouterAccountApi.redeemCode("REDEEM-123");
+    await hrouterAccountApi.transferAffiliate();
+
+    expect(models).toEqual([
+      expect.objectContaining({
+        name: "gpt-5.6-sol",
+        group_id: 8,
+        group_name: "GPT Pro Fast - 0.45",
+        rate_multiplier: 0.45,
+      }),
+    ]);
+    expect(tauriMocks.invoke).toHaveBeenNthCalledWith(
+      2,
+      "hrouter_platform_request",
+      expect.objectContaining({
+        request: expect.objectContaining({
+          method: "POST",
+          path: "/redeem",
+          body: { code: "REDEEM-123" },
+        }),
+      }),
+    );
+    expect(tauriMocks.invoke).toHaveBeenNthCalledWith(
+      3,
+      "hrouter_platform_request",
+      expect.objectContaining({
+        request: expect.objectContaining({
+          method: "POST",
+          path: "/user/aff/transfer",
+        }),
+      }),
+    );
+  });
 });

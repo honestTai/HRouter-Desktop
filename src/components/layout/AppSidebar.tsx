@@ -2,10 +2,12 @@ import {
   BarChart3,
   Bell,
   CircleDollarSign,
+  ExternalLink,
   KeyRound,
   LayoutDashboard,
   LayoutGrid,
   LogIn,
+  ReceiptText,
   Settings,
   UserRound,
 } from "lucide-react";
@@ -24,7 +26,10 @@ interface AppSidebarProps {
   onOpenDashboard: () => void;
   onOpenUsage: () => void;
   onOpenBilling: () => void;
+  onOpenOrders: () => void;
   onOpenApiKeys: () => void;
+  onOpenProfile: () => void;
+  onOpenFrontend: () => void;
   onOpenProviders: () => void;
   onOpenAnnouncements: () => void;
   onOpenSettings: () => void;
@@ -39,7 +44,10 @@ export function AppSidebar({
   onOpenDashboard,
   onOpenUsage,
   onOpenBilling,
+  onOpenOrders,
   onOpenApiKeys,
+  onOpenProfile,
+  onOpenFrontend,
   onOpenProviders,
   onOpenAnnouncements,
   onOpenSettings,
@@ -75,6 +83,7 @@ export function AppSidebar({
           variant="ghost"
           onClick={onOpenDashboard}
           className={itemClass("dashboard")}
+          data-tour="dashboard"
         >
           <LayoutDashboard className="h-4 w-4" />
           {t("navigation.dashboard", { defaultValue: "仪表盘" })}
@@ -84,6 +93,7 @@ export function AppSidebar({
           variant="ghost"
           onClick={onOpenUsage}
           className={itemClass("usage")}
+          data-tour="usage"
         >
           <BarChart3 className="h-4 w-4" />
           {t("navigation.usage", { defaultValue: "使用记录" })}
@@ -93,6 +103,7 @@ export function AppSidebar({
           variant="ghost"
           onClick={onOpenBilling}
           className={itemClass("billing")}
+          data-tour="billing"
         >
           <CircleDollarSign className="h-4 w-4" />
           {t("navigation.billing", { defaultValue: "充值支付" })}
@@ -100,11 +111,44 @@ export function AppSidebar({
         <Button
           type="button"
           variant="ghost"
+          onClick={onOpenOrders}
+          className={itemClass("orders")}
+          data-tour="orders"
+        >
+          <ReceiptText className="h-4 w-4" />
+          {t("navigation.orders", { defaultValue: "个人订单" })}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
           onClick={onOpenApiKeys}
           className={itemClass("apiKeys")}
+          data-tour="apiKeys"
         >
           <KeyRound className="h-4 w-4" />
           {t("navigation.apiKeys", { defaultValue: "API 密钥" })}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onOpenProfile}
+          className={itemClass("profile")}
+          data-tour="profile"
+        >
+          <UserRound className="h-4 w-4" />
+          {t("navigation.profile", { defaultValue: "个人中心" })}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onOpenFrontend}
+          className={utilityItemClass}
+          data-tour="frontend"
+        >
+          <ExternalLink className="h-4 w-4" />
+          {t("hrouterPlatform.openFrontend", {
+            defaultValue: "前台访问",
+          })}
         </Button>
         <Button
           type="button"
@@ -125,18 +169,21 @@ export function AppSidebar({
           variant="ghost"
           onClick={onOpenProviders}
           className={itemClass("providers")}
+          data-tour="providers"
         >
           <LayoutGrid className="h-4 w-4" />
           {t("navigation.providers", { defaultValue: "配置中心" })}
         </Button>
-        <AgentManagerButton className={utilityItemClass} showLabel />
+        <div data-tour="agents">
+          <AgentManagerButton className={utilityItemClass} showLabel />
+        </div>
       </nav>
 
       <div className="space-y-1 border-t border-border-default px-3 py-3">
         <Button
           type="button"
           variant="ghost"
-          onClick={onOpenDashboard}
+          onClick={session ? onOpenProfile : onOpenDashboard}
           className={cn(
             navItemClass,
             "mb-2 h-auto min-h-11 border border-border-default bg-background py-2 text-left",
@@ -162,7 +209,9 @@ export function AppSidebar({
           </span>
         </Button>
         <UpdateBadge className={utilityItemClass} />
-        <HelpCenterButton className={utilityItemClass} showLabel />
+        <div data-tour="help">
+          <HelpCenterButton className={utilityItemClass} showLabel />
+        </div>
         <SupportGroupButton sidebar />
         <Button
           type="button"

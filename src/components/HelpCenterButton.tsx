@@ -3,10 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  ArrowUpCircle,
   BarChart3,
   Bot,
-  Check,
   CircleHelp,
   Copy,
   Gauge,
@@ -14,7 +12,11 @@ import {
   Headphones,
   Route,
   ShieldCheck,
-  Store,
+  CircleDollarSign,
+  KeyRound,
+  MousePointerClick,
+  ReceiptText,
+  UserRound,
   X,
 } from "lucide-react";
 import { SUPPORT_QQ_GROUP } from "@/config/brand";
@@ -38,12 +40,18 @@ const FEATURES = [
     icon: Globe2,
     tone: "text-sky-600 bg-sky-500/10",
   },
-  { key: "providers", icon: Route, tone: "text-blue-600 bg-blue-500/10" },
-  { key: "modelPlaza", icon: Store, tone: "text-amber-600 bg-amber-500/10" },
-  { key: "context", icon: Gauge, tone: "text-cyan-600 bg-cyan-500/10" },
+  { key: "dashboard", icon: Gauge, tone: "text-cyan-600 bg-cyan-500/10" },
   { key: "usage", icon: BarChart3, tone: "text-violet-600 bg-violet-500/10" },
+  {
+    key: "billing",
+    icon: CircleDollarSign,
+    tone: "text-orange-600 bg-orange-500/10",
+  },
+  { key: "orders", icon: ReceiptText, tone: "text-amber-600 bg-amber-500/10" },
+  { key: "apiKeys", icon: KeyRound, tone: "text-sky-600 bg-sky-500/10" },
+  { key: "profile", icon: UserRound, tone: "text-rose-600 bg-rose-500/10" },
+  { key: "providers", icon: Route, tone: "text-blue-600 bg-blue-500/10" },
   { key: "agents", icon: Bot, tone: "text-emerald-600 bg-emerald-500/10" },
-  { key: "updates", icon: ArrowUpCircle, tone: "text-rose-600 bg-rose-500/10" },
 ] as const;
 
 interface HelpCenterButtonProps {
@@ -95,6 +103,15 @@ export function HelpCenterButton({
       console.error("[HelpCenter] Failed to copy support group", error);
       toast.error(t("faq.groupCopyFailed"));
     }
+  };
+
+  const startTour = () => {
+    setManualOpen(false);
+    if (isFirstVisit) void acknowledgeFirstVisit();
+    window.setTimeout(
+      () => window.dispatchEvent(new Event("hrouter:start-tour")),
+      120,
+    );
   };
 
   return (
@@ -238,12 +255,10 @@ export function HelpCenterButton({
 
         <DialogFooter className="justify-between sm:justify-between">
           <p className="text-xs text-muted-foreground">{t("faq.footerHint")}</p>
-          <DialogClose asChild>
-            <Button type="button" className="gap-1.5">
-              <Check className="h-4 w-4" />
-              {t("faq.start")}
-            </Button>
-          </DialogClose>
+          <Button type="button" className="gap-1.5" onClick={startTour}>
+            <MousePointerClick className="h-4 w-4" />
+            {t("faq.startTour", { defaultValue: "开始功能导览" })}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

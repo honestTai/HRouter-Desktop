@@ -67,7 +67,10 @@ import { HRouterAnnouncements } from "@/components/HRouterAnnouncements";
 import { HRouterDashboard } from "@/components/HRouterDashboard";
 import { HRouterApiKeysPage } from "@/components/hrouter/HRouterApiKeysPage";
 import { HRouterBillingPage } from "@/components/hrouter/HRouterBillingPage";
+import { HRouterOrdersPage } from "@/components/hrouter/HRouterOrdersPage";
+import { HRouterProfilePage } from "@/components/hrouter/HRouterProfilePage";
 import { HRouterUsagePage } from "@/components/hrouter/HRouterUsagePage";
+import { FeatureTour } from "@/components/FeatureTour";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { EnvWarningBanner } from "@/components/env/EnvWarningBanner";
 import { ProxyToggle } from "@/components/proxy/ProxyToggle";
@@ -105,7 +108,9 @@ type View =
   | "dashboard"
   | "usage"
   | "billing"
+  | "orders"
   | "apiKeys"
+  | "profile"
   | "providers"
   | "settings"
   | "prompts"
@@ -157,7 +162,9 @@ const VALID_VIEWS: View[] = [
   "dashboard",
   "usage",
   "billing",
+  "orders",
   "apiKeys",
+  "profile",
   "providers",
   "announcements",
   "settings",
@@ -896,8 +903,12 @@ function MainApp() {
           return <HRouterUsagePage />;
         case "billing":
           return <HRouterBillingPage />;
+        case "orders":
+          return <HRouterOrdersPage />;
         case "apiKeys":
           return <HRouterApiKeysPage />;
+        case "profile":
+          return <HRouterProfilePage />;
         case "settings":
           return (
             <SettingsPage
@@ -1045,20 +1056,7 @@ function MainApp() {
       }
     })();
 
-    return (
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentView}
-          className="flex-1 min-h-0"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          {content}
-        </motion.div>
-      </AnimatePresence>
-    );
+    return <div className="flex min-h-0 flex-1 flex-col">{content}</div>;
   };
 
   const isMainHeaderView = currentView === "providers";
@@ -1067,7 +1065,9 @@ function MainApp() {
     currentView === "dashboard" ||
     currentView === "usage" ||
     currentView === "billing" ||
+    currentView === "orders" ||
     currentView === "apiKeys" ||
+    currentView === "profile" ||
     currentView === "providers" ||
     currentView === "announcements" ||
     currentView === "settings";
@@ -1165,7 +1165,12 @@ function MainApp() {
           onOpenDashboard={() => setCurrentView("dashboard")}
           onOpenUsage={() => setCurrentView("usage")}
           onOpenBilling={() => setCurrentView("billing")}
+          onOpenOrders={() => setCurrentView("orders")}
           onOpenApiKeys={() => setCurrentView("apiKeys")}
+          onOpenProfile={() => setCurrentView("profile")}
+          onOpenFrontend={() =>
+            void handleOpenWebsite("https://hrouter.net/home")
+          }
           onOpenProviders={() => setCurrentView("providers")}
           onOpenAnnouncements={() => setCurrentView("announcements")}
           onOpenSettings={() => {
@@ -1247,8 +1252,12 @@ function MainApp() {
                     t("navigation.usage", { defaultValue: "使用记录" })}
                   {currentView === "billing" &&
                     t("navigation.billing", { defaultValue: "充值支付" })}
+                  {currentView === "orders" &&
+                    t("navigation.orders", { defaultValue: "个人订单" })}
                   {currentView === "apiKeys" &&
                     t("navigation.apiKeys", { defaultValue: "API 密钥" })}
+                  {currentView === "profile" &&
+                    t("navigation.profile", { defaultValue: "个人中心" })}
                   {currentView === "providers" &&
                     t("navigation.providers", { defaultValue: "配置中心" })}
                   {currentView === "announcements" &&
@@ -1268,11 +1277,19 @@ function MainApp() {
                     })}
                   {currentView === "billing" &&
                     t("navigation.billingHint", {
-                      defaultValue: "充值账户余额并查看支付订单",
+                      defaultValue: "充值账户余额并管理邀请返利",
+                    })}
+                  {currentView === "orders" &&
+                    t("navigation.ordersHint", {
+                      defaultValue: "单独查看和管理个人充值订单",
                     })}
                   {currentView === "apiKeys" &&
                     t("navigation.apiKeysHint", {
                       defaultValue: "创建并管理 HRouter 调用密钥",
+                    })}
+                  {currentView === "profile" &&
+                    t("navigation.profileHint", {
+                      defaultValue: "管理个人资料与账户密码",
                     })}
                   {currentView === "providers" &&
                     t("navigation.providersHint", {
@@ -1662,7 +1679,7 @@ function MainApp() {
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 flex flex-col overflow-y-auto animate-fade-in">
+      <main className="flex-1 min-h-0 flex flex-col overflow-hidden animate-fade-in">
         {isOpenClawView && openclawHealthWarnings.length > 0 && (
           <OpenClawHealthBanner warnings={openclawHealthWarnings} />
         )}
@@ -1748,6 +1765,12 @@ function MainApp() {
         onCancel={() => setLaunchDashboardOpen(false)}
       />
 
+      <FeatureTour
+        onNavigate={(view) => {
+          const nextView = view as View;
+          if (VALID_VIEWS.includes(nextView)) setCurrentView(nextView);
+        }}
+      />
       <DeepLinkImportDialog />
     </div>
   );

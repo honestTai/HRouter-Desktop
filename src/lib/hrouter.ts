@@ -580,7 +580,9 @@ export function buildHRouterProviderMeta(
   };
 
   if (appId === "claude-desktop") {
-    meta.claudeDesktopMode = "direct";
+    // HRouter aliases are not guaranteed to be native Claude Desktop model
+    // names, so role mapping must be handled by the local routing layer.
+    meta.claudeDesktopMode = "proxy";
     meta.claudeDesktopModelRoutes = {
       [CLAUDE_DESKTOP_ROLE_ROUTE_IDS.sonnet]: {
         model: mapping.sonnet,

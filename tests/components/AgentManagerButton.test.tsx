@@ -32,6 +32,8 @@ describe("AgentManagerButton", () => {
       },
     ]);
     apiMocks.getCodexGuiStatus.mockResolvedValue({
+      platform: "windows",
+      arch: "x64",
       supported: true,
       installed: true,
       version: "26.820.7780.0",
@@ -65,5 +67,33 @@ describe("AgentManagerButton", () => {
       expect(apiMocks.launchCodexGuiInstaller).toHaveBeenCalledTimes(1);
     });
     expect(apiMocks.runToolLifecycleAction).not.toHaveBeenCalled();
+  });
+
+  it("shows and checks the desktop app for the current macOS platform", async () => {
+    apiMocks.getCodexGuiStatus.mockResolvedValue({
+      platform: "macos",
+      arch: "arm64",
+      supported: true,
+      installed: false,
+      version: null,
+    });
+
+    render(<AgentManagerButton />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.agentInstallUpdate" }),
+    );
+
+    expect(await screen.findByText("macOS")).toBeInTheDocument();
+    expect(
+      screen.getByText("settings.codexGuiNotInstalled"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.codexGuiDownload" }),
+    );
+
+    await waitFor(() => {
+      expect(apiMocks.launchCodexGuiInstaller).toHaveBeenCalledTimes(1);
+    });
   });
 });

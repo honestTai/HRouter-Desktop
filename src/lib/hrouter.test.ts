@@ -167,7 +167,7 @@ keep_me = "preserved"
     expect(config.models["gpt-5.6-luna"].name).toBe("gpt-5.6-luna");
   });
 
-  it("marks Claude Desktop as a direct HRouter route", () => {
+  it("marks Claude Desktop as a proxied HRouter route", () => {
     const mapping = deriveHRouterModelMapping("claude-desktop", models);
     const meta = buildHRouterProviderMeta(
       "claude-desktop",
@@ -176,7 +176,7 @@ keep_me = "preserved"
     );
 
     expect(meta.providerType).toBe("hrouter");
-    expect(meta.claudeDesktopMode).toBe("direct");
+    expect(meta.claudeDesktopMode).toBe("proxy");
     expect(meta.claudeDesktopModelRoutes?.["claude-opus-5"]?.model).toBe(
       "claude-opus-5",
     );

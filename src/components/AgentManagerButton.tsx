@@ -58,9 +58,18 @@ interface AgentToolVersion {
 }
 
 const EMPTY_GUI_STATUS: CodexGuiStatus = {
+  platform: "unknown",
+  arch: "unknown",
   supported: false,
   installed: false,
   version: null,
+};
+
+const GUI_PLATFORM_LABEL: Record<CodexGuiStatus["platform"], string> = {
+  windows: "Windows",
+  macos: "macOS",
+  linux: "Linux",
+  unknown: "Desktop",
 };
 
 function toolDisplayName(name: string): string {
@@ -86,6 +95,7 @@ export function AgentManagerButton({
     Partial<Record<AgentToolName, ToolLifecycleAction>>
   >({});
   const [isLaunchingGui, setIsLaunchingGui] = useState(false);
+  const [isWatchingGuiInstall, setIsWatchingGuiInstall] = useState(false);
   const [pendingUpgrade, setPendingUpgrade] = useState<{
     toolName: AgentToolName;
     plans: ToolInstallationReport[];
@@ -139,6 +149,37 @@ export function AgentManagerButton({
       void loadStatuses();
     }
   }, [hasLoaded, isLoading, loadStatuses, open]);
+
+  useEffect(() => {
+    if (!open || !isWatchingGuiInstall) return;
+
+    let active = true;
+    const refreshGuiStatus = async () => {
+      try {
+        const nextStatus = await settingsApi.getCodexGuiStatus();
+        if (!active) return;
+        setGuiStatus(nextStatus);
+        if (nextStatus.installed) {
+          setIsWatchingGuiInstall(false);
+        }
+      } catch (error) {
+        console.error(
+          "[AgentManager] Failed to refresh Codex GUI status",
+          error,
+        );
+      }
+    };
+
+    void refreshGuiStatus();
+    const interval = window.setInterval(() => {
+      void refreshGuiStatus();
+    }, 3000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [isWatchingGuiInstall, open]);
 
   const replaceToolVersion = (tool: AgentToolVersion) => {
     setToolVersions((previous) => {
@@ -234,12 +275,19 @@ export function AgentManagerButton({
   };
 
   const handleGuiInstaller = async () => {
+    const wasInstalled = guiStatus.installed;
     setIsLaunchingGui(true);
     try {
       await settingsApi.launchCodexGuiInstaller();
       toast.success(t("settings.codexGuiInstallerOpened"), {
         closeButton: true,
       });
+      if (wasInstalled) {
+        const nextStatus = await settingsApi.getCodexGuiStatus();
+        setGuiStatus(nextStatus);
+      } else {
+        setIsWatchingGuiInstall(true);
+      }
     } catch (error) {
       console.error(
         "[AgentManager] Failed to launch Codex GUI installer",
@@ -259,7 +307,13 @@ export function AgentManagerButton({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          setOpen(nextOpen);
+          if (!nextOpen) setIsWatchingGuiInstall(false);
+        }}
+      >
         <Button
           type="button"
           variant="outline"
@@ -436,7 +490,7 @@ export function AgentManagerButton({
                     variant="outline"
                     className="h-5 border-blue-500/25 bg-blue-500/5 px-1.5 py-0 text-[10px] text-blue-600 dark:text-blue-400"
                   >
-                    Windows
+                    {GUI_PLATFORM_LABEL[guiStatus.platform]}
                   </Badge>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -446,10 +500,14 @@ export function AgentManagerButton({
                           version: guiStatus.version || t("common.unknown"),
                         })
                       : t("settings.codexGuiNotInstalled")
-                    : t("settings.codexGuiWindowsOnly")}
+                    : guiStatus.platform === "macos" && guiStatus.arch === "x64"
+                      ? t("settings.codexGuiMacIntelUnsupported")
+                      : t("settings.codexGuiUnsupported")}
                 </p>
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  {t("settings.codexGuiInstallerHint")}
+                  {t("settings.codexGuiInstallerHint", {
+                    platform: GUI_PLATFORM_LABEL[guiStatus.platform],
+                  })}
                 </p>
               </div>
               <Button
@@ -470,7 +528,7 @@ export function AgentManagerButton({
                 )}
                 {guiStatus.installed
                   ? t("settings.toolUpdate")
-                  : t("settings.toolInstall")}
+                  : t("settings.codexGuiDownload")}
               </Button>
             </div>
           </div>

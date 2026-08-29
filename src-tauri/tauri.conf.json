@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "HRouter",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "identifier": "com.hrouter.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -38,10 +38,6 @@
     "active": true,
     "targets": "all",
     "createUpdaterArtifacts": true,
-    "resources": {
-      "../LICENSE": "LICENSE",
-      "resources/codex-gui-installer.exe": "codex-gui-installer.exe"
-    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
