@@ -153,6 +153,7 @@ export function HRouterUsagePage() {
     <HRouterAccountGate>
       <HRouterPageShell
         onRefresh={refresh}
+        fitViewport
         refreshing={
           stats.isFetching ||
           keys.isFetching ||
@@ -163,7 +164,7 @@ export function HRouterUsagePage() {
         <Collapsible
           open={overviewOpen}
           onOpenChange={setOverviewOpen}
-          className="mb-4 rounded-md border border-border-default bg-background"
+          className="mb-4 shrink-0 rounded-md border border-border-default bg-background"
           data-tour="usage-filters"
         >
           <CollapsibleTrigger asChild>
@@ -328,17 +329,17 @@ export function HRouterUsagePage() {
         </Collapsible>
 
         {logs.isLoading ? (
-          <div className="flex min-h-64 items-center justify-center text-sm text-muted-foreground">
+          <div className="flex min-h-0 flex-1 items-center justify-center text-sm text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             {t("hrouterPlatform.loadingUsage")}
           </div>
         ) : logs.error ? (
-          <div className="border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-600">
+          <div className="min-h-0 flex-1 border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-600">
             {extractErrorMessage(logs.error)}
           </div>
         ) : (
-          <div className="overflow-hidden rounded-md border border-border-default bg-background">
-            <div className="flex h-10 items-center justify-between border-b border-border-default px-3">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border-default bg-background">
+            <div className="flex h-10 shrink-0 items-center justify-between border-b border-border-default px-3">
               <p className="text-xs font-medium">
                 {t("hrouterPlatform.usageDetails", {
                   defaultValue: "使用明细",
@@ -365,13 +366,7 @@ export function HRouterUsagePage() {
                 </Button>
               )}
             </div>
-            <div
-              className={`overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-gutter:stable] ${
-                overviewOpen
-                  ? "max-h-[calc(100vh-390px)] min-h-[360px]"
-                  : "max-h-[calc(100vh-245px)] min-h-[420px]"
-              }`}
-            >
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-gutter:stable]">
               <Table className="w-full table-fixed">
                 <TableHeader className="sticky top-0 z-10 bg-background shadow-[0_1px_0_hsl(var(--border))]">
                   <TableRow className="bg-muted/40 hover:bg-muted/40">
@@ -573,7 +568,7 @@ export function HRouterUsagePage() {
                 </TableBody>
               </Table>
             </div>
-            <div className="flex h-12 items-center justify-between border-t border-border-default px-3 text-xs text-muted-foreground">
+            <div className="flex h-12 shrink-0 items-center justify-between border-t border-border-default px-3 text-xs text-muted-foreground">
               <span>
                 {t("hrouterPlatform.totalItems", {
                   count: logs.data?.total ?? 0,
@@ -584,6 +579,7 @@ export function HRouterUsagePage() {
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
+                  aria-label={t("hrouterPlatform.previousPage")}
                   disabled={page <= 1}
                   onClick={() => setPage((value) => Math.max(1, value - 1))}
                 >
@@ -596,6 +592,7 @@ export function HRouterUsagePage() {
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
+                  aria-label={t("hrouterPlatform.nextPage")}
                   disabled={page >= (logs.data?.pages ?? 1)}
                   onClick={() => setPage((value) => value + 1)}
                 >

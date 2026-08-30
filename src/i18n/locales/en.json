@@ -157,6 +157,8 @@
     "duration": "Duration",
     "actualCost": "Actual spend",
     "totalItems": "{{count}} total",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
     "requestCount": "{{value}} requests",
     "createKey": "Create key",
     "loadingKeys": "Loading keys...",

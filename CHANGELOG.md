@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.11
+
+- Added a native macOS WidgetKit extension for today's HRouter usage and remaining balance.
+- Fixed HRouter usage pagination being pushed below the application viewport.
+- Added signed nested-extension verification to the macOS release pipeline.
+
 ## 0.2.10
 
 - Fixed dialog layering so window chrome and sidebar dividers stay behind the modal backdrop.

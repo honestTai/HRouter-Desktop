@@ -157,6 +157,8 @@
     "duration": "耗时",
     "actualCost": "实际消费",
     "totalItems": "共 {{count}} 条",
+    "previousPage": "上一页",
+    "nextPage": "下一页",
     "requestCount": "{{value}} 请求",
     "createKey": "创建密钥",
     "loadingKeys": "加载密钥...",

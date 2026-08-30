@@ -162,12 +162,34 @@ jobs:
             exit 1
           fi
 
+          widget_path="$app_path/Contents/PlugIns/HRouterWidget.appex"
+          if [ ! -d "$widget_path" ]; then
+            echo "Missing WidgetKit extension: $widget_path" >&2
+            exit 1
+          fi
+
           codesign --verify --deep --strict --verbose=2 "$app_path"
           signing_details=$(codesign -dv --verbose=4 "$app_path" 2>&1)
           printf '%s\n' "$signing_details"
           grep -Fq 'Authority=Developer ID Application:' <<<"$signing_details"
           grep -Fq "TeamIdentifier=$APPLE_TEAM_ID" <<<"$signing_details"
           grep -Eq 'flags=.*runtime' <<<"$signing_details"
+
+          codesign --verify --strict --verbose=2 "$widget_path"
+          widget_signing_details=$(codesign -dv --verbose=4 "$widget_path" 2>&1)
+          printf '%s\n' "$widget_signing_details"
+          grep -Fq 'Authority=Developer ID Application:' <<<"$widget_signing_details"
+          grep -Fq "TeamIdentifier=$APPLE_TEAM_ID" <<<"$widget_signing_details"
+          grep -Eq 'flags=.*runtime' <<<"$widget_signing_details"
+
+          app_entitlements="$RUNNER_TEMP/hrouter-app-entitlements.plist"
+          widget_entitlements="$RUNNER_TEMP/hrouter-widget-entitlements.plist"
+          codesign -d --entitlements :- "$app_path" > "$app_entitlements"
+          codesign -d --entitlements :- "$widget_path" > "$widget_entitlements"
+          grep -Fq "$APPLE_TEAM_ID.com.hrouter.desktop" "$app_entitlements"
+          grep -Fq "$APPLE_TEAM_ID.com.hrouter.desktop" "$widget_entitlements"
+          plutil -p "$widget_entitlements" | grep -Fq '"com.apple.security.app-sandbox" => true'
+
           spctl --assess --type execute --verbose=4 "$app_path"
           xcrun stapler validate "$app_path"
 

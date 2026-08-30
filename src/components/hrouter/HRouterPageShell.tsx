@@ -6,17 +6,20 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { hrouterAuthApi } from "@/lib/api/hrouterPlatform";
 import { useHRouterSession } from "@/hooks/useHRouterSession";
+import { cn } from "@/lib/utils";
 
 interface HRouterPageShellProps {
   children: ReactNode;
   onRefresh?: () => void;
   refreshing?: boolean;
+  fitViewport?: boolean;
 }
 
 export function HRouterPageShell({
   children,
   onRefresh,
   refreshing,
+  fitViewport = false,
 }: HRouterPageShellProps) {
   const { t } = useTranslation();
   const session = useHRouterSession();
@@ -32,9 +35,19 @@ export function HRouterPageShell({
   });
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto overscroll-contain bg-muted/20 px-6 py-5 [scrollbar-gutter:stable]">
-      <div className="mx-auto w-full max-w-[1500px]">
-        <div className="mb-4 flex h-8 items-center justify-end gap-2">
+    <div
+      className={cn(
+        "h-full min-h-0 overscroll-contain bg-muted/20 px-6 py-5 [scrollbar-gutter:stable]",
+        fitViewport ? "overflow-hidden" : "overflow-y-auto",
+      )}
+    >
+      <div
+        className={cn(
+          "mx-auto w-full max-w-[1500px]",
+          fitViewport && "flex h-full min-h-0 flex-col",
+        )}
+      >
+        <div className="mb-4 flex h-8 shrink-0 items-center justify-end gap-2">
           {onRefresh && (
             <Button
               type="button"

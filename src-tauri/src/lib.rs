@@ -20,6 +20,8 @@ mod init_status;
 mod lightweight;
 #[cfg(target_os = "linux")]
 mod linux_fix;
+#[cfg(target_os = "macos")]
+mod macos_widget;
 mod mcp;
 mod model_capabilities;
 mod openclaw_config;
@@ -314,6 +316,10 @@ async fn update_hrouter_tray_summary(
     app: tauri::AppHandle,
     summary: Option<tray::HRouterTraySummary>,
 ) -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    if let Err(error) = macos_widget::sync_summary(summary) {
+        log::warn!("同步 macOS 小组件数据失败: {error}");
+    }
     tray::update_hrouter_tray_summary(&app, summary)
 }
 

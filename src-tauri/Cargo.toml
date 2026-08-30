@@ -1,6 +1,6 @@
 [package]
 name = "hrouter"
-version = "0.2.10"
+version = "0.2.11"
 description = "HRouter configuration manager for AI coding agents"
 authors = ["HRouter Contributors"]
 license = "MIT"
@@ -106,6 +106,7 @@ rquickjs = { version = "0.8", features = ["bindgen"] }
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.5"
 objc2-app-kit = { version = "0.2", features = ["NSColor"] }
+objc2-foundation = { version = "0.2", features = ["NSFileManager", "NSString", "NSURL"] }
 
 # Optimize release binary size to help reduce AppImage footprint
 [profile.release]

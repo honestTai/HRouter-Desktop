@@ -1,0 +1,13 @@
+{
+  "build": {
+    "beforeBundleCommand": "bash scripts/build-macos-widget.sh"
+  },
+  "bundle": {
+    "macOS": {
+      "entitlements": "./macos-widget/HRouter.entitlements",
+      "files": {
+        "PlugIns/HRouterWidget.appex": "./macos-widget/build/HRouterWidget.appex"
+      }
+    }
+  }
+}

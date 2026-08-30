@@ -157,6 +157,8 @@
     "duration": "所要時間",
     "actualCost": "実際の利用額",
     "totalItems": "全 {{count}} 件",
+    "previousPage": "前のページ",
+    "nextPage": "次のページ",
     "requestCount": "{{value}} リクエスト",
     "createKey": "キーを作成",
     "loadingKeys": "キーを読み込み中...",

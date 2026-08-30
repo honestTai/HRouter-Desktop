@@ -7,6 +7,7 @@ release/
 .env.local
 *.tsbuildinfo
 .npmrc
+src-tauri/macos-widget/build/
 
 # Signing credentials and certificate requests
 *.p12

@@ -157,6 +157,8 @@
     "duration": "耗時",
     "actualCost": "實際消費",
     "totalItems": "共 {{count}} 筆",
+    "previousPage": "上一頁",
+    "nextPage": "下一頁",
     "requestCount": "{{value}} 個請求",
     "createKey": "建立金鑰",
     "loadingKeys": "載入金鑰...",
