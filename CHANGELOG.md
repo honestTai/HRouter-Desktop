@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.9
+
+- Removed the unintended bottom padding from the application shell so the main content and sidebar share the same bottom edge.
+- Fixed the clipped final row and blank strip at the bottom of HRouter account pages.
+
 ## 0.2.8
 
 - Fixed the desktop API allowlist so the account features added in 0.2.7 can reach HRouter.net after sign-in.

@@ -1074,7 +1074,7 @@ function MainApp() {
 
   return (
     <div
-      className="flex flex-col h-screen overflow-hidden bg-background text-foreground selection:bg-primary/30 pb-4"
+      className="flex h-screen flex-col overflow-hidden bg-background text-foreground selection:bg-primary/30"
       style={{
         overflowX: "hidden",
         paddingLeft: SIDEBAR_WIDTH,
