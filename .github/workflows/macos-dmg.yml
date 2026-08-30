@@ -122,6 +122,31 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: pnpm tauri build --target universal-apple-darwin --bundles app,dmg
 
+      - name: Notarize and staple macOS disk image
+        shell: bash
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          bundle_root="src-tauri/target/universal-apple-darwin/release/bundle"
+          shopt -s nullglob
+          dmg_files=("$bundle_root"/dmg/*.dmg)
+
+          if [ "${#dmg_files[@]}" -ne 1 ]; then
+            echo "Expected exactly one macOS DMG bundle, found ${#dmg_files[@]}" >&2
+            exit 1
+          fi
+
+          dmg_path="${dmg_files[0]}"
+          xcrun notarytool submit "$dmg_path" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$dmg_path"
+
       - name: Verify code signing and notarization
         shell: bash
         env:
