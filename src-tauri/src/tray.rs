@@ -179,6 +179,7 @@ fn format_hrouter_summary_labels(
     )
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn format_hrouter_status_title(summary: HRouterTraySummary, language: &str) -> String {
     match language {
         "en" => format!("T ¥{:.2} · B ¥{:.2}", summary.today_usage, summary.balance),
