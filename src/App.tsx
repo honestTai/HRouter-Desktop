@@ -43,6 +43,7 @@ import { hermesKeys, useOpenHermesWebUI } from "@/hooks/useHermes";
 import { hermesApi } from "@/lib/api/hermes";
 import { useProxyStatus } from "@/hooks/useProxyStatus";
 import { useUsageCacheBridge } from "@/hooks/useUsageCacheBridge";
+import { useHRouterTraySummary } from "@/hooks/useHRouterTraySummary";
 import { useTauriEvent } from "@/hooks/useTauriEvent";
 import { useLastValidValue } from "@/hooks/useLastValidValue";
 import { useScanUnmanagedSkills } from "@/hooks/useSkills";
@@ -269,6 +270,7 @@ function MainApp() {
   const effectiveUsageProvider = useLastValidValue(usageProvider);
 
   useUsageCacheBridge();
+  useHRouterTraySummary();
 
   const promptPanelRef = useRef<any>(null);
   const mcpPanelRef = useRef<any>(null);

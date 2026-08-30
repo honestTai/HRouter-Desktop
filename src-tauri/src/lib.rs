@@ -309,6 +309,14 @@ async fn update_tray_menu(
     }
 }
 
+#[tauri::command]
+async fn update_hrouter_tray_summary(
+    app: tauri::AppHandle,
+    summary: Option<tray::HRouterTraySummary>,
+) -> Result<bool, String> {
+    tray::update_hrouter_tray_summary(&app, summary)
+}
+
 #[cfg(target_os = "macos")]
 fn macos_tray_icon() -> Option<Image<'static>> {
     const ICON_BYTES: &[u8] = include_bytes!("../icons/tray/macos/statusbar_template_3x.png");
@@ -1390,6 +1398,7 @@ pub fn run() {
             commands::set_log_config,
             commands::restart_app,
             commands::install_update_and_restart,
+            commands::get_update_installability,
             commands::check_app_update_available,
             commands::check_for_updates,
             commands::is_portable_mode,
@@ -1486,6 +1495,7 @@ pub fn run() {
             commands::import_from_deeplink,
             commands::import_from_deeplink_unified,
             update_tray_menu,
+            update_hrouter_tray_summary,
             // Environment variable management
             commands::check_env_conflicts,
             commands::delete_env_vars,

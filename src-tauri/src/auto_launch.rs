@@ -4,7 +4,7 @@ use auto_launch::{AutoLaunch, AutoLaunchBuilder};
 /// 获取 macOS 上的 .app bundle 路径
 /// 将 `/path/to/HRouter.app/Contents/MacOS/HRouter` 转换为 `/path/to/HRouter.app`
 #[cfg(target_os = "macos")]
-fn get_macos_app_bundle_path(exe_path: &std::path::Path) -> Option<std::path::PathBuf> {
+pub(crate) fn get_macos_app_bundle_path(exe_path: &std::path::Path) -> Option<std::path::PathBuf> {
     let path_str = exe_path.to_string_lossy();
     // 查找 .app/Contents/MacOS/ 模式
     if let Some(app_pos) = path_str.find(".app/Contents/MacOS/") {

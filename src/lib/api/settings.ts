@@ -6,6 +6,7 @@ import type {
   RemoteSnapshotInfo,
 } from "@/types";
 import type { AppId } from "./types";
+import { PRODUCT_RELEASES_URL } from "@/config/brand";
 
 export interface ConfigTransferResult {
   success: boolean;
@@ -32,6 +33,16 @@ export interface CodexGuiStatus {
   supported: boolean;
   installed: boolean;
   version: string | null;
+}
+
+export interface UpdateInstallability {
+  canAutoInstall: boolean;
+  reason:
+    | "app_translocation"
+    | "disk_image"
+    | "cross_volume"
+    | "unbundled"
+    | null;
 }
 
 const CODEX_GUI_DOWNLOAD_URL = "https://pan.quark.cn/s/f2781358ae9f?pwd=x6yF";
@@ -92,8 +103,21 @@ export const settingsApi = {
     return await invoke("install_update_and_restart");
   },
 
+  async getUpdateInstallability(): Promise<UpdateInstallability> {
+    if (!isTauri()) return { canAutoInstall: true, reason: null };
+    return await invoke("get_update_installability");
+  },
+
+  async openUpdateDownload(version?: string): Promise<void> {
+    const normalized = version?.replace(/^v/, "").trim();
+    const url = normalized
+      ? `${PRODUCT_RELEASES_URL}/tag/v${encodeURIComponent(normalized)}`
+      : PRODUCT_RELEASES_URL;
+    await settingsApi.openExternal(url);
+  },
+
   async checkUpdates(): Promise<void> {
-    await invoke("check_for_updates");
+    await settingsApi.openUpdateDownload();
   },
 
   async isPortable(): Promise<boolean> {

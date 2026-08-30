@@ -10,6 +10,68 @@ struct UpdateDownloadProgress {
     total: Option<u64>,
 }
 
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateInstallability {
+    can_auto_install: bool,
+    reason: Option<&'static str>,
+}
+
+#[cfg(target_os = "macos")]
+fn classify_macos_update_location(
+    app_bundle: &std::path::Path,
+    app_device: Option<u64>,
+    temp_device: Option<u64>,
+) -> Option<&'static str> {
+    let path = app_bundle.to_string_lossy();
+    if path.contains("/AppTranslocation/") {
+        return Some("app_translocation");
+    }
+    if app_bundle.starts_with("/Volumes") {
+        return Some("disk_image");
+    }
+    if matches!((app_device, temp_device), (Some(app), Some(temp)) if app != temp) {
+        return Some("cross_volume");
+    }
+    None
+}
+
+fn update_installability() -> Result<UpdateInstallability, String> {
+    #[cfg(target_os = "macos")]
+    {
+        use std::os::unix::fs::MetadataExt;
+
+        let executable =
+            std::env::current_exe().map_err(|e| format!("获取应用运行路径失败: {e}"))?;
+        let Some(app_bundle) = crate::auto_launch::get_macos_app_bundle_path(&executable) else {
+            return Ok(UpdateInstallability {
+                can_auto_install: false,
+                reason: Some("unbundled"),
+            });
+        };
+        let app_device = std::fs::metadata(&app_bundle).ok().map(|meta| meta.dev());
+        let temp_device = std::fs::metadata(std::env::temp_dir())
+            .ok()
+            .map(|meta| meta.dev());
+        let reason = classify_macos_update_location(&app_bundle, app_device, temp_device);
+        Ok(UpdateInstallability {
+            can_auto_install: reason.is_none(),
+            reason,
+        })
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    Ok(UpdateInstallability {
+        can_auto_install: true,
+        reason: None,
+    })
+}
+
+#[tauri::command]
+pub async fn get_update_installability() -> Result<UpdateInstallability, String> {
+    update_installability()
+}
+
 fn merge_settings_for_save(
     mut incoming: crate::settings::AppSettings,
     existing: &crate::settings::AppSettings,
@@ -196,6 +258,14 @@ pub async fn restart_app(app: AppHandle) -> Result<bool, String> {
 /// 这里把退出清理、安装和重启串在同一个后端流程中，避免依赖旧前端继续执行。
 #[tauri::command]
 pub async fn install_update_and_restart(app: AppHandle) -> Result<bool, String> {
+    let installability = update_installability()?;
+    if !installability.can_auto_install {
+        return Err(format!(
+            "MANUAL_UPDATE_REQUIRED:{}",
+            installability.reason.unwrap_or("unsupported_location")
+        ));
+    }
+
     let updater = app
         .updater_builder()
         .build()
@@ -314,12 +384,46 @@ pub async fn set_auto_launch(enabled: bool) -> Result<bool, String> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os = "macos")]
+    use super::classify_macos_update_location;
     use super::merge_settings_for_save;
     use crate::settings::{
         AppSettings, CodexOfficialHistoryUnifyMigration, CodexProviderTemplateMigration,
         CodexThirdPartyHistoryProviderBucketMigration, LocalMigrations, S3SyncSettings,
         WebDavSyncSettings,
     };
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_update_rejects_disk_images_and_translocated_apps() {
+        assert_eq!(
+            classify_macos_update_location(
+                std::path::Path::new("/Volumes/HRouter/HRouter.app"),
+                Some(2),
+                Some(1),
+            ),
+            Some("disk_image")
+        );
+        assert_eq!(
+            classify_macos_update_location(
+                std::path::Path::new("/private/var/folders/x/AppTranslocation/y/HRouter.app",),
+                Some(1),
+                Some(1),
+            ),
+            Some("app_translocation")
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_update_requires_same_volume_as_temp_directory() {
+        let app = std::path::Path::new("/Applications/HRouter.app");
+        assert_eq!(
+            classify_macos_update_location(app, Some(2), Some(1)),
+            Some("cross_volume")
+        );
+        assert_eq!(classify_macos_update_location(app, Some(1), Some(1)), None);
+    }
 
     #[test]
     fn save_settings_should_preserve_existing_webdav_when_payload_omits_it() {

@@ -465,11 +465,25 @@ export function AboutSection({ isPortable }: AboutSectionProps) {
     if (hasUpdate) {
       if (isPortable) {
         try {
-          await settingsApi.checkUpdates();
+          await settingsApi.openUpdateDownload(updateInfo?.availableVersion);
         } catch (error) {
           console.error("[AboutSection] Portable update failed", error);
         }
         return;
+      }
+
+      try {
+        const installability = await settingsApi.getUpdateInstallability();
+        if (!installability.canAutoInstall) {
+          await settingsApi.openUpdateDownload(updateInfo?.availableVersion);
+          toast.info(t("settings.manualUpdateOpened"), {
+            description: t("settings.macosManualUpdateRequired"),
+            closeButton: true,
+          });
+          return;
+        }
+      } catch (preflightError) {
+        console.error("[AboutSection] Update preflight failed", preflightError);
       }
 
       setIsDownloading(true);
@@ -508,7 +522,14 @@ export function AboutSection({ isPortable }: AboutSectionProps) {
       console.error("[AboutSection] Check update failed", error);
       toast.error(t("settings.checkUpdateFailed"));
     }
-  }, [checkUpdate, hasUpdate, isPortable, resetDismiss, t]);
+  }, [
+    checkUpdate,
+    hasUpdate,
+    isPortable,
+    resetDismiss,
+    t,
+    updateInfo?.availableVersion,
+  ]);
 
   const handleCopyInstallCommands = useCallback(async () => {
     try {

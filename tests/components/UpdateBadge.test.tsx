@@ -17,16 +17,28 @@ const updateState = vi.hoisted(() => ({
   resetDismiss: vi.fn(),
 }));
 
+const settingsMocks = vi.hoisted(() => ({
+  isPortable: vi.fn(async () => false),
+  getUpdateInstallability: vi.fn(async () => ({
+    canAutoInstall: true,
+    reason: null as
+      | "app_translocation"
+      | "disk_image"
+      | "cross_volume"
+      | "unbundled"
+      | null,
+  })),
+  openUpdateDownload: vi.fn(async () => undefined),
+  checkUpdates: vi.fn(async () => undefined),
+  installUpdateAndRestart: vi.fn(async () => true),
+}));
+
 vi.mock("@/contexts/UpdateContext", () => ({
   useUpdate: () => updateState,
 }));
 
 vi.mock("@/lib/api", () => ({
-  settingsApi: {
-    isPortable: vi.fn(async () => false),
-    checkUpdates: vi.fn(async () => undefined),
-    installUpdateAndRestart: vi.fn(async () => true),
-  },
+  settingsApi: settingsMocks,
 }));
 
 vi.mock("@/lib/updater", () => ({
@@ -41,6 +53,10 @@ describe("UpdateBadge", () => {
     updateState.isChecking = false;
     updateState.hasChecked = true;
     updateState.error = null;
+    settingsMocks.getUpdateInstallability.mockResolvedValue({
+      canAutoInstall: true,
+      reason: null,
+    });
   });
 
   it("keeps the update entry visible when the app is up to date", () => {
@@ -66,5 +82,27 @@ describe("UpdateBadge", () => {
     expect(screen.getByText("v0.2.1")).toBeInTheDocument();
     expect(screen.getByText("v0.3.0")).toBeInTheDocument();
     expect(screen.getByText(/新增模型广场价格同步/)).toBeInTheDocument();
+  });
+
+  it("explains manual installation when macOS cannot update in place", async () => {
+    updateState.hasUpdate = true;
+    updateState.updateInfo = {
+      currentVersion: "0.2.8",
+      availableVersion: "0.2.9",
+      notes: "Fix macOS updates",
+    };
+    settingsMocks.getUpdateInstallability.mockResolvedValue({
+      canAutoInstall: false,
+      reason: "disk_image",
+    });
+
+    render(<UpdateBadge />);
+
+    expect(
+      await screen.findByText("settings.macosManualUpdateRequired"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "settings.downloadMacInstaller" }),
+    ).toBeInTheDocument();
   });
 });

@@ -48,6 +48,16 @@ static TRAY_SECTION_SUBMENUS: Lazy<
     std::sync::Mutex<std::collections::HashMap<AppType, Submenu<tauri::Wry>>>,
 > = Lazy::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
 
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HRouterTraySummary {
+    pub today_usage: f64,
+    pub balance: f64,
+}
+
+static HROUTER_TRAY_SUMMARY: Lazy<std::sync::Mutex<Option<HRouterTraySummary>>> =
+    Lazy::new(|| std::sync::Mutex::new(None));
+
 /// 托盘菜单文本（国际化）
 #[derive(Clone, Copy)]
 pub struct TrayTexts {
@@ -59,6 +69,8 @@ pub struct TrayTexts {
     pub _auto_label: &'static str,
     pub projects_label: &'static str,
     pub no_project_label: &'static str,
+    pub today_usage: &'static str,
+    pub remaining_balance: &'static str,
 }
 
 /// 将系统区域标识映射为托盘支持的语言码。
@@ -108,6 +120,8 @@ impl TrayTexts {
                 _auto_label: "Auto (Failover)",
                 projects_label: "Projects",
                 no_project_label: "No project",
+                today_usage: "Today's usage",
+                remaining_balance: "Remaining balance",
             },
             "ja" => Self {
                 show_main: "メインウィンドウを開く",
@@ -118,6 +132,8 @@ impl TrayTexts {
                 _auto_label: "自動 (フェイルオーバー)",
                 projects_label: "プロジェクト",
                 no_project_label: "プロジェクトを使用しない",
+                today_usage: "本日の利用額",
+                remaining_balance: "残高",
             },
             "zh-TW" => Self {
                 show_main: "開啟主介面",
@@ -128,6 +144,8 @@ impl TrayTexts {
                 _auto_label: "自動 (故障轉移)",
                 projects_label: "專案",
                 no_project_label: "不使用專案",
+                today_usage: "今日用量",
+                remaining_balance: "剩餘餘額",
             },
             _ => Self {
                 show_main: "打开主界面",
@@ -138,8 +156,44 @@ impl TrayTexts {
                 _auto_label: "自动 (故障转移)",
                 projects_label: "项目",
                 no_project_label: "不使用项目",
+                today_usage: "今日用量",
+                remaining_balance: "剩余余额",
             },
         }
+    }
+}
+
+fn hrouter_tray_summary() -> Option<HRouterTraySummary> {
+    *HROUTER_TRAY_SUMMARY
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+fn format_hrouter_summary_labels(
+    summary: HRouterTraySummary,
+    texts: TrayTexts,
+) -> (String, String) {
+    (
+        format!("{}  ¥{:.2}", texts.today_usage, summary.today_usage),
+        format!("{}  ¥{:.2}", texts.remaining_balance, summary.balance),
+    )
+}
+
+fn format_hrouter_status_title(summary: HRouterTraySummary, language: &str) -> String {
+    match language {
+        "en" => format!("T ¥{:.2} · B ¥{:.2}", summary.today_usage, summary.balance),
+        "ja" => format!(
+            "今日 ¥{:.2} · 残 ¥{:.2}",
+            summary.today_usage, summary.balance
+        ),
+        "zh-TW" => format!(
+            "今 ¥{:.2} · 餘 ¥{:.2}",
+            summary.today_usage, summary.balance
+        ),
+        _ => format!(
+            "今 ¥{:.2} · 余 ¥{:.2}",
+            summary.today_usage, summary.balance
+        ),
     }
 }
 
@@ -657,6 +711,30 @@ pub fn create_tray_menu(
     let mut section_handles: std::collections::HashMap<AppType, Submenu<tauri::Wry>> =
         std::collections::HashMap::new();
 
+    if let Some(summary) = hrouter_tray_summary() {
+        let (today_label, balance_label) = format_hrouter_summary_labels(summary, tray_texts);
+        let today_item = MenuItem::with_id(
+            app,
+            "hrouter_today_usage",
+            &today_label,
+            false,
+            None::<&str>,
+        )
+        .map_err(|e| AppError::Message(format!("创建 HRouter 今日用量菜单失败: {e}")))?;
+        let balance_item = MenuItem::with_id(
+            app,
+            "hrouter_remaining_balance",
+            &balance_label,
+            false,
+            None::<&str>,
+        )
+        .map_err(|e| AppError::Message(format!("创建 HRouter 余额菜单失败: {e}")))?;
+        menu_builder = menu_builder
+            .item(&today_item)
+            .item(&balance_item)
+            .separator();
+    }
+
     // 顶部：打开主界面 / 打开官方网站
     let show_main_item =
         MenuItem::with_id(app, "show_main", tray_texts.show_main, true, None::<&str>)
@@ -908,6 +986,58 @@ fn update_tray_usage_labels(app: &tauri::AppHandle) {
     }
 }
 
+pub fn update_hrouter_tray_summary(
+    app: &tauri::AppHandle,
+    summary: Option<HRouterTraySummary>,
+) -> Result<bool, String> {
+    if summary.is_some_and(|value| {
+        !value.today_usage.is_finite() || !value.balance.is_finite() || value.today_usage < 0.0
+    }) {
+        return Err("HRouter 托盘摘要包含无效数值".to_string());
+    }
+
+    let changed = {
+        let mut cached = HROUTER_TRAY_SUMMARY
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if *cached == summary {
+            false
+        } else {
+            *cached = summary;
+            true
+        }
+    };
+    if !changed {
+        return Ok(false);
+    }
+
+    refresh_tray_menu(app);
+
+    if let Some(tray) = app.tray_by_id(TRAY_ID) {
+        let settings = crate::settings::get_settings();
+        let language = match settings.language.as_deref() {
+            Some(language) => language,
+            None => detect_system_tray_language(),
+        };
+        let texts = TrayTexts::from_language(language);
+
+        #[cfg(target_os = "macos")]
+        tray.set_title(summary.map(|value| format_hrouter_status_title(value, language)))
+            .map_err(|e| format!("更新 macOS 菜单栏摘要失败: {e}"))?;
+
+        let tooltip = if let Some(value) = summary {
+            let (today, balance) = format_hrouter_summary_labels(value, texts);
+            format!("HRouter · {today} · {balance}")
+        } else {
+            "HRouter".to_string()
+        };
+        tray.set_tooltip(Some(tooltip))
+            .map_err(|e| format!("更新 HRouter 托盘提示失败: {e}"))?;
+    }
+
+    Ok(true)
+}
+
 pub fn refresh_tray_menu(app: &tauri::AppHandle) {
     use crate::store::AppState;
 
@@ -1128,7 +1258,10 @@ pub(crate) async fn refresh_all_usage_in_tray(app: &tauri::AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_script_summary, format_subscription_summary, TRAY_ID, TRAY_SECTIONS};
+    use super::{
+        format_hrouter_status_title, format_hrouter_summary_labels, format_script_summary,
+        format_subscription_summary, HRouterTraySummary, TrayTexts, TRAY_ID, TRAY_SECTIONS,
+    };
     use crate::app_config::AppType;
     use crate::provider::{UsageData, UsageResult};
     use crate::services::subscription::{
@@ -1141,6 +1274,22 @@ mod tests {
     fn tray_id_is_unique_to_app() {
         assert_eq!(TRAY_ID, "cc-switch");
         assert_ne!(TRAY_ID, "main");
+    }
+
+    #[test]
+    fn hrouter_summary_formats_menu_and_macos_title() {
+        let summary = HRouterTraySummary {
+            today_usage: 0.45,
+            balance: 608.62,
+        };
+        let (today, balance) =
+            format_hrouter_summary_labels(summary, TrayTexts::from_language("zh"));
+        assert_eq!(today, "今日用量  ¥0.45");
+        assert_eq!(balance, "剩余余额  ¥608.62");
+        assert_eq!(
+            format_hrouter_status_title(summary, "zh"),
+            "今 ¥0.45 · 余 ¥608.62"
+        );
     }
 
     #[test]

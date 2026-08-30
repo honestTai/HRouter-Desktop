@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.10
+
+- Fixed dialog layering so window chrome and sidebar dividers stay behind the modal backdrop.
+- Added a macOS menu bar summary for today's HRouter usage and remaining account balance.
+- Prevented unsafe in-place updates from disk images, translocated apps, and cross-volume locations, with a guided manual installer fallback.
+
 ## 0.2.9
 
 - Removed the unintended bottom padding from the application shell so the main content and sidebar share the same bottom edge.

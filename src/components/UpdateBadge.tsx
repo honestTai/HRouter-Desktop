@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useUpdate } from "@/contexts/UpdateContext";
 import { settingsApi } from "@/lib/api";
+import type { UpdateInstallability } from "@/lib/api/settings";
 import { getCurrentVersion } from "@/lib/updater";
 import { extractErrorMessage } from "@/utils/errorUtils";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,8 @@ export function UpdateBadge({ className = "" }: UpdateBadgeProps) {
   const [currentVersion, setCurrentVersion] = useState("");
   const [isPortable, setIsPortable] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
+  const [installability, setInstallability] =
+    useState<UpdateInstallability | null>(null);
   const isActive = hasUpdate && Boolean(updateInfo);
   const title = isActive
     ? t("settings.updateAvailable", {
@@ -62,6 +65,10 @@ export function UpdateBadge({ className = "" }: UpdateBadgeProps) {
       .isPortable()
       .then(setIsPortable)
       .catch(() => setIsPortable(false));
+    void settingsApi
+      .getUpdateInstallability()
+      .then(setInstallability)
+      .catch(() => setInstallability(null));
 
     if (!hasChecked && !isChecking) {
       void checkUpdate().catch(() => undefined);
@@ -105,11 +112,25 @@ export function UpdateBadge({ className = "" }: UpdateBadgeProps) {
   };
 
   const handleInstall = async () => {
-    if (isPortable) {
+    let currentInstallability = installability;
+    if (!currentInstallability) {
       try {
-        await settingsApi.checkUpdates();
+        currentInstallability = await settingsApi.getUpdateInstallability();
+        setInstallability(currentInstallability);
+      } catch (preflightError) {
+        console.error("[UpdateBadge] Update preflight failed", preflightError);
+      }
+    }
+
+    if (isPortable || currentInstallability?.canAutoInstall === false) {
+      try {
+        await settingsApi.openUpdateDownload(updateInfo?.availableVersion);
+        toast.info(t("settings.manualUpdateOpened"), {
+          description: t("settings.macosManualUpdateRequired"),
+          closeButton: true,
+        });
       } catch (installError) {
-        console.error("[UpdateBadge] Portable update failed", installError);
+        console.error("[UpdateBadge] Manual update failed", installError);
         toast.error(t("settings.updateFailed"));
       }
       return;
@@ -250,6 +271,11 @@ export function UpdateBadge({ className = "" }: UpdateBadgeProps) {
                   {t("settings.portableMode")}
                 </p>
               )}
+              {installability?.canAutoInstall === false && (
+                <div className="mt-3 rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs leading-5 text-amber-800 dark:text-amber-300">
+                  {t("settings.macosManualUpdateRequired")}
+                </div>
+              )}
             </div>
           ) : hasChecked ? (
             <div className="flex min-h-28 flex-col items-center justify-center gap-2 text-center">
@@ -296,9 +322,11 @@ export function UpdateBadge({ className = "" }: UpdateBadgeProps) {
               )}
               {isInstalling
                 ? t("settings.updating")
-                : t("settings.updateTo", {
-                    version: updateInfo.availableVersion,
-                  })}
+                : isPortable || installability?.canAutoInstall === false
+                  ? t("settings.downloadMacInstaller")
+                  : t("settings.updateTo", {
+                      version: updateInfo.availableVersion,
+                    })}
             </Button>
           )}
         </DialogFooter>
