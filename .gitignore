@@ -7,6 +7,12 @@ release/
 .env.local
 *.tsbuildinfo
 .npmrc
+
+# Signing credentials and certificate requests
+*.p12
+*.p8
+*.cer
+*.certSigningRequest
 CLAUDE.md
 AGENTS.md
 GEMINI.md

@@ -64,7 +64,8 @@ For releases approved under this policy, free code signing is provided by
 v0.2.1 Windows installer is not Authenticode-signed.
 
 See the full [code signing policy](CODE_SIGNING_POLICY.md) and
-[privacy policy](PRIVACY.md).
+[privacy policy](PRIVACY.md). The Apple Developer ID setup and release checks
+are documented in [docs/macos-signing.md](docs/macos-signing.md).
 
 ## 与 CC Switch 上游的关系
 

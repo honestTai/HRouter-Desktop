@@ -1,12 +1,11 @@
-name: macOS Universal DMG
+name: macOS Signed Universal Release
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing release tag to receive the DMG"
+        description: "Existing release tag to receive signed macOS artifacts"
         required: true
-        default: "v0.2.6"
 
 permissions:
   contents: write
@@ -16,9 +15,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  universal-dmg:
-    name: macOS Universal DMG
+  universal-release:
+    name: macOS Signed Universal Release
     runs-on: macos-latest
+    timeout-minutes: 60
 
     steps:
       - name: Checkout release tag
@@ -85,20 +85,146 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
 
-      - name: Build universal DMG
+      - name: Verify Apple signing secrets
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in \
+            APPLE_CERTIFICATE \
+            APPLE_CERTIFICATE_PASSWORD \
+            APPLE_ID \
+            APPLE_PASSWORD \
+            APPLE_TEAM_ID; do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ "${#missing[@]}" -ne 0 ]; then
+            echo "Missing required Apple signing secrets: ${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Build, sign, and notarize universal macOS bundles
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: pnpm tauri build --target universal-apple-darwin --bundles dmg
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm tauri build --target universal-apple-darwin --bundles app,dmg
 
-      - name: Upload DMG to GitHub Release
+      - name: Verify code signing and notarization
+        shell: bash
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          bundle_root="src-tauri/target/universal-apple-darwin/release/bundle"
+          app_path=$(find "$bundle_root/macos" -maxdepth 1 -name '*.app' -type d -print -quit)
+          dmg_path=$(find "$bundle_root/dmg" -maxdepth 1 -name '*.dmg' -type f -print -quit)
+
+          if [ -z "$app_path" ] || [ -z "$dmg_path" ]; then
+            echo "Expected one macOS app and one DMG bundle" >&2
+            exit 1
+          fi
+
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          signing_details=$(codesign -dv --verbose=4 "$app_path" 2>&1)
+          printf '%s\n' "$signing_details"
+          grep -Fq 'Authority=Developer ID Application:' <<<"$signing_details"
+          grep -Fq "TeamIdentifier=$APPLE_TEAM_ID" <<<"$signing_details"
+          grep -Eq 'flags=.*runtime' <<<"$signing_details"
+          spctl --assess --type execute --verbose=4 "$app_path"
+          xcrun stapler validate "$app_path"
+
+          codesign --verify --verbose=2 "$dmg_path"
+          spctl --assess --type open --context context:primary-signature --verbose=4 "$dmg_path"
+          xcrun stapler validate "$dmg_path"
+
+      - name: Upload macOS artifacts and update manifest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
           $tag = "${{ inputs.tag }}"
+          $bundleRoot = "src-tauri/target/universal-apple-darwin/release/bundle"
           $dmgFiles = @(Get-ChildItem "src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg")
           if ($dmgFiles.Count -ne 1) {
             throw "Expected exactly one universal DMG, found $($dmgFiles.Count)"
           }
-          gh release upload $tag $dmgFiles[0].FullName --clobber
+          $updaterFiles = @(Get-ChildItem "$bundleRoot/macos/*.app.tar.gz")
+          if ($updaterFiles.Count -ne 1) {
+            throw "Expected exactly one universal updater archive, found $($updaterFiles.Count)"
+          }
+          $signaturePath = "$($updaterFiles[0].FullName).sig"
+          if (-not (Test-Path -LiteralPath $signaturePath -PathType Leaf)) {
+            throw "Missing Tauri updater signature: $signaturePath"
+          }
+          $signature = (Get-Content -LiteralPath $signaturePath -Raw).Trim()
+          if ([string]::IsNullOrWhiteSpace($signature)) {
+            throw "Tauri updater signature is empty: $signaturePath"
+          }
+
+          $assets = @($dmgFiles[0].FullName, $updaterFiles[0].FullName, $signaturePath)
+          gh release upload $tag $assets --clobber
+
+          $manifestDir = Join-Path $env:RUNNER_TEMP "hrouter-macos-updater-manifest"
+          New-Item -ItemType Directory -Force -Path $manifestDir | Out-Null
+          gh release download $tag --pattern latest.json --dir $manifestDir --clobber
+          $manifestPath = Join-Path $manifestDir "latest.json"
+          $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+          if ($null -eq $manifest.platforms) {
+            throw "Updater manifest has no platforms object"
+          }
+
+          $assetName = [Uri]::EscapeDataString($updaterFiles[0].Name)
+          $entry = [pscustomobject]@{
+            signature = $signature
+            url = "https://github.com/${{ github.repository }}/releases/download/$tag/$assetName"
+          }
+          $manifest.platforms | Add-Member -NotePropertyName "darwin-aarch64" -NotePropertyValue $entry -Force
+          $manifest.platforms | Add-Member -NotePropertyName "darwin-x86_64" -NotePropertyValue $entry -Force
+
+          $json = $manifest | ConvertTo-Json -Depth 10
+          [IO.File]::WriteAllText(
+            $manifestPath,
+            "$json`n",
+            [Text.UTF8Encoding]::new($false)
+          )
+          gh release upload $tag $manifestPath --clobber
+
+      - name: Validate published macOS updater entries
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tag = "${{ inputs.tag }}"
+          $manifestDir = Join-Path $env:RUNNER_TEMP "hrouter-macos-updater-verify"
+          New-Item -ItemType Directory -Force -Path $manifestDir | Out-Null
+          gh release download $tag --pattern latest.json --dir $manifestDir --clobber
+          $manifest = Get-Content (Join-Path $manifestDir "latest.json") -Raw | ConvertFrom-Json
+          $expectedPrefix = "https://github.com/${{ github.repository }}/releases/download/$tag/"
+
+          foreach ($platformName in @("darwin-aarch64", "darwin-x86_64")) {
+            $platform = $manifest.platforms.PSObject.Properties[$platformName].Value
+            if ($null -eq $platform) {
+              throw "Missing updater platform: $platformName"
+            }
+            if (-not $platform.url.StartsWith($expectedPrefix)) {
+              throw "Unexpected updater URL for ${platformName}: $($platform.url)"
+            }
+            if ([string]::IsNullOrWhiteSpace($platform.signature)) {
+              throw "Missing updater signature for $platformName"
+            }
+          }

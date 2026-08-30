@@ -1,8 +1,10 @@
 # Code signing policy
 
-For releases approved under this policy, free code signing is provided by
+Windows releases approved under this policy use code signing provided by
 [SignPath.io](https://signpath.io/), with a certificate provided by the
-[SignPath Foundation](https://signpath.org/).
+[SignPath Foundation](https://signpath.org/). macOS releases use an Apple
+Developer ID Application certificate owned by the HRouter maintainer and are
+submitted to Apple's notarization service before publication.
 
 The SignPath Foundation application is currently pending. The Windows installer
 published for v0.2.1 is not Authenticode-signed. This document describes the
@@ -12,6 +14,8 @@ controls that will apply to the first signed release and later releases.
 
 - HRouter Desktop Windows installers and HRouter-owned executable files built
   from this repository may be signed.
+- HRouter Desktop macOS app bundles and disk images are signed with Developer
+  ID, notarized by Apple, and stapled before publication.
 - Third-party or upstream binaries are not signed as HRouter-owned files.
 - Tauri updater signatures are generated separately and continue to protect
   application updates in transit.
@@ -38,7 +42,9 @@ checked.
    repository and the exact source revision that produced it.
 6. The Windows installer is submitted for Authenticode signing before the Tauri
    updater signature and update manifest are finalized.
-7. Release digests and updater signatures are published with each GitHub Release.
+7. The macOS workflow fails if Developer ID signing, hardened runtime,
+   notarization, stapling, or Gatekeeper verification is missing.
+8. Release digests and updater signatures are published with each GitHub Release.
 
 ## Privacy
 
