@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.15
+
+- Recommended GPT-5.5, all three GPT-5.6 tiers (Luna, Terra, and Sol), and GPT-6 Astra separately instead of collapsing GPT-5.6 into one entry.
+- Added one-click recommended mapping reset to provider settings and API key import, replacing old unrelated catalog entries only when explicitly requested.
+- Filled readable model names, used only models available to the current key, and preserved supported default aliases without duplicating tiers.
+- Distinguished fetched model counts from configured mapping counts while retaining manual model mapping and refresh behavior.
+
 ## 0.2.14
 
 - Exposed editable Codex model mappings in provider settings and API key import, including display names, actual model IDs, and adding/removing catalog entries.
