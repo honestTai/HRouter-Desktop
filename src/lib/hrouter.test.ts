@@ -5,6 +5,7 @@ import {
   buildHRouterSettingsConfig,
   buildHRouterUsageScript,
   deriveHRouterModelMapping,
+  getHRouterCodexModels,
   extractHRouterProviderState,
   HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT,
   HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW,
@@ -104,11 +105,99 @@ describe("HRouter provider configuration", () => {
     };
 
     expect(settings.config).toContain('model = "gpt-6-astra"');
-    expect(settings.modelCatalog.models[0]).toEqual({ model: "gpt-6-astra" });
-    expect(settings.modelCatalog.models).toContainEqual({
-      model: "gpt-5.6-luna",
+    expect(settings.modelCatalog.models[0]).toMatchObject({
+      model: "gpt-6-astra",
     });
-    expect(settings.modelCatalog.models).toHaveLength(gpt6Models.length);
+    expect(settings.modelCatalog.models).toContainEqual(
+      expect.objectContaining({
+        model: "gpt-5.6-luna",
+      }),
+    );
+    expect(settings.modelCatalog.models).toHaveLength(3);
+  });
+
+  it("keeps one real model per requested family and excludes non-coding variants", () => {
+    const candidates = [
+      "gpt-6-astra",
+      "gpt-5.6-luna",
+      "gpt-5.6",
+      "gpt-5.5",
+      "gpt-5.4-mini",
+      "gpt-5.4",
+      "gpt-5.4-2026-03-05",
+      "gpt-5.2",
+      "gpt-4o-audio-preview",
+      "gpt-image-2",
+      "text-embedding-3-large",
+      "codex-auto-review",
+    ].map((id) => ({ id, ownedBy: "openai" }));
+    expect(getHRouterCodexModels(candidates).map((m) => m.id)).toEqual([
+      "gpt-5.4",
+      "gpt-5.5",
+      "gpt-5.6",
+      "gpt-6-astra",
+    ]);
+    const mapping = {
+      ...deriveHRouterModelMapping("codex", candidates),
+      primary: "gpt-5.6-luna",
+    };
+    const settings = buildHRouterSettingsConfig(
+      "codex",
+      "test",
+      mapping,
+      candidates,
+    ) as {
+      modelCatalog: {
+        models: Array<{
+          model: string;
+          supportedReasoningEfforts: string[];
+          preferCodexReasoningMetadata: boolean;
+        }>;
+      };
+    };
+    expect(settings.modelCatalog.models.map((m) => m.model)).toEqual([
+      "gpt-5.6-luna",
+      "gpt-5.4",
+      "gpt-5.5",
+      "gpt-6-astra",
+    ]);
+    expect(settings.modelCatalog.models[0].supportedReasoningEfforts).toEqual([
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+    ]);
+    expect(settings.modelCatalog.models[3].supportedReasoningEfforts).toEqual([
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra",
+    ]);
+    expect(settings.modelCatalog.models[1].supportedReasoningEfforts).toEqual([
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+    ]);
+    expect(settings.modelCatalog.models[0].preferCodexReasoningMetadata).toBe(
+      true,
+    );
+  });
+
+  it("does not invent model IDs or fall back to the full unrelated list", () => {
+    expect(
+      getHRouterCodexModels([
+        { id: "gpt-4o-audio-preview", ownedBy: "openai" },
+      ]),
+    ).toEqual([]);
+    expect(
+      deriveHRouterModelMapping("codex", [
+        { id: "gpt-image-2", ownedBy: "openai" },
+      ]).primary,
+    ).toBe("");
   });
 
   it("supports optional Goal mode and disabling remote compaction", () => {

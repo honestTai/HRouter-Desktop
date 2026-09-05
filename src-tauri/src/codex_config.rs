@@ -573,6 +573,23 @@ fn codex_catalog_model_entry(
     entry_obj.insert("availability_nux".to_string(), Value::Null);
     entry_obj.insert("upgrade".to_string(), Value::Null);
 
+    if let Some(efforts) = &spec.reasoning_efforts {
+        entry_obj.insert(
+            "supported_reasoning_levels".to_string(),
+            json!(efforts
+                .iter()
+                .map(|effort| json!({"effort": effort, "description": effort}))
+                .collect::<Vec<_>>()),
+        );
+        let default = spec
+            .default_reasoning_effort
+            .as_ref()
+            .filter(|effort| efforts.contains(effort))
+            .or_else(|| efforts.iter().find(|effort| effort.as_str() == "high"))
+            .unwrap_or(&efforts[0]);
+        entry_obj.insert("default_reasoning_level".to_string(), json!(default));
+    }
+
     // Image support is a model capability, not a tool-profile capability.
     // Trust hidden preset metadata first, then the confirmed text-only registry;
     // every unknown model fails open so GPT/relay aliases are never declared
@@ -645,6 +662,9 @@ struct CodexCatalogModelSpec {
     /// back to the template default when absent. Only consulted for
     /// `NativeResponses`.
     base_instructions: Option<String>,
+    reasoning_efforts: Option<Vec<String>>,
+    default_reasoning_effort: Option<String>,
+    prefer_codex_reasoning_metadata: bool,
 }
 
 fn codex_catalog_model_specs(settings: &Value) -> Vec<CodexCatalogModelSpec> {
@@ -718,6 +738,40 @@ fn codex_catalog_model_specs(settings: &Value) -> Vec<CodexCatalogModelSpec> {
             supports_parallel_tool_calls,
             input_modalities,
             base_instructions,
+            reasoning_efforts: model_config
+                .get("supportedReasoningEfforts")
+                .and_then(Value::as_array)
+                .map(|items| {
+                    let mut seen = HashSet::new();
+                    items
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .filter(|effort| {
+                            matches!(
+                                *effort,
+                                "none"
+                                    | "minimal"
+                                    | "low"
+                                    | "medium"
+                                    | "high"
+                                    | "xhigh"
+                                    | "max"
+                                    | "ultra"
+                            )
+                        })
+                        .filter(|effort| seen.insert(*effort))
+                        .map(str::to_string)
+                        .collect::<Vec<_>>()
+                })
+                .filter(|items| !items.is_empty()),
+            default_reasoning_effort: model_config
+                .get("defaultReasoningEffort")
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            prefer_codex_reasoning_metadata: model_config
+                .get("preferCodexReasoningMetadata")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
         });
     }
 
@@ -1230,12 +1284,79 @@ fn codex_model_catalog_from_settings(
         }
         CodexCatalogToolProfile::ProxyChat => load_codex_model_catalog_template()?,
     };
-    Ok(Some(codex_model_catalog_from_specs(
-        &specs,
-        &template,
-        profile,
-        default_context_window,
-    )))
+    let mut catalog =
+        codex_model_catalog_from_specs(&specs, &template, profile, default_context_window);
+    if specs
+        .iter()
+        .any(|spec| spec.prefer_codex_reasoning_metadata)
+    {
+        // Best-effort, read-only metadata lookup. A missing/corrupt cache must
+        // not prevent switching providers. Never clone tools or instructions.
+        let cached = fs::read_to_string(get_codex_config_dir().join("models_cache.json"))
+            .ok()
+            .and_then(|text| serde_json::from_str::<Value>(&text).ok());
+        if let Some(cached) = cached {
+            restore_codex_reasoning_metadata(&mut catalog, &specs, &cached);
+        }
+    }
+    Ok(Some(catalog))
+}
+
+/// Match exact IDs only: a relay alias must never inherit a different model's
+/// capabilities merely because its name starts with the same family prefix.
+fn restore_codex_reasoning_metadata(
+    catalog: &mut Value,
+    specs: &[CodexCatalogModelSpec],
+    cached: &Value,
+) {
+    let Some(models) = cached.get("models").and_then(Value::as_array) else {
+        return;
+    };
+    let Some(entries) = catalog.get_mut("models").and_then(Value::as_array_mut) else {
+        return;
+    };
+    for (entry, spec) in entries.iter_mut().zip(specs) {
+        if !spec.prefer_codex_reasoning_metadata {
+            continue;
+        }
+        let Some(model) = models
+            .iter()
+            .find(|model| model.get("slug").and_then(Value::as_str) == Some(spec.model.as_str()))
+        else {
+            continue;
+        };
+        let Some(levels) = model
+            .get("supported_reasoning_levels")
+            .and_then(Value::as_array)
+        else {
+            continue;
+        };
+        if levels.is_empty()
+            || levels.iter().any(|level| {
+                !matches!(
+                    level.get("effort").and_then(Value::as_str),
+                    Some(
+                        "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra"
+                    )
+                ) || level.get("description").and_then(Value::as_str).is_none()
+            })
+        {
+            continue;
+        }
+        let Some(default) = model
+            .get("default_reasoning_level")
+            .and_then(Value::as_str)
+            .filter(|default| {
+                levels
+                    .iter()
+                    .any(|level| level["effort"].as_str() == Some(default))
+            })
+        else {
+            continue;
+        };
+        entry["supported_reasoning_levels"] = json!(levels);
+        entry["default_reasoning_level"] = json!(default);
+    }
 }
 
 fn set_codex_model_catalog_json_field(
@@ -3225,6 +3346,9 @@ base_url = "https://production.api/v1"
             supports_parallel_tool_calls: None,
             input_modalities: None,
             base_instructions: None,
+            reasoning_efforts: None,
+            default_reasoning_effort: None,
+            prefer_codex_reasoning_metadata: false,
         }];
         let catalog = codex_model_catalog_from_specs(
             &specs,
@@ -3345,6 +3469,82 @@ base_url = "https://production.api/v1"
     }
 
     #[test]
+    fn explicit_reasoning_efforts_replace_binary_native_template() {
+        let specs = codex_catalog_model_specs(&json!({"modelCatalog": {"models": [{
+            "model": "gpt-6-astra",
+            "supportedReasoningEfforts": ["low", "medium", "high", "xhigh", "max", "ultra", "ultra", "invalid"],
+            "defaultReasoningEffort": "invalid",
+            "preferCodexReasoningMetadata": true
+        }]}}));
+        let mut catalog = codex_model_catalog_from_specs(
+            &specs,
+            &load_codex_native_responses_template(),
+            CodexCatalogToolProfile::NativeResponses,
+            128_000,
+        );
+        let efforts: Vec<_> = catalog["models"][0]["supported_reasoning_levels"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|level| level["effort"].as_str().unwrap())
+            .collect();
+        assert_eq!(efforts, ["low", "medium", "high", "xhigh", "max", "ultra"]);
+        assert_eq!(catalog["models"][0]["default_reasoning_level"], "high");
+        assert!(catalog["models"][0].get("apply_patch_tool_type").is_none());
+        let original = catalog.clone();
+        // Unknown aliases and malformed metadata preserve the declared options.
+        restore_codex_reasoning_metadata(
+            &mut catalog,
+            &specs,
+            &json!({"models": [{"slug": "gpt-6"}]}),
+        );
+        restore_codex_reasoning_metadata(
+            &mut catalog,
+            &specs,
+            &json!({"models": [{"slug": "gpt-6-astra", "supported_reasoning_levels": []}]}),
+        );
+        assert_eq!(catalog, original);
+    }
+
+    #[test]
+    fn codex_reasoning_metadata_preserves_exact_model_capabilities_only() {
+        let specs = codex_catalog_model_specs(&json!({"modelCatalog": {"models": [
+            {"model": "gpt-5.5", "preferCodexReasoningMetadata": true},
+            {"model": "custom-alias"}
+        ]}}));
+        let mut catalog = codex_model_catalog_from_specs(
+            &specs,
+            &load_codex_native_responses_template(),
+            CodexCatalogToolProfile::NativeResponses,
+            128_000,
+        );
+        let untouched = catalog["models"][1].clone();
+        let levels = json!([
+            {"effort": "low", "description": "Low"},
+            {"effort": "medium", "description": "Medium"},
+            {"effort": "high", "description": "High"},
+            {"effort": "xhigh", "description": "Extra high"}
+        ]);
+        restore_codex_reasoning_metadata(
+            &mut catalog,
+            &specs,
+            &json!({"models": [{
+                "slug": "gpt-5.5", "supported_reasoning_levels": levels,
+                "default_reasoning_level": "medium", "apply_patch_tool_type": "freeform",
+                "base_instructions": "Must not leak into relay catalog"
+            }]}),
+        );
+        assert_eq!(catalog["models"][0]["supported_reasoning_levels"], levels);
+        assert_eq!(catalog["models"][0]["default_reasoning_level"], "medium");
+        assert!(catalog["models"][0].get("apply_patch_tool_type").is_none());
+        assert_eq!(catalog["models"][1], untouched);
+        assert_eq!(
+            catalog["models"][0]["base_instructions"],
+            load_codex_native_responses_template()["base_instructions"]
+        );
+    }
+
+    #[test]
     fn native_responses_profile_suppresses_apply_patch_and_keeps_shell() {
         // Native (direct) /responses providers must NOT emit a freeform
         // apply_patch (type=="custom") tool — gateways like MiMo reject it.
@@ -3431,6 +3631,9 @@ base_url = "https://production.api/v1"
                 supports_parallel_tool_calls: None,
                 input_modalities: None,
                 base_instructions: None,
+                reasoning_efforts: None,
+                default_reasoning_effort: None,
+                prefer_codex_reasoning_metadata: false,
             },
             CodexCatalogModelSpec {
                 model: "deepseek/deepseek-v4-pro".to_string(),
@@ -3439,6 +3642,9 @@ base_url = "https://production.api/v1"
                 supports_parallel_tool_calls: None,
                 input_modalities: None,
                 base_instructions: None,
+                reasoning_efforts: None,
+                default_reasoning_effort: None,
+                prefer_codex_reasoning_metadata: false,
             },
             CodexCatalogModelSpec {
                 model: "glm-5.2v".to_string(),
@@ -3447,6 +3653,9 @@ base_url = "https://production.api/v1"
                 supports_parallel_tool_calls: None,
                 input_modalities: None,
                 base_instructions: None,
+                reasoning_efforts: None,
+                default_reasoning_effort: None,
+                prefer_codex_reasoning_metadata: false,
             },
             CodexCatalogModelSpec {
                 model: "deepseek-v4-flash".to_string(),
@@ -3455,6 +3664,9 @@ base_url = "https://production.api/v1"
                 supports_parallel_tool_calls: None,
                 input_modalities: Some(vec!["text".to_string(), "image".to_string()]),
                 base_instructions: None,
+                reasoning_efforts: None,
+                default_reasoning_effort: None,
+                prefer_codex_reasoning_metadata: false,
             },
             CodexCatalogModelSpec {
                 model: "custom-text-alias".to_string(),
@@ -3463,6 +3675,9 @@ base_url = "https://production.api/v1"
                 supports_parallel_tool_calls: None,
                 input_modalities: Some(vec!["text".to_string()]),
                 base_instructions: None,
+                reasoning_efforts: None,
+                default_reasoning_effort: None,
+                prefer_codex_reasoning_metadata: false,
             },
         ];
 
@@ -3733,6 +3948,9 @@ wire_api = "responses"
             supports_parallel_tool_calls: None,
             input_modalities: None,
             base_instructions: None,
+            reasoning_efforts: None,
+            default_reasoning_effort: None,
+            prefer_codex_reasoning_metadata: false,
         }];
         // Using a gpt-5.5-shaped template under ProxyChat must NOT strip
         // apply_patch_tool_type. (The native template lacks it, so synthesize

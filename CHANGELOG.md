@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.13
+
+- Focused HRouter Codex model pickers and generated catalogs on GPT-5.4, GPT-5.5, GPT-5.6, and GPT-6, keeping one available model per family while preserving explicit selections.
+- Restored multi-level reasoning settings instead of the native template's binary none/high options, preferring exact Codex model capability metadata when available.
+- Added regression coverage for model filtering, reasoning metadata validation, and native tool compatibility.
+
 ## 0.2.12
 
 - Added every model returned by HRouter, including GPT-6 Astra, to the generated Codex model catalog so it can be selected from the `/model` menu.

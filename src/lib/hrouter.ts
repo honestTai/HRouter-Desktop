@@ -110,10 +110,41 @@ const findByHints = (models: string[], hints: string[]): string | undefined =>
     undefined,
   );
 
+// Keep the picker focused on the four requested coding-model families. Prefer
+// canonical IDs; when a family only has named variants, retain one real ID.
+export function getHRouterCodexModels(models: FetchedModel[]): FetchedModel[] {
+  const preferences = [
+    ["gpt-5.4"],
+    ["gpt-5.5"],
+    ["gpt-5.6", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"],
+    ["gpt-6", "gpt-6-astra"],
+  ];
+  return preferences.flatMap((ids) => {
+    const model = ids.reduce<FetchedModel | undefined>(
+      (found, id) => found ?? models.find((m) => m.id.trim() === id),
+      undefined,
+    );
+    return model ? [model] : [];
+  });
+}
+
+// These are selectable relay settings, not a claim that every upstream route
+// implements every effort. The backend prefers exact Codex model metadata.
+const HROUTER_CODEX_REASONING_EFFORTS = [
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+];
+
 export function getHRouterModelsForApp(
   appId: AppId,
   models: FetchedModel[],
 ): FetchedModel[] {
+  if (appId === "codex") return getHRouterCodexModels(models);
+
   const predicates: Partial<Record<AppId, (id: string) => boolean>> = {
     claude: (id) => id.includes("claude") || id.includes("appclaude"),
     "claude-desktop": (id) => id.includes("claude") || id.includes("appclaude"),
@@ -139,7 +170,12 @@ export function deriveHRouterModelMapping(
 ): HRouterModelMapping {
   const candidates = uniqueModelIds(getHRouterModelsForApp(appId, models));
   const allModels = uniqueModelIds(models);
-  const pool = candidates.length > 0 ? candidates : allModels;
+  const pool =
+    appId === "codex"
+      ? candidates
+      : candidates.length > 0
+        ? candidates
+        : allModels;
 
   const primaryHints: Partial<Record<AppId, string[]>> = {
     claude: ["sonnet", "appclaude", "opus", "claude"],
@@ -221,10 +257,18 @@ export function buildHRouterSettingsConfig(
   codexContextConfig?: Partial<HRouterCodexContextConfig>,
 ): Record<string, unknown> {
   const key = apiKey.trim();
-  const modelIds = uniqueModelIds(models);
+  const modelIds = uniqueModelIds(
+    appId === "codex" ? getHRouterCodexModels(models) : models,
+  );
   const orderedModelIds = [
     mapping.primary,
-    ...modelIds.filter((model) => model !== mapping.primary),
+    ...modelIds.filter((model) =>
+      appId === "codex"
+        ? model !== mapping.primary &&
+          model.match(/^gpt-(5\.[456]|6)(?:-|$)/)?.[1] !==
+            mapping.primary.match(/^gpt-(5\.[456]|6)(?:-|$)/)?.[1]
+        : model !== mapping.primary,
+    ),
   ].filter(Boolean);
 
   switch (appId) {
@@ -268,7 +312,16 @@ export function buildHRouterSettingsConfig(
         auth: { OPENAI_API_KEY: key },
         config,
         modelCatalog: {
-          models: orderedModelIds.map((model) => ({ model })),
+          models: orderedModelIds.map((model) => ({
+            model,
+            supportedReasoningEfforts: /^gpt-5\.[45](?:-|$)/.test(model)
+              ? HROUTER_CODEX_REASONING_EFFORTS.slice(0, 4)
+              : model === "gpt-5.6-luna"
+                ? HROUTER_CODEX_REASONING_EFFORTS.slice(0, 5)
+                : HROUTER_CODEX_REASONING_EFFORTS,
+            defaultReasoningEffort: "high",
+            preferCodexReasoningMetadata: true,
+          })),
         },
       };
     }

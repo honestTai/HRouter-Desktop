@@ -32,6 +32,7 @@ import {
   buildHRouterProviderMeta,
   buildHRouterSettingsConfig,
   deriveHRouterModelMapping,
+  getHRouterCodexModels,
   extractHRouterProviderState,
   HROUTER_CODEX_1M_AUTO_COMPACT_TOKEN_LIMIT,
   HROUTER_CODEX_1M_CONTEXT_WINDOW,
@@ -569,7 +570,11 @@ export function HRouterProviderForm({
               onChange={(primary) =>
                 setMapping((current) => ({ ...current, primary }))
               }
-              fetchedModels={fetchedModels}
+              fetchedModels={
+                appId === "codex"
+                  ? getHRouterCodexModels(fetchedModels)
+                  : fetchedModels
+              }
               isLoading={false}
             />
           </div>

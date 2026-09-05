@@ -60,6 +60,7 @@ import {
   buildHRouterProviderMeta,
   buildHRouterSettingsConfig,
   deriveHRouterModelMapping,
+  getHRouterCodexModels,
   HROUTER_APP_NAMES,
   HROUTER_ICON_COLOR,
   HROUTER_MODELS_URL,
@@ -625,7 +626,10 @@ export function HRouterApiKeysPage() {
                           <SelectValue placeholder="选择模型" />
                         </SelectTrigger>
                         <SelectContent>
-                          {importModels.map((model) => (
+                          {(importApp === "codex"
+                            ? getHRouterCodexModels(importModels)
+                            : importModels
+                          ).map((model) => (
                             <SelectItem key={model.id} value={model.id}>
                               {model.id}
                             </SelectItem>
