@@ -264,7 +264,13 @@ export function buildHRouterSettingsConfig(
         "requires_openai_auth = true",
         'wire_api = "responses"',
       ].join("\n")}\n`;
-      return { auth: { OPENAI_API_KEY: key }, config };
+      return {
+        auth: { OPENAI_API_KEY: key },
+        config,
+        modelCatalog: {
+          models: orderedModelIds.map((model) => ({ model })),
+        },
+      };
     }
 
     case "gemini":

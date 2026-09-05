@@ -84,6 +84,33 @@ describe("HRouter provider configuration", () => {
     );
   });
 
+  it("registers GPT-6 Astra in the Codex model catalog", () => {
+    const gpt6Models: FetchedModel[] = [
+      ...models,
+      { id: "gpt-6-astra", ownedBy: "openai" },
+    ];
+    const mapping = {
+      ...deriveHRouterModelMapping("codex", gpt6Models),
+      primary: "gpt-6-astra",
+    };
+    const settings = buildHRouterSettingsConfig(
+      "codex",
+      "sk-hrouter-test",
+      mapping,
+      gpt6Models,
+    ) as {
+      config: string;
+      modelCatalog: { models: Array<{ model: string }> };
+    };
+
+    expect(settings.config).toContain('model = "gpt-6-astra"');
+    expect(settings.modelCatalog.models[0]).toEqual({ model: "gpt-6-astra" });
+    expect(settings.modelCatalog.models).toContainEqual({
+      model: "gpt-5.6-luna",
+    });
+    expect(settings.modelCatalog.models).toHaveLength(gpt6Models.length);
+  });
+
   it("supports optional Goal mode and disabling remote compaction", () => {
     const mapping = deriveHRouterModelMapping("codex", models);
     const settingsConfig = buildHRouterSettingsConfig(

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.12
+
+- Added every model returned by HRouter, including GPT-6 Astra, to the generated Codex model catalog so it can be selected from the `/model` menu.
+
 ## 0.2.11
 
 - Added a native macOS WidgetKit extension for today's HRouter usage and remaining balance.
