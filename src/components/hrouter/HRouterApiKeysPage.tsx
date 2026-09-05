@@ -669,6 +669,11 @@ export function HRouterApiKeysPage() {
                     }
                     models={importModels}
                     onChange={setImportCatalog}
+                    primary={importMapping.primary}
+                    onPrimaryChange={(primary) =>
+                      setImportMapping((current) => ({ ...current, primary }))
+                    }
+                    disabled={loadingImportModels || importing}
                   />
                 )}
                 {importApp === "claude-desktop" && (

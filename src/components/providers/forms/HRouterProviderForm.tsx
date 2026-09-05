@@ -571,10 +571,13 @@ export function HRouterProviderForm({
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium">
-                已导入 {fetchedModels.length} 个模型
+                {appId === "codex" ? "已读取" : "已导入"} {fetchedModels.length}{" "}
+                个模型
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                已为 {HROUTER_APP_NAMES[appId]} 预填推荐映射，下面可自行修改。
+                {appId === "codex"
+                  ? `当前 ${catalogRows.length} 条 Codex 模型映射，可在下方一键应用推荐或自行修改。`
+                  : `已为 ${HROUTER_APP_NAMES[appId]} 预填推荐映射，下面可自行修改。`}
               </p>
             </div>
             <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />
@@ -611,6 +614,11 @@ export function HRouterProviderForm({
             rows={catalogRows}
             models={fetchedModels}
             onChange={setCodexCatalog}
+            primary={mapping.primary}
+            onPrimaryChange={(primary) =>
+              setMapping((current) => ({ ...current, primary }))
+            }
+            disabled={isFetching || isSubmitting}
           />
         )}
 

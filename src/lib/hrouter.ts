@@ -115,21 +115,34 @@ const findByHints = (models: string[], hints: string[]): string | undefined =>
     undefined,
   );
 
-// Keep the picker focused on the four requested coding-model families. Prefer
-// canonical IDs; when a family only has named variants, retain one real ID.
+// Recommend five coding-model entries, not one entry per version: the three
+// GPT-5.6 tiers are distinct routes. Canonical aliases are fallbacks within a
+// tier only, and every selected ID must have been returned by the Key.
+const HROUTER_CODEX_MODEL_PRESETS = [
+  { ids: ["gpt-5.5"], displayName: "GPT-5.5" },
+  { ids: ["gpt-5.6-luna"], displayName: "GPT-5.6 Luna" },
+  { ids: ["gpt-5.6-terra"], displayName: "GPT-5.6 Terra" },
+  { ids: ["gpt-5.6-sol", "gpt-5.6"], displayName: "GPT-5.6 Sol" },
+  { ids: ["gpt-6-astra", "gpt-6"], displayName: "GPT-6 Astra" },
+];
+
+const getHRouterCodexModelPreset = (model: string) =>
+  HROUTER_CODEX_MODEL_PRESETS.find((preset) =>
+    preset.ids.includes(model.trim()),
+  );
+
+const recommendedCodexCatalogRow = (model: string): CodexCatalogModel => {
+  const preset = getHRouterCodexModelPreset(model);
+  return { model, ...(preset ? { displayName: preset.displayName } : {}) };
+};
+
 export function getHRouterCodexModels(models: FetchedModel[]): FetchedModel[] {
-  const preferences = [
-    ["gpt-5.4"],
-    ["gpt-5.5"],
-    ["gpt-5.6", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"],
-    ["gpt-6", "gpt-6-astra"],
-  ];
-  return preferences.flatMap((ids) => {
+  return HROUTER_CODEX_MODEL_PRESETS.flatMap(({ ids }) => {
     const model = ids.reduce<FetchedModel | undefined>(
       (found, id) => found ?? models.find((m) => m.id.trim() === id),
       undefined,
     );
-    return model ? [model] : [];
+    return model ? [{ ...model, id: model.id.trim() }] : [];
   });
 }
 
@@ -284,17 +297,19 @@ export function buildHRouterCodexCatalog(
   models: FetchedModel[],
   explicit?: CodexCatalogModel[],
 ): CodexCatalogModel[] {
+  const primaryPreset = getHRouterCodexModelPreset(primary);
   const defaults = getHRouterCodexModels(models)
-    .filter(
-      (m) =>
-        m.id.match(/^gpt-(5\.[456]|6)(?:-|$)/)?.[1] !==
-        primary.match(/^gpt-(5\.[456]|6)(?:-|$)/)?.[1],
-    )
-    .map((m) => ({ model: m.id }));
+    // Suppress only an alias of the default, never its sibling GPT-5.6 tiers.
+    .filter((m) => !primaryPreset?.ids.includes(m.id))
+    .map((m) => recommendedCodexCatalogRow(m.id));
   const rows: CodexCatalogModel[] = explicit ?? defaults;
+  const primaryRow =
+    explicit === undefined
+      ? recommendedCodexCatalogRow(primary)
+      : { model: primary };
   const all = rows.some((row) => row.model.trim() === primary.trim())
     ? rows
-    : [{ model: primary }, ...rows];
+    : [primaryRow, ...rows];
   const seen = new Set<string>();
   return all
     .filter((row) => {

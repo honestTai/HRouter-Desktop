@@ -118,9 +118,12 @@ describe("HRouter provider configuration", () => {
     expect(settings.modelCatalog.models).toHaveLength(3);
   });
 
-  it("keeps one real model per requested family and excludes non-coding variants", () => {
+  it("recommends only GPT-5.5, all three GPT-5.6 tiers, and GPT-6", () => {
     const candidates = [
       "gpt-6-astra",
+      "gpt-6",
+      "gpt-5.6-sol",
+      "gpt-5.6-terra",
       "gpt-5.6-luna",
       "gpt-5.6",
       "gpt-5.5",
@@ -134,65 +137,116 @@ describe("HRouter provider configuration", () => {
       "codex-auto-review",
     ].map((id) => ({ id, ownedBy: "openai" }));
     expect(getHRouterCodexModels(candidates).map((m) => m.id)).toEqual([
-      "gpt-5.4",
       "gpt-5.5",
-      "gpt-5.6",
+      "gpt-5.6-luna",
+      "gpt-5.6-terra",
+      "gpt-5.6-sol",
       "gpt-6-astra",
     ]);
-    const mapping = {
-      ...deriveHRouterModelMapping("codex", candidates),
-      primary: "gpt-5.6-luna",
-    };
     const settings = buildHRouterSettingsConfig(
       "codex",
       "test",
-      mapping,
+      {
+        ...deriveHRouterModelMapping("codex", candidates),
+        primary: "gpt-5.6-luna",
+      },
       candidates,
     ) as {
       modelCatalog: {
         models: Array<{
           model: string;
+          displayName: string;
           supportedReasoningEfforts: string[];
           preferCodexReasoningMetadata: boolean;
         }>;
       };
     };
-    expect(settings.modelCatalog.models.map((m) => m.model)).toEqual([
+    const catalog = settings.modelCatalog.models;
+    expect(catalog.map((m) => m.model)).toEqual([
       "gpt-5.6-luna",
-      "gpt-5.4",
       "gpt-5.5",
+      "gpt-5.6-terra",
+      "gpt-5.6-sol",
       "gpt-6-astra",
     ]);
-    expect(settings.modelCatalog.models[0].supportedReasoningEfforts).toEqual([
+    expect(catalog.map((m) => m.displayName)).toEqual([
+      "GPT-5.6 Luna",
+      "GPT-5.5",
+      "GPT-5.6 Terra",
+      "GPT-5.6 Sol",
+      "GPT-6 Astra",
+    ]);
+    expect(catalog[0].supportedReasoningEfforts).toEqual([
       "low",
       "medium",
       "high",
       "xhigh",
       "max",
     ]);
-    expect(settings.modelCatalog.models[3].supportedReasoningEfforts).toEqual([
-      "low",
-      "medium",
-      "high",
-      "xhigh",
-      "max",
-      "ultra",
-    ]);
-    expect(settings.modelCatalog.models[1].supportedReasoningEfforts).toEqual([
+    expect(catalog[1].supportedReasoningEfforts).toEqual([
       "low",
       "medium",
       "high",
       "xhigh",
     ]);
-    expect(settings.modelCatalog.models[0].preferCodexReasoningMetadata).toBe(
+    for (const model of catalog.slice(2)) {
+      expect(model.supportedReasoningEfforts).toEqual([
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra",
+      ]);
+    }
+    expect(catalog.every((model) => model.preferCodexReasoningMetadata)).toBe(
       true,
     );
+  });
+
+  it.each(["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6"])(
+    "keeps the other GPT-5.6 tiers when %s is the default without duplicating Sol aliases",
+    (primary) => {
+      const candidates = [
+        "gpt-5.6",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra",
+        "gpt-5.6-luna",
+      ].map((id) => ({ id, ownedBy: "openai" }));
+      const ids = buildHRouterCodexCatalog(primary, candidates).map(
+        (row) => row.model,
+      );
+      expect(ids).toHaveLength(3);
+      expect(ids[0]).toBe(primary);
+      expect(ids).toContain("gpt-5.6-luna");
+      expect(ids).toContain("gpt-5.6-terra");
+      expect(ids).toContain(primary === "gpt-5.6" ? "gpt-5.6" : "gpt-5.6-sol");
+    },
+  );
+
+  it("uses only available tier IDs, with canonical fallback and whitespace normalization", () => {
+    const candidates = [
+      " gpt-5.6 ",
+      "gpt-5.6-luna",
+      "gpt-5.6-luna",
+      "gpt-6",
+      "gpt-5.4",
+    ].map((id) => ({ id, ownedBy: "openai" }));
+    expect(getHRouterCodexModels(candidates).map((model) => model.id)).toEqual([
+      "gpt-5.6-luna",
+      "gpt-5.6",
+      "gpt-6",
+    ]);
+    expect(
+      buildHRouterCodexCatalog(" gpt-5.6 ", candidates).map((row) => row.model),
+    ).toEqual(["gpt-5.6", "gpt-5.6-luna", "gpt-6"]);
   });
 
   it("does not invent model IDs or fall back to the full unrelated list", () => {
     expect(
       getHRouterCodexModels([
         { id: "gpt-4o-audio-preview", ownedBy: "openai" },
+        { id: "gpt-5.4", ownedBy: "openai" },
       ]),
     ).toEqual([]);
     expect(

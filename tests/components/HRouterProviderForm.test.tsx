@@ -168,6 +168,155 @@ describe("HRouter editable model mappings", () => {
     },
   };
 
+  const recommendedIds = [
+    "gpt-5.5",
+    "gpt-5.6-luna",
+    "gpt-5.6-terra",
+    "gpt-5.6-sol",
+    "gpt-6-astra",
+  ];
+  const discoveredModels = [
+    "codex-auto-review",
+    "gpt-4o-audio-preview",
+    "gpt-5.4",
+    "gpt-5.6",
+    ...[...recommendedIds].reverse(),
+  ].map((id) => ({ id, ownedBy: "openai" }));
+  const mappingIds = () =>
+    screen
+      .getAllByLabelText(/^实际模型 ID /)
+      .map((input) => (input as HTMLInputElement).value);
+
+  it("prefills and saves the five recommended models after recognizing a new Key", async () => {
+    vi.mocked(fetchModelsForConfig).mockResolvedValue(discoveredModels);
+    const submit = vi.fn();
+    render(
+      <HRouterProviderForm
+        appId="codex"
+        onSubmit={submit}
+        onCancel={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("HRouter Key"), {
+      target: { value: "test-key" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "识别 Key" }));
+    await waitFor(() => expect(mappingIds()).toEqual(recommendedIds));
+    expect(screen.getByLabelText("显示名称 2")).toHaveValue("GPT-5.6 Luna");
+    expect(screen.getByLabelText("显示名称 3")).toHaveValue("GPT-5.6 Terra");
+    expect(screen.getByLabelText("显示名称 4")).toHaveValue("GPT-5.6 Sol");
+    fireEvent.click(screen.getByRole("button", { name: "添加 HRouter" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const saved = JSON.parse(submit.mock.calls[0][0].settingsConfig);
+    expect(
+      saved.modelCatalog.models.map((row: { model: string }) => row.model),
+    ).toEqual(recommendedIds);
+  });
+
+  it("replaces old imported mappings only when applying the one-click recommendation", async () => {
+    vi.mocked(fetchModelsForConfig).mockResolvedValue(discoveredModels);
+    const submit = vi.fn();
+    const oldProvider: Provider = {
+      ...provider,
+      settingsConfig: {
+        ...provider.settingsConfig,
+        config: 'model = "gpt-6-astra"\nmodel_reasoning_effort = "high"\n',
+        modelCatalog: {
+          models: discoveredModels.map(({ id }) => ({ model: id })),
+        },
+      },
+    };
+    render(
+      <HRouterProviderForm
+        appId="codex"
+        initialProvider={oldProvider}
+        onSubmit={submit}
+        onCancel={vi.fn()}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "已识别" })).toBeVisible(),
+    );
+    expect(mappingIds()).toEqual(discoveredModels.map(({ id }) => id));
+    fireEvent.click(screen.getByRole("button", { name: "一键推荐映射" }));
+    expect(mappingIds()).toEqual([
+      "gpt-6-astra",
+      ...recommendedIds.slice(0, -1),
+    ]);
+    expect(screen.getByLabelText("默认模型")).toHaveValue("gpt-6-astra");
+    fireEvent.click(screen.getByRole("button", { name: "保存 HRouter" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const saved = JSON.parse(submit.mock.calls[0][0].settingsConfig);
+    expect(saved.modelCatalog.models).toHaveLength(5);
+    expect(saved.config).toContain('model = "gpt-6-astra"');
+  });
+
+  it.each(["gpt-5.6", "gpt-6"])(
+    "preserves an available %s default alias without adding duplicate tiers",
+    async (primary) => {
+      vi.mocked(fetchModelsForConfig).mockResolvedValue([
+        ...discoveredModels,
+        { id: "gpt-6", ownedBy: "openai" },
+      ]);
+      renderForm({
+        ...provider,
+        settingsConfig: {
+          ...provider.settingsConfig,
+          config: `model = "${primary}"\n`,
+        },
+      });
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "已识别" })).toBeVisible(),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "一键推荐映射" }));
+      expect(screen.getByLabelText("默认模型")).toHaveValue(primary);
+      expect(mappingIds()).toEqual([
+        primary,
+        ...recommendedIds.filter(
+          (id) =>
+            id !== (primary === "gpt-5.6" ? "gpt-5.6-sol" : "gpt-6-astra"),
+        ),
+      ]);
+    },
+  );
+
+  it("moves an unrelated default into the recommended set when resetting mappings", async () => {
+    vi.mocked(fetchModelsForConfig).mockResolvedValue(discoveredModels);
+    renderForm(provider);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "已识别" })).toBeVisible(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "一键推荐映射" }));
+    expect(mappingIds()).toEqual(recommendedIds);
+    expect(screen.getByLabelText("默认模型")).toHaveValue("gpt-5.5");
+    expect(screen.getByLabelText("测试 TOML 编辑器")).toHaveValue(
+      'model = "gpt-5.5"\nmodel_reasoning_effort = "high"\n',
+    );
+  });
+
+  it("does not allow a reset without compatible models or invent missing tiers", async () => {
+    vi.mocked(fetchModelsForConfig).mockResolvedValue([
+      { id: "gpt-4o-audio-preview", ownedBy: "openai" },
+    ]);
+    renderForm(provider);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "已识别" })).toBeVisible(),
+    );
+    expect(screen.getByRole("button", { name: "一键推荐映射" })).toBeDisabled();
+    expect(mappingIds()).toEqual(["custom-default"]);
+    vi.mocked(fetchModelsForConfig).mockResolvedValue([
+      { id: "gpt-5.6-terra", ownedBy: "openai" },
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "已识别" }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "一键推荐映射" }),
+      ).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "一键推荐映射" }));
+    expect(mappingIds()).toEqual(["gpt-5.6-terra"]);
+  });
+
   it("shows mappings before model discovery and allows manual input", () => {
     renderForm();
     expect(screen.getByLabelText("默认模型")).toBeVisible();

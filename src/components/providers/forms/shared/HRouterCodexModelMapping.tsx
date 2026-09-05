@@ -1,3 +1,5 @@
+import { toast } from "sonner";
+import { buildHRouterCodexCatalog, getHRouterCodexModels } from "@/lib/hrouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,24 +11,61 @@ export function HRouterCodexModelMapping({
   rows,
   models,
   onChange,
+  primary,
+  onPrimaryChange,
+  disabled = false,
 }: {
   rows: CodexCatalogModel[];
   models: FetchedModel[];
   onChange: (rows: CodexCatalogModel[]) => void;
+  primary: string;
+  onPrimaryChange: (primary: string) => void;
+  disabled?: boolean;
 }) {
+  const recommendedModels = getHRouterCodexModels(models);
+  const applyRecommended = () => {
+    // Preserve an available default even when it uses a canonical alias rather
+    // than the preferred tier ID. Unrelated or unavailable defaults are reset.
+    const currentDefault = getHRouterCodexModels(
+      models.filter((model) => model.id.trim() === primary.trim()),
+    )[0]?.id;
+    const nextPrimary = currentDefault ?? recommendedModels[0]?.id;
+    if (!nextPrimary) return;
+
+    const nextRows = buildHRouterCodexCatalog(nextPrimary, models);
+    onPrimaryChange(nextPrimary);
+    onChange(nextRows);
+    toast.success(`已应用 ${nextRows.length} 条 Codex 推荐映射`);
+  };
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h4 className="text-sm font-semibold">Codex 模型映射</h4>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => onChange([...rows, { model: "" }])}
-        >
-          添加模型映射
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled || recommendedModels.length === 0}
+            onClick={applyRecommended}
+          >
+            一键推荐映射
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onChange([...rows, { model: "" }])}
+          >
+            添加模型映射
+          </Button>
+        </div>
       </div>
+      <p className="text-xs text-muted-foreground">
+        一键推荐会替换当前列表，仅映射 Key 可用的 GPT-5.5、GPT-5.6（Luna / Terra
+        / Sol 三个档位）和 GPT-6，不导入其他模型。保存或确认导入后生效。
+      </p>
       <p className="text-xs text-muted-foreground">
         显示名称用于模型菜单；实际模型 ID 会原样发送给 HRouter。可选择 Key
         返回的模型，也可手动填写别名。默认模型会自动保留在目录中。
