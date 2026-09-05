@@ -1,6 +1,11 @@
 import type { AppId } from "@/lib/api";
 import type { FetchedModel } from "@/lib/api/model-fetch";
-import type { Provider, ProviderMeta, UsageScript } from "@/types";
+import type {
+  CodexCatalogModel,
+  Provider,
+  ProviderMeta,
+  UsageScript,
+} from "@/types";
 import { CLAUDE_DESKTOP_ROLE_ROUTE_IDS } from "@/config/claudeDesktopProviderPresets";
 import {
   buildGrokBuildConfig,
@@ -164,6 +169,18 @@ export function getHRouterModelsForApp(
   return compatible.length > 0 ? compatible : models;
 }
 
+export function mergeHRouterModelMapping(
+  current: HRouterModelMapping,
+  recommended: HRouterModelMapping,
+): HRouterModelMapping {
+  return {
+    primary: current.primary.trim() || recommended.primary,
+    haiku: current.haiku.trim() || recommended.haiku,
+    sonnet: current.sonnet.trim() || recommended.sonnet,
+    opus: current.opus.trim() || recommended.opus,
+  };
+}
+
 export function deriveHRouterModelMapping(
   appId: AppId,
   models: FetchedModel[],
@@ -249,26 +266,72 @@ export function normalizeHRouterCodexProviderId(config: string): string {
     .replace(providerSectionPattern, `$1${HROUTER_CODEX_PROVIDER_ID}$2`);
 }
 
+export function getHRouterCodexCatalog(
+  settings: unknown,
+): CodexCatalogModel[] | undefined {
+  const catalog = asRecord(asRecord(settings)?.modelCatalog);
+  if (!Array.isArray(catalog?.models)) return undefined;
+  return catalog.models
+    .filter(
+      (row): row is CodexCatalogModel =>
+        Boolean(asRecord(row)) && typeof asRecord(row)?.model === "string",
+    )
+    .map((row) => ({ ...row }));
+}
+
+export function buildHRouterCodexCatalog(
+  primary: string,
+  models: FetchedModel[],
+  explicit?: CodexCatalogModel[],
+): CodexCatalogModel[] {
+  const defaults = getHRouterCodexModels(models)
+    .filter(
+      (m) =>
+        m.id.match(/^gpt-(5\.[456]|6)(?:-|$)/)?.[1] !==
+        primary.match(/^gpt-(5\.[456]|6)(?:-|$)/)?.[1],
+    )
+    .map((m) => ({ model: m.id }));
+  const rows: CodexCatalogModel[] = explicit ?? defaults;
+  const all = rows.some((row) => row.model.trim() === primary.trim())
+    ? rows
+    : [{ model: primary }, ...rows];
+  const seen = new Set<string>();
+  return all
+    .filter((row) => {
+      const id = row.model.trim();
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    })
+    .map((row) => ({
+      supportedReasoningEfforts: /^gpt-5\.[45](?:-|$)/.test(row.model.trim())
+        ? HROUTER_CODEX_REASONING_EFFORTS.slice(0, 4)
+        : row.model.trim() === "gpt-5.6-luna"
+          ? HROUTER_CODEX_REASONING_EFFORTS.slice(0, 5)
+          : HROUTER_CODEX_REASONING_EFFORTS,
+      defaultReasoningEffort: "high",
+      preferCodexReasoningMetadata: true,
+      ...row,
+      model: row.model.trim(),
+      ...(row.displayName !== undefined
+        ? { displayName: row.displayName.trim() }
+        : {}),
+    }));
+}
+
 export function buildHRouterSettingsConfig(
   appId: AppId,
   apiKey: string,
   mapping: HRouterModelMapping,
   models: FetchedModel[],
   codexContextConfig?: Partial<HRouterCodexContextConfig>,
+  codexCatalog?: CodexCatalogModel[],
 ): Record<string, unknown> {
   const key = apiKey.trim();
-  const modelIds = uniqueModelIds(
-    appId === "codex" ? getHRouterCodexModels(models) : models,
-  );
+  const modelIds = uniqueModelIds(models);
   const orderedModelIds = [
     mapping.primary,
-    ...modelIds.filter((model) =>
-      appId === "codex"
-        ? model !== mapping.primary &&
-          model.match(/^gpt-(5\.[456]|6)(?:-|$)/)?.[1] !==
-            mapping.primary.match(/^gpt-(5\.[456]|6)(?:-|$)/)?.[1]
-        : model !== mapping.primary,
-    ),
+    ...modelIds.filter((model) => model !== mapping.primary),
   ].filter(Boolean);
 
   switch (appId) {
@@ -312,16 +375,11 @@ export function buildHRouterSettingsConfig(
         auth: { OPENAI_API_KEY: key },
         config,
         modelCatalog: {
-          models: orderedModelIds.map((model) => ({
-            model,
-            supportedReasoningEfforts: /^gpt-5\.[45](?:-|$)/.test(model)
-              ? HROUTER_CODEX_REASONING_EFFORTS.slice(0, 4)
-              : model === "gpt-5.6-luna"
-                ? HROUTER_CODEX_REASONING_EFFORTS.slice(0, 5)
-                : HROUTER_CODEX_REASONING_EFFORTS,
-            defaultReasoningEffort: "high",
-            preferCodexReasoningMetadata: true,
-          })),
+          models: buildHRouterCodexCatalog(
+            mapping.primary,
+            models,
+            codexCatalog,
+          ),
         },
       };
     }

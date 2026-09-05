@@ -27,6 +27,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { CodexCatalogModel } from "@/types";
+import { ModelInputWithFetch } from "@/components/providers/forms/shared/ModelInputWithFetch";
+import { HRouterCodexModelMapping } from "@/components/providers/forms/shared/HRouterCodexModelMapping";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -60,7 +63,8 @@ import {
   buildHRouterProviderMeta,
   buildHRouterSettingsConfig,
   deriveHRouterModelMapping,
-  getHRouterCodexModels,
+  mergeHRouterModelMapping,
+  buildHRouterCodexCatalog,
   HROUTER_APP_NAMES,
   HROUTER_ICON_COLOR,
   HROUTER_MODELS_URL,
@@ -113,6 +117,9 @@ export function HRouterApiKeysPage() {
   const [importApp, setImportApp] = useState<AppId>("codex");
   const [importing, setImporting] = useState(false);
   const [loadingImportModels, setLoadingImportModels] = useState(false);
+  const [importCatalog, setImportCatalog] = useState<
+    CodexCatalogModel[] | undefined
+  >();
   const [importModels, setImportModels] = useState<FetchedModel[]>([]);
   const [importMapping, setImportMapping] =
     useState<HRouterModelMapping>(emptyMapping);
@@ -168,6 +175,9 @@ export function HRouterApiKeysPage() {
       return;
     }
     let cancelled = false;
+    setImportModels([]);
+    setImportMapping(emptyMapping);
+    setImportCatalog(undefined);
     setLoadingImportModels(true);
     void fetchModelsForConfig(
       HROUTER_ORIGIN,
@@ -178,7 +188,10 @@ export function HRouterApiKeysPage() {
       .then((models) => {
         if (cancelled) return;
         setImportModels(models);
-        setImportMapping(deriveHRouterModelMapping(importApp, models));
+        const recommended = deriveHRouterModelMapping(importApp, models);
+        setImportMapping((current) =>
+          mergeHRouterModelMapping(current, recommended),
+        );
       })
       .catch((error) => {
         if (!cancelled) {
@@ -219,7 +232,7 @@ export function HRouterApiKeysPage() {
     setImporting(true);
     try {
       const models =
-        importModels.length > 0
+        importModels.length > 0 || importMapping.primary.trim()
           ? importModels
           : await fetchModelsForConfig(
               HROUTER_ORIGIN,
@@ -227,7 +240,7 @@ export function HRouterApiKeysPage() {
               false,
               HROUTER_MODELS_URL,
             );
-      if (models.length === 0) {
+      if (models.length === 0 && !importMapping.primary.trim()) {
         toast.error(
           t("hrouterPlatform.noModelsForKey", {
             defaultValue: "这个密钥没有返回可用模型，请检查分组或权限",
@@ -247,6 +260,16 @@ export function HRouterApiKeysPage() {
         );
         return;
       }
+      if (
+        importApp === "codex" &&
+        importCatalog &&
+        (importCatalog.some((row) => !row.model.trim()) ||
+          new Set(importCatalog.map((row) => row.model.trim())).size !==
+            importCatalog.length)
+      ) {
+        toast.error("请填写不重复的实际模型 ID，或删除空白行");
+        return;
+      }
       const providerKey = `hrouter-${importTarget.id}`;
       const provider = await addProvider.mutateAsync({
         name: `HRouter · ${importTarget.name}`,
@@ -255,8 +278,10 @@ export function HRouterApiKeysPage() {
         settingsConfig: buildHRouterSettingsConfig(
           importApp,
           importTarget.key,
-          mapping,
+          { ...mapping, primary: mapping.primary.trim() },
           models,
+          undefined,
+          importApp === "codex" ? importCatalog : undefined,
         ),
         icon: "hrouter",
         iconColor: HROUTER_ICON_COLOR,
@@ -550,7 +575,7 @@ export function HRouterApiKeysPage() {
           open={Boolean(importTarget)}
           onOpenChange={(open) => !open && setImportTarget(null)}
         >
-          <DialogContent>
+          <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>
                 {t("hrouterPlatform.importKeyTitle", {
@@ -564,7 +589,7 @@ export function HRouterApiKeysPage() {
                 })}
               </DialogDescription>
             </DialogHeader>
-            <div className="px-6 py-5">
+            <div className="min-h-0 overflow-y-auto px-6 py-5">
               <Label>
                 {t("hrouterPlatform.agent", { defaultValue: "Agent" })}
               </Label>
@@ -610,35 +635,42 @@ export function HRouterApiKeysPage() {
                       : []),
                   ].map(([field, label]) => (
                     <div key={field}>
-                      <Label className="text-xs">{label}</Label>
-                      <Select
+                      <Label
+                        htmlFor={`hrouter-import-${field}`}
+                        className="text-xs"
+                      >
+                        {label}
+                      </Label>
+                      <ModelInputWithFetch
+                        id={`hrouter-import-${field}`}
                         value={
                           importMapping[field as keyof HRouterModelMapping]
                         }
-                        onValueChange={(value) =>
+                        onChange={(value) =>
                           setImportMapping((current) => ({
                             ...current,
                             [field]: value,
                           }))
                         }
-                      >
-                        <SelectTrigger className="mt-1.5 h-9 text-xs">
-                          <SelectValue placeholder="选择模型" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(importApp === "codex"
-                            ? getHRouterCodexModels(importModels)
-                            : importModels
-                          ).map((model) => (
-                            <SelectItem key={model.id} value={model.id}>
-                              {model.id}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        fetchedModels={importModels}
+                        isLoading={loadingImportModels}
+                      />
                     </div>
                   ))}
                 </div>
+                {importApp === "codex" && (
+                  <HRouterCodexModelMapping
+                    rows={
+                      importCatalog ??
+                      buildHRouterCodexCatalog(
+                        importMapping.primary,
+                        importModels,
+                      )
+                    }
+                    models={importModels}
+                    onChange={setImportCatalog}
+                  />
+                )}
                 {importApp === "claude-desktop" && (
                   <p className="mt-3 text-[11px] leading-5 text-muted-foreground">
                     HRouter 的 Claude Desktop 配置会启用本地代理映射，支持将
@@ -664,7 +696,9 @@ export function HRouterApiKeysPage() {
               </Button>
               <Button
                 disabled={
-                  importing || loadingImportModels || !importMapping.primary
+                  importing ||
+                  loadingImportModels ||
+                  !importMapping.primary.trim()
                 }
                 onClick={() => void handleImport()}
               >

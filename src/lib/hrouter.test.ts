@@ -6,6 +6,8 @@ import {
   buildHRouterUsageScript,
   deriveHRouterModelMapping,
   getHRouterCodexModels,
+  getHRouterCodexCatalog,
+  buildHRouterCodexCatalog,
   extractHRouterProviderState,
   HROUTER_CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT,
   HROUTER_CODEX_DEFAULT_CONTEXT_WINDOW,
@@ -198,6 +200,57 @@ describe("HRouter provider configuration", () => {
         { id: "gpt-image-2", ownedBy: "openai" },
       ]).primary,
     ).toBe("");
+  });
+
+  it("round-trips editable model mappings without replacing them with family defaults", () => {
+    const rows = [
+      {
+        model: " team/my-custom-route ",
+        displayName: " GPT 6 ",
+        contextWindow: 64000,
+        supportedReasoningEfforts: ["low", "high"],
+        defaultReasoningEffort: "low",
+        preferCodexReasoningMetadata: false,
+      },
+    ];
+    const saved = buildHRouterSettingsConfig(
+      "codex",
+      "test",
+      {
+        primary: "team/my-custom-route",
+        haiku: "",
+        sonnet: "",
+        opus: "",
+      },
+      models,
+      undefined,
+      rows,
+    );
+    const restored = getHRouterCodexCatalog(saved)!;
+    expect(restored).toEqual([
+      { ...rows[0], model: "team/my-custom-route", displayName: "GPT 6" },
+    ]);
+    expect(
+      buildHRouterCodexCatalog("team/my-custom-route", [], restored),
+    ).toEqual(restored);
+  });
+
+  it("keeps the default model but does not re-add deleted mappings", () => {
+    expect(
+      buildHRouterCodexCatalog("my-default", models, []).map(
+        (row) => row.model,
+      ),
+    ).toEqual(["my-default"]);
+    expect(
+      buildHRouterCodexCatalog("same", models, [
+        { model: " same " },
+        { model: "same" },
+      ]),
+    ).toHaveLength(1);
+    expect(getHRouterCodexCatalog({ modelCatalog: { models: [] } })).toEqual(
+      [],
+    );
+    expect(getHRouterCodexCatalog({})).toBeUndefined();
   });
 
   it("supports optional Goal mode and disabling remote compaction", () => {

@@ -258,6 +258,9 @@ export type CodexApiFormat = "openai_responses" | "openai_chat" | "anthropic";
 
 export interface CodexCatalogModel {
   model: string;
+  supportedReasoningEfforts?: string[];
+  defaultReasoningEffort?: string;
+  preferCodexReasoningMetadata?: boolean;
   displayName?: string;
   contextWindow?: string | number;
   // Hidden provider capability metadata for the generated model catalog.

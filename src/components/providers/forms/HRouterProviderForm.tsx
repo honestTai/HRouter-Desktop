@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { ToggleRow } from "@/components/ui/toggle-row";
 import JsonEditor from "@/components/JsonEditor";
 import { ProviderIcon } from "@/components/ProviderIcon";
+import { HRouterCodexModelMapping } from "./shared/HRouterCodexModelMapping";
 import { ModelInputWithFetch } from "./shared/ModelInputWithFetch";
 import type { AppId } from "@/lib/api";
 import {
@@ -32,7 +33,9 @@ import {
   buildHRouterProviderMeta,
   buildHRouterSettingsConfig,
   deriveHRouterModelMapping,
-  getHRouterCodexModels,
+  mergeHRouterModelMapping,
+  buildHRouterCodexCatalog,
+  getHRouterCodexCatalog,
   extractHRouterProviderState,
   HROUTER_CODEX_1M_AUTO_COMPACT_TOKEN_LIMIT,
   HROUTER_CODEX_1M_CONTEXT_WINDOW,
@@ -45,7 +48,7 @@ import {
   normalizeHRouterCodexProviderId,
   type HRouterModelMapping,
 } from "@/lib/hrouter";
-import type { Provider } from "@/types";
+import type { CodexCatalogModel, Provider } from "@/types";
 import type { ProviderFormValues } from "./ProviderForm";
 import {
   extractCodexTopLevelInt,
@@ -157,6 +160,11 @@ export function HRouterProviderForm({
   const [mapping, setMapping] = useState<HRouterModelMapping>(
     initialState.mapping,
   );
+  const [codexCatalog, setCodexCatalog] = useState<
+    CodexCatalogModel[] | undefined
+  >(() => getHRouterCodexCatalog(initialProvider?.settingsConfig));
+  const catalogRows =
+    codexCatalog ?? buildHRouterCodexCatalog(mapping.primary, fetchedModels);
   const initialCodexConfig = useMemo(() => {
     const savedConfig = initialProvider?.settingsConfig?.config;
     if (typeof savedConfig === "string" && savedConfig.trim()) {
@@ -234,6 +242,9 @@ export function HRouterProviderForm({
 
   const updateCodexConfig = (value: string) => {
     setCodexConfig(value);
+    const model = extractCodexModelName(value);
+    if (model !== undefined)
+      setMapping((current) => ({ ...current, primary: model }));
     setCodexConfigError("");
   };
 
@@ -294,9 +305,10 @@ export function HRouterProviderForm({
 
       const nextMapping = deriveHRouterModelMapping(appId, models);
       setFetchedModels(models);
-      setMapping(nextMapping);
+      const preservedMapping = mergeHRouterModelMapping(mapping, nextMapping);
+      setMapping((current) => mergeHRouterModelMapping(current, nextMapping));
       toast.success(`已导入 ${models.length} 个 HRouter 模型`);
-      return { models, mapping: nextMapping };
+      return { models, mapping: preservedMapping };
     } catch (error) {
       showFetchModelsError(error, t, {
         hasApiKey: Boolean(key),
@@ -306,7 +318,7 @@ export function HRouterProviderForm({
     } finally {
       setIsFetching(false);
     }
-  }, [apiKey, appId, t]);
+  }, [apiKey, appId, mapping, t]);
 
   const submit = useCallback(async () => {
     const key = apiKey.trim();
@@ -320,11 +332,28 @@ export function HRouterProviderForm({
     try {
       let models = fetchedModels;
       let effectiveMapping = mapping;
-      if (models.length === 0) {
+      if (models.length === 0 && !effectiveMapping.primary.trim()) {
         const imported = await importModels();
         if (!imported) return;
         models = imported.models;
         effectiveMapping = imported.mapping;
+      }
+      effectiveMapping = {
+        ...effectiveMapping,
+        primary: effectiveMapping.primary.trim(),
+      };
+      if (appId === "codex" && codexCatalog?.some((row) => !row.model.trim())) {
+        toast.error("请填写每条模型映射的实际模型 ID，或删除空白行");
+        return;
+      }
+      if (
+        appId === "codex" &&
+        codexCatalog &&
+        new Set(codexCatalog.map((row) => row.model.trim())).size !==
+          codexCatalog.length
+      ) {
+        toast.error("实际模型 ID 不能重复");
+        return;
       }
       if (!effectiveMapping.primary) {
         toast.error(`当前 Key 没有可映射到 ${HROUTER_APP_NAMES[appId]} 的模型`);
@@ -356,7 +385,8 @@ export function HRouterProviderForm({
       let finalCodexConfig = codexConfig;
       if (
         appId === "codex" &&
-        !extractCodexModelName(finalCodexConfig)?.trim()
+        extractCodexModelName(finalCodexConfig)?.trim() !==
+          effectiveMapping.primary
       ) {
         finalCodexConfig = setCodexModelName(
           finalCodexConfig,
@@ -388,6 +418,7 @@ export function HRouterProviderForm({
               remoteCompaction: codexRemoteCompaction,
             }
           : undefined,
+        appId === "codex" ? codexCatalog : undefined,
       );
       if (appId === "codex") {
         settingsConfig.config = finalCodexConfig;
@@ -432,6 +463,7 @@ export function HRouterProviderForm({
     codexAutoCompactTokenLimit,
     codexContextWindow,
     codexConfig,
+    codexCatalog,
     codexGoalMode,
     codexRemoteCompaction,
     defaultName,
@@ -550,63 +582,62 @@ export function HRouterProviderForm({
         </div>
       )}
 
-      {fetchedModels.length > 0 && (
-        <section className="space-y-4 rounded-xl border bg-card p-4">
-          <div className="flex items-start gap-3">
-            <Layers3 className="mt-0.5 h-5 w-5 text-emerald-500" />
-            <div>
-              <h4 className="text-sm font-semibold">模型绑定</h4>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                HRouter 只预填推荐值；保存后仍可再次进入编辑并调整。
-              </p>
-            </div>
+      <section className="space-y-4 rounded-xl border bg-card p-4">
+        <div className="flex items-start gap-3">
+          <Layers3 className="mt-0.5 h-5 w-5 text-emerald-500" />
+          <div>
+            <h4 className="text-sm font-semibold">模型绑定</h4>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              HRouter 只预填推荐值；保存后仍可再次进入编辑并调整。
+            </p>
           </div>
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="hrouter-primary-model">默认模型</Label>
-            <ModelInputWithFetch
-              id="hrouter-primary-model"
-              value={mapping.primary}
-              onChange={(primary) =>
-                setMapping((current) => ({ ...current, primary }))
-              }
-              fetchedModels={
-                appId === "codex"
-                  ? getHRouterCodexModels(fetchedModels)
-                  : fetchedModels
-              }
-              isLoading={false}
-            />
+        <div className="space-y-2">
+          <Label htmlFor="hrouter-primary-model">默认模型</Label>
+          <ModelInputWithFetch
+            id="hrouter-primary-model"
+            value={mapping.primary}
+            onChange={(primary) =>
+              setMapping((current) => ({ ...current, primary }))
+            }
+            fetchedModels={fetchedModels}
+            isLoading={false}
+          />
+        </div>
+
+        {appId === "codex" && (
+          <HRouterCodexModelMapping
+            rows={catalogRows}
+            models={fetchedModels}
+            onChange={setCodexCatalog}
+          />
+        )}
+
+        {isClaudeApp && (
+          <div className="grid gap-3 sm:grid-cols-3">
+            {(["haiku", "sonnet", "opus"] as const).map((role) => (
+              <div key={role} className="space-y-2">
+                <Label htmlFor={`hrouter-${role}-model`} className="capitalize">
+                  {role}
+                </Label>
+                <ModelInputWithFetch
+                  id={`hrouter-${role}-model`}
+                  value={mapping[role]}
+                  onChange={(value) =>
+                    setMapping((current) => ({
+                      ...current,
+                      [role]: value,
+                    }))
+                  }
+                  fetchedModels={fetchedModels}
+                  isLoading={false}
+                />
+              </div>
+            ))}
           </div>
-
-          {isClaudeApp && (
-            <div className="grid gap-3 sm:grid-cols-3">
-              {(["haiku", "sonnet", "opus"] as const).map((role) => (
-                <div key={role} className="space-y-2">
-                  <Label
-                    htmlFor={`hrouter-${role}-model`}
-                    className="capitalize"
-                  >
-                    {role}
-                  </Label>
-                  <ModelInputWithFetch
-                    id={`hrouter-${role}-model`}
-                    value={mapping[role]}
-                    onChange={(value) =>
-                      setMapping((current) => ({
-                        ...current,
-                        [role]: value,
-                      }))
-                    }
-                    fetchedModels={fetchedModels}
-                    isLoading={false}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
+        )}
+      </section>
 
       {appId === "codex" && (
         <section className="space-y-4 rounded-xl border bg-card p-4">

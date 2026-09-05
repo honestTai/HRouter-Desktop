@@ -1,7 +1,29 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HRouterProviderForm } from "@/components/providers/forms/HRouterProviderForm";
+import { fetchModelsForConfig } from "@/lib/api/model-fetch";
 import type { Provider } from "@/types";
+
+// Exercise form/config synchronization without CodeMirror's layout APIs,
+// which jsdom does not implement.
+vi.mock("@/components/JsonEditor", () => ({
+  default: ({
+    value,
+    onChange,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+  }) => (
+    <div>
+      <pre>{value}</pre>
+      <textarea
+        aria-label="测试 TOML 编辑器"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
+  ),
+}));
 
 vi.mock("@/lib/query/queries", () => ({
   useProvidersQuery: () => ({
@@ -120,5 +142,176 @@ keep_me = "preserved"
     expect(preview).toHaveTextContent("[model_providers.hrouter]");
     expect(preview).toHaveTextContent('keep_me = "preserved"');
     expect(preview).not.toHaveTextContent("legacy-route");
+  });
+});
+
+describe("HRouter editable model mappings", () => {
+  beforeEach(() => {
+    vi.mocked(fetchModelsForConfig).mockReset().mockResolvedValue([]);
+  });
+
+  const provider: Provider = {
+    id: "custom-codex",
+    name: "Custom",
+    settingsConfig: {
+      auth: { OPENAI_API_KEY: "test-key" },
+      config: 'model = "custom-default"\nmodel_reasoning_effort = "high"\n',
+      modelCatalog: {
+        models: [
+          {
+            model: "custom-default",
+            displayName: "GPT 6",
+            contextWindow: 64000,
+          },
+        ],
+      },
+    },
+  };
+
+  it("shows mappings before model discovery and allows manual input", () => {
+    renderForm();
+    expect(screen.getByLabelText("默认模型")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "添加模型映射" }));
+    fireEvent.change(screen.getByLabelText("实际模型 ID 1"), {
+      target: { value: "team/alias" },
+    });
+    expect(screen.getByLabelText("实际模型 ID 1")).toHaveValue("team/alias");
+  });
+
+  it("saves custom IDs and display names even when discovery fails", async () => {
+    vi.mocked(fetchModelsForConfig).mockRejectedValue(new Error("offline"));
+    const submit = vi.fn();
+    render(
+      <HRouterProviderForm
+        appId="codex"
+        initialProvider={provider}
+        onSubmit={submit}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("实际模型 ID 1")).toHaveValue(
+      "custom-default",
+    );
+    fireEvent.change(screen.getByLabelText("显示名称 1"), {
+      target: { value: "我的 GPT 6" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "添加模型映射" }));
+    fireEvent.change(screen.getByLabelText("实际模型 ID 2"), {
+      target: { value: "custom-extra" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存 HRouter" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const saved = JSON.parse(submit.mock.calls[0][0].settingsConfig);
+    expect(saved.modelCatalog.models).toEqual([
+      expect.objectContaining({
+        model: "custom-default",
+        displayName: "我的 GPT 6",
+        contextWindow: 64000,
+      }),
+      expect.objectContaining({ model: "custom-extra" }),
+    ]);
+  });
+
+  it("refreshing models does not overwrite the default or edited mappings", async () => {
+    const submit = vi.fn();
+    render(
+      <HRouterProviderForm
+        appId="codex"
+        initialProvider={provider}
+        onSubmit={submit}
+        onCancel={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(fetchModelsForConfig).toHaveBeenCalledTimes(1));
+    fireEvent.change(screen.getByLabelText("默认模型"), {
+      target: { value: "manual-default" },
+    });
+    vi.mocked(fetchModelsForConfig).mockResolvedValue([
+      { id: "gpt-5.5", ownedBy: "openai" },
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "识别 Key" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "已识别" })).toBeVisible(),
+    );
+    expect(screen.getByLabelText("默认模型")).toHaveValue("manual-default");
+    expect(screen.getByLabelText("实际模型 ID 1")).toHaveValue(
+      "custom-default",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "保存 HRouter" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const saved = JSON.parse(submit.mock.calls[0][0].settingsConfig);
+    expect(saved.config).toContain('model = "manual-default"');
+    expect(
+      saved.modelCatalog.models.map((row: { model: string }) => row.model),
+    ).toEqual(["manual-default", "custom-default"]);
+  });
+
+  it("keeps the model in raw TOML, default input, and saved catalog consistent", async () => {
+    const submit = vi.fn();
+    render(
+      <HRouterProviderForm
+        appId="codex"
+        initialProvider={provider}
+        onSubmit={submit}
+        onCancel={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("测试 TOML 编辑器"), {
+      target: {
+        value: 'model = "raw-editor-alias"\nmodel_reasoning_effort = "low"\n',
+      },
+    });
+    expect(screen.getByLabelText("默认模型")).toHaveValue("raw-editor-alias");
+    fireEvent.click(screen.getByRole("button", { name: "保存 HRouter" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const saved = JSON.parse(submit.mock.calls[0][0].settingsConfig);
+    expect(saved.config).toContain('model = "raw-editor-alias"');
+    expect(saved.config).toContain('model_reasoning_effort = "low"');
+    expect(saved.modelCatalog.models[0].model).toBe("raw-editor-alias");
+  });
+
+  it("rejects duplicate IDs and keeps an explicitly emptied catalog empty except for the default", async () => {
+    const submit = vi.fn();
+    render(
+      <HRouterProviderForm
+        appId="codex"
+        initialProvider={provider}
+        onSubmit={submit}
+        onCancel={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "添加模型映射" }));
+    fireEvent.change(screen.getByLabelText("实际模型 ID 2"), {
+      target: { value: " custom-default " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存 HRouter" }));
+    expect(submit).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "删除模型映射 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "删除模型映射 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存 HRouter" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    expect(
+      JSON.parse(
+        submit.mock.calls[0][0].settingsConfig,
+      ).modelCatalog.models.map((row: { model: string }) => row.model),
+    ).toEqual(["custom-default"]);
+  });
+
+  it("rejects empty mapping rows rather than silently discarding them", async () => {
+    const submit = vi.fn();
+    render(
+      <HRouterProviderForm
+        appId="codex"
+        initialProvider={provider}
+        onSubmit={submit}
+        onCancel={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "添加模型映射" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存 HRouter" }));
+    expect(submit).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "删除模型映射 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存 HRouter" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
   });
 });

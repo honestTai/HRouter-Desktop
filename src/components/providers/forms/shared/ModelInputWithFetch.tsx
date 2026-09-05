@@ -57,7 +57,12 @@ export function ModelInputWithFetch({
         />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="shrink-0"
+            >
               <ChevronDown className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>

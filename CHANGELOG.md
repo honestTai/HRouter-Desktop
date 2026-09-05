@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.14
+
+- Exposed editable Codex model mappings in provider settings and API key import, including display names, actual model IDs, and adding/removing catalog entries.
+- Preserved custom mappings across model discovery and saves, and allowed manual configuration when model discovery is unavailable.
+- Synchronized the default model between the form, raw TOML editor, and generated catalog; rejected blank or duplicate mapping IDs.
+- Kept the model discovery dropdown from submitting the provider form accidentally.
+
 ## 0.2.13
 
 - Focused HRouter Codex model pickers and generated catalogs on GPT-5.4, GPT-5.5, GPT-5.6, and GPT-6, keeping one available model per family while preserving explicit selections.
