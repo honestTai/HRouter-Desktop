@@ -7,7 +7,7 @@
 **一个 Key，配置你的 AI 编程工具。**  
 **One key. Your AI coding tools, configured.**
 
-[下载客户端 / Downloads](https://github.com/honestTai/HRouter-Desktop/releases) · [GitHub](https://github.com/honestTai/HRouter-Desktop) · [HRouter](https://hrouter.net/home)
+[Windows 下载](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.2.15/HRouter_0.2.15_x64-setup.exe) · [macOS 下载](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.2.15/HRouter_0.2.15_universal.dmg) · [所有版本 / Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest) · [HRouter](https://hrouter.net/home)
 
 </div>
 
@@ -20,6 +20,18 @@ Discover models, configure routing, and track usage in one desktop app instead o
 Developers who use multiple AI coding tools and want a central place for model configuration and usage.
 
 > Based on [CC Switch](https://github.com/farion1231/cc-switch), licensed under MIT. 原作者版权与许可证声明保留。
+
+## 下载与接入 · Download & connect
+
+截至 **2026-09-13** 核验，正式版本为 **v0.2.15**。版本更新后，以 [Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest) 为准。
+
+| 平台 / Platform | 安装包 / Installer |
+| --- | --- |
+| Windows x64 | [下载 EXE / Download EXE](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.2.15/HRouter_0.2.15_x64-setup.exe) |
+| macOS Universal | [下载 DMG / Download DMG](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.2.15/HRouter_0.2.15_universal.dmg) |
+
+**安装客户端 → 创建 HRouter Key → 选择 Agent → 识别模型并保存配置 → 查看用量。**  
+**Install → create a HRouter key → choose an agent → discover models and save → review usage.**
 
 ## 功能
 
@@ -35,12 +47,12 @@ Developers who use multiple AI coding tools and want a central place for model c
 
 1. 前往 [HRouter](https://hrouter.net/) 注册或登录。
 2. 在控制台创建 API Key。
-3. 从 [GitHub Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest) 下载 Windows 安装包。
+3. 在上方选择 Windows x64 或 macOS Universal 安装包，安装并打开客户端。
 4. 打开 HRouter Desktop，选择 Agent，点击“添加 HRouter”。
 5. 输入 Key 并点击“识别 Key”。
 6. 确认模型绑定后保存并启用配置。
 
-> GitHub Releases 提供预编译的 Windows x64 安装包；开发者也可以按照下面的说明从源码运行。
+> GitHub Releases 提供 Windows x64 和 macOS Universal 安装包；开发者也可以按照下面的说明从源码运行。
 
 ## 从源码运行
 
@@ -92,19 +104,15 @@ are documented in [docs/macos-signing.md](docs/macos-signing.md).
 
 ## English
 
-HRouter Desktop is an independent HRouter-focused distribution based on [CC Switch](https://github.com/farion1231/cc-switch). It lets users configure supported AI agents with an HRouter Key, fetch available models, manage model mappings, and inspect subscription or pay-as-you-go usage. Download the Windows x64 installer from [GitHub Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest). See the Chinese sections above for setup and development commands.
+HRouter Desktop is an independent HRouter-focused distribution based on [CC Switch](https://github.com/farion1231/cc-switch). It lets users configure supported AI agents with a HRouter key, fetch available models, manage model mappings, and inspect subscription or pay-as-you-go usage. Windows x64 and macOS Universal installers are available from [GitHub Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest).
+
+Install the app, create a key in HRouter, select an agent, and choose “Add HRouter.” Enter the key, discover the available models, review the mappings, then save and enable the configuration. See the sections above for development commands.
 
 For signing controls and data handling, see the [code signing policy](CODE_SIGNING_POLICY.md) and [privacy policy](PRIVACY.md).
 
-## 作者与 HRouter · About the author
+## 作者与服务 · Author & services
 
-我是 **honestTai**，开发工具，也运营 [HRouter](https://hrouter.net/home)。这里持续分享实用代码、AI 应用、Skills 与插件，把工作中的需求变成可复用的项目。  
-I’m **honestTai**, the developer and operator behind HRouter. I share practical code, AI apps, skills, and plugins built around real workflows.
+由 [honestTai](https://github.com/honestTai) 维护，配合 [HRouter](https://hrouter.net/home) 使用。项目反馈欢迎提交到 Issues，使用帮助与模型服务请访问 HRouter。  
+Maintained by honestTai for HRouter users. Share app feedback in Issues; visit HRouter for model access and service help.
 
-在客户端使用 HRouter Key，即可识别可用模型、配置工具并查看用量。  
-Use your HRouter key in the desktop app to discover available models, configure tools, and view usage.
-
-[了解 HRouter · Explore HRouter](https://hrouter.net/home) · [发现更多项目 · More projects](https://github.com/honestTai)
-
-**觉得有用，欢迎 Star；有想法，欢迎到 Issues 交流。**  
-**Star the project if it helps, and share your ideas in Issues.**
+[HRouter](https://hrouter.net/home) · [问题反馈 / Issues](https://github.com/honestTai/HRouter-Desktop/issues) · [更多项目 / More projects](https://github.com/honestTai)
