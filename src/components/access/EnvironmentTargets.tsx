@@ -49,13 +49,13 @@ export function EnvironmentTargets() {
     }
   };
   return (
-    <section className="rounded-xl border bg-card p-5 space-y-3">
+    <section className="space-y-4 rounded-xl border border-border bg-card p-5">
       <h2 className="font-semibold">
         {t("accessWorkbench.independentWindowsWslTargets", {
           defaultValue: "Windows / WSL 独立配置目标",
         })}
       </h2>
-      <p className="text-sm text-muted-foreground">
+      <p className="break-words text-sm leading-6 text-muted-foreground">
         {t(
           "accessWorkbench.saveMultipleEnvironmentsWithDifferentProvidersEnterAnExisting",
           {
@@ -64,7 +64,7 @@ export function EnvironmentTargets() {
           },
         )}
       </p>
-      <p className="text-xs text-muted-foreground">
+      <p className="break-words text-xs leading-5 text-muted-foreground">
         {t(
           "accessWorkbench.apiKeyProvidersOnlyCodexUsesProviderAuthenticationWithout",
           {

@@ -112,7 +112,7 @@ export function SettingsPage({
   if (!open) return null;
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden px-6 pb-6">
+    <div className="flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden px-4 pb-6 pt-5 sm:px-6">
       {isBusy ? (
         <div className="flex flex-1 items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -121,19 +121,19 @@ export function SettingsPage({
         <Tabs
           value={activeTab}
           onValueChange={setActiveTab}
-          className="flex h-full min-h-0 flex-col"
+          className="flex h-full min-h-0 min-w-0 w-full flex-col"
         >
-          <TabsList className="mb-5 grid w-80 shrink-0 grid-cols-2 rounded-md">
+          <TabsList className="mb-5 grid w-full max-w-80 shrink-0 grid-cols-2 rounded-md">
             <TabsTrigger value="general">
               {t("settings.tabGeneral")}
             </TabsTrigger>
             <TabsTrigger value="about">{t("common.about")}</TabsTrigger>
           </TabsList>
 
-          <div className="min-h-0 flex-1 overflow-y-auto pr-2">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pr-2">
             <TabsContent value="general" className="mt-0">
               {settings && (
-                <div className="mx-auto max-w-5xl divide-y divide-border-default">
+                <div className="w-full max-w-5xl divide-y divide-border-default">
                   <div className="grid gap-8 py-5 lg:grid-cols-2">
                     <LanguageSettings
                       value={settings.language}
@@ -158,27 +158,27 @@ export function SettingsPage({
             </TabsContent>
 
             <TabsContent value="about" className="mt-0">
-              <div className="mx-auto max-w-3xl py-8">
-                <div className="flex items-center gap-4 border-b border-border-default pb-6">
+              <div className="w-full max-w-3xl py-5">
+                <div className="flex items-start gap-4 border-b border-border-default pb-6">
                   <img
                     src={hrouterLogo}
                     alt="HRouter"
-                    className="h-12 w-12 rounded-lg"
+                    className="h-12 w-12 shrink-0 rounded-lg"
                   />
-                  <div>
+                  <div className="min-w-0">
                     <h2 className="text-lg font-semibold">HRouter Desktop</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="mt-1 break-words text-sm leading-6 text-muted-foreground">
                       {t("app.description")}
                     </p>
                   </div>
                 </div>
                 <dl className="divide-y divide-border-default text-sm">
-                  <div className="flex items-center justify-between py-4">
+                  <div className="flex items-center justify-between gap-4 py-4">
                     <dt className="flex items-center gap-2 text-muted-foreground">
                       <Info className="h-4 w-4" />
                       {t("common.version")}
                     </dt>
-                    <dd className="font-mono font-medium">
+                    <dd className="shrink-0 font-mono font-medium">
                       {version ? `v${version.replace(/^v/, "")}` : "-"}
                     </dd>
                   </div>

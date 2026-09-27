@@ -8,7 +8,7 @@
 
 **Connect your AI coding tools to the providers you choose.**
 
-[Windows 下载](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.3.0/HRouter_0.3.0_x64-setup.exe) · [macOS 下载](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.3.0/HRouter_0.3.0_universal.dmg) · [所有版本 / Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest) · [HRouter](https://hrouter.net/home)
+[Windows 下载](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.3.1/HRouter_0.3.1_x64-setup.exe) · [macOS 下载](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.3.1/HRouter_0.3.1_universal.dmg) · [所有版本 / Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest) · [HRouter](https://hrouter.net/home)
 
 </div>
 
@@ -24,12 +24,12 @@ Developers who use multiple AI coding tools and want a central place for model c
 
 ## 下载与接入 · Download & connect
 
-**v0.3.0** 为接入工作台版本，安装包及各平台发布状态以 [Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest) 为准。
+**v0.3.1** 为接入工作台界面修正版，安装包及各平台发布状态以 [Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest) 为准。
 
 | 平台 / Platform | 安装包 / Installer |
 | --- | --- |
-| Windows x64 | [下载 EXE / Download EXE](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.3.0/HRouter_0.3.0_x64-setup.exe) |
-| macOS Universal | [下载 DMG / Download DMG](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.3.0/HRouter_0.3.0_universal.dmg) |
+| Windows x64 | [下载 EXE / Download EXE](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.3.1/HRouter_0.3.1_x64-setup.exe) |
+| macOS Universal | [下载 DMG / Download DMG](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.3.1/HRouter_0.3.1_universal.dmg) |
 
 **当前源码：打开接入工作台 → 添加任意供应商或导入 CC Switch 配置 → 检查接入 → 按需开启配置保护和主备线路。**
 
@@ -53,7 +53,7 @@ Developers who use multiple AI coding tools and want a central place for model c
 
 ## 快速开始
 
-1. 安装 v0.3.0 或从源码启动，进入“接入工作台”。
+1. 安装 v0.3.1 或从源码启动，进入“接入工作台”。
 2. 选择 Claude Code 或 Codex，添加官方预设、自定义 API 服务，或迁移 CC Switch 供应商。其他 Agent 在配置中心选择。
 3. 如使用 HRouter，选择“HRouter 快捷接入”，填写 Key 并识别模型；没有 Key 可自行前往 [HRouter](https://hrouter.net/) 注册。
 4. 在“接入体检”中查询目录，按需勾选真实请求测试。

@@ -250,24 +250,30 @@ export function AccessWorkbench(props: Props) {
             <DiagnosticsPanel key={app} app={app} />
           </TabsContent>
           <TabsContent value="protection">
-            <ProtectionPanel key={app} app={app} />
-            <EnvironmentTargets />
+            <div className="space-y-5">
+              <ProtectionPanel key={app} app={app} />
+              <EnvironmentTargets />
+            </div>
           </TabsContent>
           <TabsContent value="routes">
-            <ReliabilityControls key={app} app={app} />
-            <QuotaSummary key={`quota-${app}`} app={app} />
-            <RoutesPanel
-              key={app}
-              app={app}
-              onAdd={() => props.onAdd("general", app)}
-            />
+            <div className="space-y-5">
+              <ReliabilityControls key={app} app={app} />
+              <QuotaSummary key={`quota-${app}`} app={app} />
+              <RoutesPanel
+                key={app}
+                app={app}
+                onAdd={() => props.onAdd("general", app)}
+              />
+            </div>
           </TabsContent>
           <TabsContent value="costs">
-            <UsageRepair />
-            <CostsPanel
-              onHRouterUsage={props.onHRouterUsage}
-              onHRouterAccount={props.onHRouterAccount}
-            />
+            <div className="space-y-5">
+              <UsageRepair />
+              <CostsPanel
+                onHRouterUsage={props.onHRouterUsage}
+                onHRouterAccount={props.onHRouterAccount}
+              />
+            </div>
           </TabsContent>
         </Tabs>
       </div>
