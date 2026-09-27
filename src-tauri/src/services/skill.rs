@@ -604,6 +604,7 @@ impl SkillService {
         skill: &DiscoverableSkill,
         current_app: &AppType,
     ) -> Result<InstalledSkill> {
+        crate::access_protection::require_full_mode()?;
         let ssot_dir = Self::get_ssot_dir()?;
 
         // 允许多级目录（如 a/b/c），但必须是安全的相对路径。
@@ -809,6 +810,7 @@ impl SkillService {
     /// 2. 从 SSOT 删除
     /// 3. 从数据库删除
     pub fn uninstall(db: &Arc<Database>, id: &str) -> Result<SkillUninstallResult> {
+        crate::access_protection::require_full_mode()?;
         // 获取 skill 信息
         let skill = db
             .get_installed_skill(id)?
@@ -1056,6 +1058,7 @@ impl SkillService {
 
     /// 更新单个 Skill（重新下载并替换本地文件）
     pub async fn update_skill(&self, db: &Arc<Database>, skill_id: &str) -> Result<InstalledSkill> {
+        crate::access_protection::require_full_mode()?;
         let skill = db
             .get_installed_skill(skill_id)?
             .ok_or_else(|| anyhow!("Skill not found: {skill_id}"))?;
@@ -1239,6 +1242,7 @@ impl SkillService {
         db: &Arc<Database>,
         target: SkillStorageLocation,
     ) -> Result<MigrationResult> {
+        crate::access_protection::require_full_mode()?;
         let current = crate::settings::get_skill_storage_location();
         if current == target {
             return Ok(MigrationResult {
@@ -1382,6 +1386,7 @@ impl SkillService {
         backup_id: &str,
         current_app: &AppType,
     ) -> Result<InstalledSkill> {
+        crate::access_protection::require_full_mode()?;
         let backup_path = Self::backup_path_for_id(backup_id)?;
         let metadata = Self::read_backup_metadata(&backup_path)?;
         let backup_skill_dir = backup_path.join("skill");
@@ -1457,6 +1462,7 @@ impl SkillService {
     /// 启用：复制到应用目录
     /// 禁用：从应用目录删除
     pub fn toggle_app(db: &Arc<Database>, id: &str, app: &AppType, enabled: bool) -> Result<()> {
+        crate::access_protection::require_full_mode()?;
         // 获取当前 skill
         let mut skill = db
             .get_installed_skill(id)?
@@ -1550,6 +1556,7 @@ impl SkillService {
         db: &Arc<Database>,
         imports: Vec<ImportSkillSelection>,
     ) -> Result<Vec<InstalledSkill>> {
+        crate::access_protection::require_full_mode()?;
         let ssot_dir = Self::get_ssot_dir()?;
         let agents_lock = parse_agents_lock();
         let mut imported = Vec::new();
@@ -1695,6 +1702,9 @@ impl SkillService {
     /// - Symlink: 仅使用 symlink
     /// - Copy: 仅使用文件复制
     pub fn sync_to_app_dir(directory: &str, app: &AppType) -> Result<()> {
+        if crate::access_protection::lite_mode() {
+            return Ok(());
+        }
         if matches!(app, AppType::ClaudeDesktop) {
             return Ok(());
         }
@@ -1763,6 +1773,7 @@ impl SkillService {
     /// 复制 Skill 到应用目录（保留用于向后兼容）
     #[deprecated(note = "请使用 sync_to_app_dir() 代替")]
     pub fn copy_to_app(directory: &str, app: &AppType) -> Result<()> {
+        crate::access_protection::require_full_mode()?;
         Self::sync_to_app_dir(directory, app)
     }
 
@@ -1870,6 +1881,7 @@ impl SkillService {
 
     /// 从应用目录删除 Skill（支持 symlink 和真实目录）
     pub fn remove_from_app(directory: &str, app: &AppType) -> Result<()> {
+        crate::access_protection::require_full_mode()?;
         if matches!(app, AppType::ClaudeDesktop) {
             return Ok(());
         }
@@ -1891,6 +1903,9 @@ impl SkillService {
 
     /// 同步所有已启用的 Skills 到指定应用
     pub fn sync_to_app(db: &Arc<Database>, app: &AppType) -> Result<()> {
+        if crate::access_protection::lite_mode() {
+            return Ok(());
+        }
         if matches!(app, AppType::ClaudeDesktop) {
             return Ok(());
         }
@@ -3054,6 +3069,7 @@ impl SkillService {
         zip_path: &Path,
         current_app: &AppType,
     ) -> Result<Vec<InstalledSkill>> {
+        crate::access_protection::require_full_mode()?;
         // 解压到临时目录
         let temp_guard = Self::extract_local_zip(zip_path)?;
         let temp_dir = temp_guard.path();
@@ -3511,6 +3527,9 @@ fn save_repos_from_lock(
 
 /// 首次启动迁移：扫描应用目录，重建数据库
 pub fn migrate_skills_to_ssot(db: &Arc<Database>) -> Result<usize> {
+    if crate::access_protection::lite_mode() {
+        return Ok(0);
+    }
     let ssot_dir = SkillService::get_ssot_dir()?;
     let agents_lock = parse_agents_lock();
     let snapshot: Vec<LegacySkillMigrationRow> =

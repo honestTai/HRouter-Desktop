@@ -21,6 +21,7 @@ struct UsageSemantic {
     output_tokens: u32,
     cache_read_tokens: u32,
     cache_creation_tokens: u32,
+    cache_creation_1h_tokens: u32,
     status_code: u16,
 }
 
@@ -35,12 +36,13 @@ impl UsageSemantic {
             output_tokens: log.usage.output_tokens,
             cache_read_tokens: log.usage.cache_read_tokens,
             cache_creation_tokens: log.usage.cache_creation_tokens,
+            cache_creation_1h_tokens: log.usage.cache_creation_1h_tokens,
             status_code: log.status_code,
         }
     }
 
     fn sha256(&self) -> String {
-        let encoded = serde_json::to_vec(&(
+        let mut encoded = serde_json::to_vec(&(
             &self.app_type,
             &self.provider_id,
             &self.model,
@@ -52,6 +54,9 @@ impl UsageSemantic {
             self.status_code,
         ))
         .expect("usage semantic tuple is serializable");
+        if self.cache_creation_1h_tokens > 0 {
+            encoded.extend_from_slice(format!(":1h:{}", self.cache_creation_1h_tokens).as_bytes());
+        }
         Sha256::digest(encoded)
             .iter()
             .map(|byte| format!("{byte:02x}"))
@@ -173,8 +178,8 @@ impl<'a> UsageLogger<'a> {
                 input_token_semantics,
                 input_cost_usd, output_cost_usd, cache_read_cost_usd, cache_creation_cost_usd, total_cost_usd,
                 latency_ms, first_token_ms, status_code, error_message, session_id,
-                provider_type, is_streaming, cost_multiplier, created_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)"
+                provider_type, is_streaming, cost_multiplier, created_at, cache_creation_1h_tokens
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26)"
         );
         let affected_rows = conn
             .execute(
@@ -205,6 +210,7 @@ impl<'a> UsageLogger<'a> {
                     log.is_streaming as i64,
                     log.cost_multiplier,
                     created_at,
+                    log.usage.cache_creation_1h_tokens,
                 ],
             )
             .map_err(|e| AppError::Database(format!("记录请求日志失败: {e}")))?;
@@ -229,7 +235,7 @@ impl<'a> UsageLogger<'a> {
         conn.query_row(
             "SELECT data_source, app_type, provider_id, model, input_token_semantics,
                     input_tokens, output_tokens, cache_read_tokens,
-                    cache_creation_tokens, status_code
+                    cache_creation_tokens, status_code, cache_creation_1h_tokens
              FROM proxy_request_logs WHERE request_id = ?1",
             [request_id],
             |row| {
@@ -245,6 +251,7 @@ impl<'a> UsageLogger<'a> {
                         cache_read_tokens: row.get::<_, i64>(7)? as u32,
                         cache_creation_tokens: row.get::<_, i64>(8)? as u32,
                         status_code: row.get::<_, i64>(9)? as u16,
+                        cache_creation_1h_tokens: row.get::<_, i64>(10)? as u32,
                     },
                 ))
             },
@@ -514,6 +521,7 @@ mod tests {
             request_model: "gpt-5.6".to_string(),
             pricing_model: "gpt-5.6".to_string(),
             usage: TokenUsage {
+                cache_creation_1h_tokens: 0,
                 input_tokens,
                 output_tokens: 5,
                 cache_read_tokens: 2,
@@ -551,6 +559,7 @@ mod tests {
         let logger = UsageLogger::new(&db);
 
         let usage = TokenUsage {
+            cache_creation_1h_tokens: 0,
             input_tokens: 1000,
             output_tokens: 500,
             cache_read_tokens: 0,
@@ -704,6 +713,7 @@ mod tests {
         }
 
         let usage = TokenUsage {
+            cache_creation_1h_tokens: 0,
             input_tokens: 10,
             output_tokens: 5,
             cache_read_tokens: 2,

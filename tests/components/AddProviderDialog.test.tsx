@@ -26,6 +26,22 @@ vi.mock("@/components/ui/dialog", () => ({
 
 let mockFormValues: ProviderFormValues;
 
+vi.mock("@/components/providers/forms/ProviderForm", () => ({
+  ProviderForm: ({
+    onSubmit,
+  }: {
+    onSubmit: (values: ProviderFormValues) => void;
+  }) => (
+    <form
+      id="provider-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit(mockFormValues);
+      }}
+    />
+  ),
+}));
+
 vi.mock("@/components/providers/forms/HRouterProviderForm", () => ({
   HRouterProviderForm: ({
     onSubmit,
@@ -42,7 +58,33 @@ vi.mock("@/components/providers/forms/HRouterProviderForm", () => ({
   ),
 }));
 
-describe("AddProviderDialog HRouter 专用入口", () => {
+describe("AddProviderDialog 开放接入", () => {
+  it("defaults to generic access and preserves custom provider metadata", async () => {
+    const submit = vi.fn().mockResolvedValue(undefined);
+    mockFormValues = {
+      name: "My endpoint",
+      settingsConfig: JSON.stringify({
+        env: {
+          ANTHROPIC_BASE_URL: "https://example.test",
+          ANTHROPIC_API_KEY: "test",
+        },
+      }),
+      presetCategory: "custom",
+      meta: { apiFormat: "anthropic" },
+    };
+    render(
+      <AddProviderDialog
+        open
+        onOpenChange={vi.fn()}
+        appId="claude"
+        onSubmit={submit}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "添加供应商" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    expect(submit.mock.calls[0][0].name).toBe("My endpoint");
+    expect(submit.mock.calls[0][0].meta.providerType).toBeUndefined();
+  });
   beforeEach(() => {
     mockFormValues = {
       name: "HRouter",
@@ -78,6 +120,7 @@ describe("AddProviderDialog HRouter 专用入口", () => {
     render(
       <AddProviderDialog
         open
+        initialMode="hrouter"
         onOpenChange={handleOpenChange}
         appId="claude"
         onSubmit={handleSubmit}
@@ -103,6 +146,7 @@ describe("AddProviderDialog HRouter 专用入口", () => {
     render(
       <AddProviderDialog
         open
+        initialMode="hrouter"
         onOpenChange={vi.fn()}
         appId="opencode"
         onSubmit={handleSubmit}
@@ -130,6 +174,7 @@ describe("AddProviderDialog HRouter 专用入口", () => {
     render(
       <AddProviderDialog
         open
+        initialMode="hrouter"
         onOpenChange={vi.fn()}
         appId="openclaw"
         onSubmit={handleSubmit}

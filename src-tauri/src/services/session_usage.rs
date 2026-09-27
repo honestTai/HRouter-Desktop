@@ -119,6 +119,7 @@ struct ParsedAssistantUsage {
     output_tokens: u32,
     cache_read_tokens: u32,
     cache_creation_tokens: u32,
+    cache_creation_1h_tokens: u32,
     stop_reason: Option<String>,
     timestamp: Option<String>,
     session_id: Option<String>,
@@ -343,6 +344,7 @@ fn sync_single_file(db: &Database, file_path: &Path) -> Result<(u32, u32), AppEr
                 .get("cache_read_input_tokens")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0) as u32,
+            cache_creation_1h_tokens: crate::proxy::usage::parser::claude_cache_creation_1h(usage),
             cache_creation_tokens: usage
                 .get("cache_creation_input_tokens")
                 .and_then(|v| v.as_u64())
@@ -526,6 +528,7 @@ fn insert_session_log_entry(
 
     // 计算费用
     let usage = TokenUsage {
+        cache_creation_1h_tokens: msg.cache_creation_1h_tokens,
         input_tokens: msg.input_tokens,
         output_tokens: msg.output_tokens,
         cache_read_tokens: msg.cache_read_tokens,
@@ -564,8 +567,8 @@ fn insert_session_log_entry(
             input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens,
             input_cost_usd, output_cost_usd, cache_read_cost_usd, cache_creation_cost_usd, total_cost_usd,
             latency_ms, first_token_ms, status_code, error_message, session_id,
-            provider_type, is_streaming, cost_multiplier, created_at, data_source
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
+            provider_type, is_streaming, cost_multiplier, created_at, data_source, cache_creation_1h_tokens
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)",
             rusqlite::params![
                 request_id,
                 "_session",         // provider_id: 标记为会话来源
@@ -591,6 +594,7 @@ fn insert_session_log_entry(
                 "1.0",              // cost_multiplier
                 created_at,
                 "session_log",      // data_source
+                msg.cache_creation_1h_tokens,
             ],
         )
         .map_err(|e| AppError::Database(format!("插入会话日志失败: {e}")))?;
@@ -706,6 +710,7 @@ mod tests {
 
         // 中间条目（无 stop_reason）
         let intermediate = ParsedAssistantUsage {
+            cache_creation_1h_tokens: 0,
             message_id: "msg_1".to_string(),
             model: "claude-opus-4-6".to_string(),
             input_tokens: 3,
@@ -720,6 +725,7 @@ mod tests {
 
         // 最终条目（有 stop_reason）
         let final_entry = ParsedAssistantUsage {
+            cache_creation_1h_tokens: 0,
             message_id: "msg_1".to_string(),
             model: "claude-opus-4-6".to_string(),
             input_tokens: 3,
@@ -771,6 +777,7 @@ mod tests {
         }
 
         let msg = ParsedAssistantUsage {
+            cache_creation_1h_tokens: 0,
             message_id: "msg_1".to_string(),
             model: "claude-sonnet-4-5".to_string(),
             input_tokens: 100,

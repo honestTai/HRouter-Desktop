@@ -1026,6 +1026,84 @@ export const setCodexGoalMode = (
   return finalizeTomlText(lines);
 };
 
+export const isCodexModelDiscoveryEnabled = (text: string): boolean => {
+  try {
+    const config = parseToml(text) as Record<string, any>;
+    return (
+      config.features?.api_key_model_discovery === true &&
+      typeof config.model_providers?.[config.model_provider]
+        ?.model_catalog_url === "string"
+    );
+  } catch {
+    return false;
+  }
+};
+
+// Edit only the two owned assignments; leave comments and unrelated tables intact.
+export const setCodexModelDiscovery = (
+  text: string,
+  enabled: boolean,
+): string => {
+  let config: Record<string, any>;
+  try {
+    config = parseToml(text);
+  } catch {
+    return text;
+  }
+  const section = getCodexCustomProviderSectionName(text);
+  if (!section) return text;
+  const provider = config.model_providers?.[config.model_provider];
+  const base = provider?.base_url;
+  if (enabled && typeof base !== "string") return text;
+  let url = provider?.model_catalog_url;
+  if (enabled && !url) {
+    try {
+      const parsed = new URL(base);
+      if (
+        !["https:", "http:"].includes(parsed.protocol) ||
+        parsed.username ||
+        parsed.password ||
+        parsed.search ||
+        parsed.hash
+      )
+        return text;
+      parsed.pathname = parsed.pathname.replace(/\/$/, "") + "/models";
+      url = parsed.toString();
+    } catch {
+      return text;
+    }
+  }
+  let lines = normalizeTomlText(text).split("\n");
+  const set = (name: string, key: string, value?: string) => {
+    const range = getTomlSectionRange(lines, name);
+    if (!range) {
+      if (value !== undefined) lines.push("", `[${name}]`, `${key} = ${value}`);
+      return;
+    }
+    const index = findTomlLineInRange(
+      lines,
+      new RegExp(`^\\s*${key}\\s*=`),
+      range.bodyStartIndex,
+      range.bodyEndIndex,
+    );
+    if (index >= 0) {
+      if (value === undefined) lines.splice(index, 1);
+      else lines[index] = `${key} = ${value}`;
+    } else if (value !== undefined)
+      lines.splice(range.bodyEndIndex, 0, `${key} = ${value}`);
+  };
+  set(section, "model_catalog_url", enabled ? tomlBasicString(url) : undefined);
+  set("features", "api_key_model_discovery", enabled ? "true" : undefined);
+  const result = finalizeTomlText(lines);
+  // Inline/dotted tables cannot always be safely edited by the line helper.
+  try {
+    parseToml(result);
+    return result;
+  } catch {
+    return text;
+  }
+};
+
 export const isCodexRemoteCompactionEnabled = (
   configText: string | undefined | null,
 ): boolean => {

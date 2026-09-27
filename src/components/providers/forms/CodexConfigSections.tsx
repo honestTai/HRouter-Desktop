@@ -12,6 +12,8 @@ import { useTranslation } from "react-i18next";
 import JsonEditor from "@/components/JsonEditor";
 import {
   isCodexGoalModeEnabled,
+  isCodexModelDiscoveryEnabled,
+  setCodexModelDiscovery,
   isCodexRemoteCompactionEnabled,
   setCodexGoalMode,
   setCodexRemoteCompaction,
@@ -288,6 +290,34 @@ export const CodexConfigSection: React.FC<CodexConfigSectionProps> = ({
             {t("codexConfig.enableGoalMode")}
           </label>
 
+          {showRemoteCompaction && (
+            <label
+              className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground"
+              title={t(
+                "accessWorkbench.requiresCodex0156AndACodexFormatRemote",
+                {
+                  defaultValue:
+                    "需要 Codex 0.156+ 和 Codex 格式的远程目录；本地 model_catalog_json 优先。可在下方 TOML 修改目录地址。",
+                },
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={isCodexModelDiscoveryEnabled(localValue)}
+                onChange={(e) =>
+                  handleLocalChange(
+                    setCodexModelDiscovery(
+                      localValueRef.current,
+                      e.target.checked,
+                    ),
+                  )
+                }
+              />
+              {t("accessWorkbench.discoverModelsFromProviderCodex0156", {
+                defaultValue: "从供应商发现模型（Codex 0.156+）",
+              })}
+            </label>
+          )}
           {showRemoteCompaction && (
             <label
               className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground"

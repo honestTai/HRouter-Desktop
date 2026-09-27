@@ -95,8 +95,12 @@ impl CostCalculator {
             Decimal::from(usage.output_tokens) * pricing.output_cost_per_million / million;
         let cache_read_cost =
             Decimal::from(usage.cache_read_tokens) * pricing.cache_read_cost_per_million / million;
-        let cache_creation_cost = Decimal::from(usage.cache_creation_tokens)
+        let one_hour = usage
+            .cache_creation_1h_tokens
+            .min(usage.cache_creation_tokens);
+        let cache_creation_cost = (Decimal::from(usage.cache_creation_tokens - one_hour)
             * pricing.cache_creation_cost_per_million
+            + Decimal::from(one_hour) * pricing.input_cost_per_million * Decimal::from(2))
             / million;
 
         // 总成本 = 各项基础成本之和 × 倍率
@@ -144,8 +148,29 @@ mod tests {
     use super::*;
 
     #[test]
+    fn mixed_cache_ttls_are_priced_separately_in_json_and_sse() {
+        let usage = serde_json::json!({"input_tokens": 0, "output_tokens": 0,
+            "cache_creation_input_tokens": 1000000,
+            "cache_creation": {"ephemeral_5m_input_tokens": 400000, "ephemeral_1h_input_tokens": 600000}});
+        let json = TokenUsage::from_claude_response(&serde_json::json!({"usage":usage})).unwrap();
+        let stream = TokenUsage::from_claude_stream_events(&[
+            serde_json::json!({"type":"message_start","message":{"usage":usage}}),
+            serde_json::json!({"type":"message_delta","usage":{"output_tokens":0}}),
+        ])
+        .unwrap();
+        let pricing = ModelPricing::from_strings("3", "15", "0.3", "3.75").unwrap();
+        for parsed in [json, stream] {
+            assert_eq!(parsed.cache_creation_1h_tokens, 600000);
+            let cost = CostCalculator::calculate(&parsed, &pricing, Decimal::from(2));
+            assert_eq!(cost.cache_creation_cost, Decimal::from_str("5.1").unwrap());
+            assert_eq!(cost.total_cost, Decimal::from_str("10.2").unwrap());
+        }
+    }
+
+    #[test]
     fn test_cost_calculation() {
         let usage = TokenUsage {
+            cache_creation_1h_tokens: 0,
             input_tokens: 1000,
             output_tokens: 500,
             cache_read_tokens: 200,
@@ -178,6 +203,7 @@ mod tests {
     #[test]
     fn test_cost_calculation_for_cache_inclusive_app() {
         let usage = TokenUsage {
+            cache_creation_1h_tokens: 0,
             input_tokens: 1000,
             output_tokens: 500,
             cache_read_tokens: 200,
@@ -205,6 +231,7 @@ mod tests {
     #[test]
     fn grokbuild_does_not_double_bill_cached_input() {
         let usage = TokenUsage {
+            cache_creation_1h_tokens: 0,
             input_tokens: 1000,
             output_tokens: 0,
             cache_read_tokens: 600,
@@ -224,6 +251,7 @@ mod tests {
     #[test]
     fn test_cost_multiplier() {
         let usage = TokenUsage {
+            cache_creation_1h_tokens: 0,
             input_tokens: 1000,
             output_tokens: 0,
             cache_read_tokens: 0,
@@ -246,6 +274,7 @@ mod tests {
     #[test]
     fn test_decimal_precision() {
         let usage = TokenUsage {
+            cache_creation_1h_tokens: 0,
             input_tokens: 1,
             output_tokens: 1,
             cache_read_tokens: 1,

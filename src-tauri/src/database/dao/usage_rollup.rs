@@ -170,6 +170,14 @@ impl Database {
         conn.execute(&aggregation_sql, [cutoff])
             .map_err(|e| AppError::Database(format!("Rollup aggregation failed: {e}")))?;
 
+        // Save identities in the same transaction as aggregation and deletion.
+        conn.execute(
+            "INSERT OR IGNORE INTO usage_pruned_ids (request_id)
+             SELECT request_id FROM proxy_request_logs WHERE created_at < ?1",
+            [cutoff],
+        )
+        .map_err(|e| AppError::Database(format!("Saving pruned identities failed: {e}")))?;
+
         // INSERT uses the effective-log filter to exclude duplicate session rows.
         // DELETE intentionally prunes all old details so those duplicates are discarded.
         let deleted = conn
@@ -189,6 +197,25 @@ mod tests {
     use crate::database::Database;
     use crate::error::AppError;
     use chrono::{Local, TimeZone};
+
+    #[test]
+    fn pruned_usage_cannot_be_reimported_and_aggregated_twice() -> Result<(), AppError> {
+        let db = Database::memory()?;
+        let insert = "INSERT OR IGNORE INTO proxy_request_logs
+            (request_id, provider_id, app_type, model, created_at, status_code, input_tokens, latency_ms)
+            VALUES ('opencode_session:s:m', '_opencode_session', 'opencode', 'm', 1, 200, 100, 0)";
+        assert_eq!(db.conn.lock().unwrap().execute(insert, [])?, 1);
+        assert_eq!(db.rollup_and_prune(30)?, 1);
+        assert_eq!(db.conn.lock().unwrap().execute(insert, [])?, 0);
+        assert_eq!(db.rollup_and_prune(30)?, 0);
+        let requests: i64 = db.conn.lock().unwrap().query_row(
+            "SELECT SUM(request_count) FROM usage_daily_rollups",
+            [],
+            |r| r.get(0),
+        )?;
+        assert_eq!(requests, 1);
+        Ok(())
+    }
 
     fn local_dt(
         year: i32,

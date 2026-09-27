@@ -142,7 +142,6 @@ fn windows_file_identity(file: &fs::File) -> Option<(u64, [u8; 16])> {
 #[derive(Debug)]
 struct ParentTokenTimeline {
     events: Vec<TimestampedTokenSignature>,
-    max_timestamp: Option<DateTime<Utc>>,
     has_token_without_timestamp: bool,
 }
 
@@ -158,15 +157,8 @@ impl ParentTokenTimeline {
                 parent_path.display()
             ));
         }
-        if self
-            .max_timestamp
-            .is_none_or(|timestamp| timestamp < cutoff)
-        {
-            return Err(format!(
-                "父 rollout {} 尚未写到 child fork 时刻",
-                parent_path.display()
-            ));
-        }
+        // A parent can stay idle while its child runs. Its last event need not
+        // reach the fork timestamp; compare the available pre-fork signatures.
         Ok(self
             .events
             .iter()
@@ -306,6 +298,12 @@ pub(crate) fn reset_codex_usage_on_conn(
     conn: &rusqlite::Connection,
     codex_dir: &Path,
 ) -> Result<(), AppError> {
+    if sqlite_table_exists(conn, "usage_pruned_ids")? {
+        conn.execute(
+            "DELETE FROM usage_pruned_ids WHERE request_id GLOB 'codex_session:*'",
+            [],
+        )?;
+    }
     if sqlite_table_exists(conn, "proxy_request_logs")?
         && sqlite_column_exists(conn, "proxy_request_logs", "data_source")?
     {
@@ -987,7 +985,6 @@ fn parent_signatures_before(
     }
 
     let mut events = Vec::new();
-    let mut max_timestamp: Option<DateTime<Utc>> = None;
     let mut has_token_without_timestamp = false;
 
     // 必须扫描完整父文件，不能在首个未来时间戳处 break：rollout 写入顺序
@@ -1000,9 +997,6 @@ fn parent_signatures_before(
             continue;
         };
         let timestamp = parse_timestamp(value.get("timestamp"));
-        if let Some(timestamp) = timestamp {
-            max_timestamp = Some(max_timestamp.map_or(timestamp, |current| current.max(timestamp)));
-        }
         if value.get("type").and_then(serde_json::Value::as_str) != Some("event_msg")
             || value
                 .get("payload")
@@ -1034,7 +1028,6 @@ fn parent_signatures_before(
 
     let timeline = Arc::new(ParentTokenTimeline {
         events,
-        max_timestamp,
         has_token_without_timestamp,
     });
     let result = timeline.signatures_before(parent_path, cutoff);
@@ -1425,6 +1418,7 @@ fn insert_codex_session_entry_on_conn(
 
     // 计算费用
     let usage = TokenUsage {
+        cache_creation_1h_tokens: 0,
         input_tokens: delta.input,
         output_tokens: delta.output,
         cache_read_tokens: delta.cached_input,
@@ -2212,7 +2206,6 @@ mod tests {
             &[
                 session_meta(PARENT_ID),
                 token_count_at(1_000, 900, 100, "2026-07-10T03:00:01Z"),
-                turn_context_at("2026-07-10T03:00:10Z"),
             ],
         );
         write_jsonl(

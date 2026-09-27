@@ -1,3 +1,4 @@
+mod access_protection;
 mod app_config;
 mod app_store;
 mod auto_launch;
@@ -11,6 +12,7 @@ mod commands;
 mod config;
 mod database;
 mod deeplink;
+mod environment_targets;
 mod error;
 mod gemini_config;
 mod gemini_mcp;
@@ -24,6 +26,7 @@ mod linux_fix;
 mod macos_widget;
 mod mcp;
 mod model_capabilities;
+mod model_routes;
 mod openclaw_config;
 mod opencode_config;
 mod panic_hook;
@@ -1594,6 +1597,28 @@ pub fn run() {
             commands::get_usage_data_sources,
             // Stream health check
             commands::stream_check_provider,
+            commands::diagnose_provider,
+            commands::preview_cc_switch_import,
+            commands::import_cc_switch_providers,
+            commands::get_access_protection,
+            commands::get_prompt_protection,
+            commands::get_providers_only_sync,
+            commands::get_lite_mode,
+            commands::rebuild_opencode_usage,
+            commands::get_environment_targets,
+            commands::save_environment_targets,
+            commands::preview_environment_targets,
+            commands::apply_environment_targets,
+            commands::set_lite_mode,
+            commands::set_providers_only_sync,
+            commands::get_model_routes,
+            commands::set_model_routes,
+            commands::set_provider_compatibility,
+            commands::set_prompt_protection,
+            commands::set_access_protection,
+            commands::preview_access_switch,
+            commands::list_access_snapshots,
+            commands::restore_access_snapshot,
             commands::stream_check_all_providers,
             commands::get_stream_check_config,
             commands::save_stream_check_config,

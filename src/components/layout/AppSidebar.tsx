@@ -22,6 +22,7 @@ import { useHRouterSession } from "@/hooks/useHRouterSession";
 import { cn } from "@/lib/utils";
 
 interface AppSidebarProps {
+  onOpenWorkbench: () => void;
   currentView: string;
   onOpenDashboard: () => void;
   onOpenUsage: () => void;
@@ -40,6 +41,7 @@ const navItemClass =
 const utilityItemClass = `${navItemClass} border-transparent bg-transparent text-muted-foreground shadow-none hover:bg-muted hover:text-foreground`;
 
 export function AppSidebar({
+  onOpenWorkbench,
   currentView,
   onOpenDashboard,
   onOpenUsage,
@@ -75,6 +77,27 @@ export function AppSidebar({
       </div>
 
       <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onOpenWorkbench}
+          className={itemClass("workbench")}
+        >
+          <LayoutGrid className="h-4 w-4" />
+          {t("accessWorkbench.accessWorkbench", { defaultValue: "接入工作台" })}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onOpenProviders}
+          className={itemClass("providers")}
+        >
+          <KeyRound className="h-4 w-4" />
+          {t("accessWorkbench.providerConfiguration", {
+            defaultValue: "供应商配置",
+          })}
+        </Button>
+        <div className="my-3 border-t border-border-default" />
         <p className="mb-1 px-3 text-[10px] font-semibold text-muted-foreground">
           {t("navigation.hrouterPlatform", { defaultValue: "HRouter 平台" })}
         </p>
@@ -164,16 +187,6 @@ export function AppSidebar({
         <p className="mb-1 mt-5 px-3 text-[10px] font-semibold text-muted-foreground">
           {t("navigation.localTools", { defaultValue: "本地工具" })}
         </p>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onOpenProviders}
-          className={itemClass("providers")}
-          data-tour="providers"
-        >
-          <LayoutGrid className="h-4 w-4" />
-          {t("navigation.providers", { defaultValue: "配置中心" })}
-        </Button>
         <div data-tour="agents">
           <AgentManagerButton className={utilityItemClass} showLabel />
         </div>

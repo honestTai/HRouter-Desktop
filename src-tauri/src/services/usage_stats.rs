@@ -1926,9 +1926,19 @@ impl Database {
         let cache_read_cost = rust_decimal::Decimal::from(log.cache_read_tokens as u64)
             * pricing.cache_read
             / million;
-        let cache_creation_cost = rust_decimal::Decimal::from(log.cache_creation_tokens as u64)
-            * pricing.cache_creation
-            / million;
+        let one_hour: u64 = conn.query_row(
+            "SELECT cache_creation_1h_tokens FROM proxy_request_logs WHERE request_id = ?1",
+            [&log.request_id],
+            |row| row.get(0),
+        )?;
+        let one_hour = one_hour.min(log.cache_creation_tokens as u64);
+        let cache_creation_cost =
+            (rust_decimal::Decimal::from(log.cache_creation_tokens as u64 - one_hour)
+                * pricing.cache_creation
+                + rust_decimal::Decimal::from(one_hour)
+                    * pricing.input
+                    * rust_decimal::Decimal::from(2))
+                / million;
         // 总成本 = 基础成本之和 × 倍率
         let base_total = input_cost + output_cost + cache_read_cost + cache_creation_cost;
         let total_cost = base_total * multiplier;

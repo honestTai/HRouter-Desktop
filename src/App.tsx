@@ -61,6 +61,7 @@ import { AppSwitcher } from "@/components/AppSwitcher";
 import { ProfileSwitcher } from "@/components/profiles/ProfileSwitcher";
 import { ProviderList } from "@/components/providers/ProviderList";
 import { AddProviderDialog } from "@/components/providers/AddProviderDialog";
+import { AccessWorkbench } from "@/components/access/AccessWorkbench";
 import { EditProviderDialog } from "@/components/providers/EditProviderDialog";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SettingsPage } from "@/components/settings/SettingsPage";
@@ -106,6 +107,7 @@ import OpenClawHealthBanner from "@/components/openclaw/OpenClawHealthBanner";
 import HermesMemoryPanel from "@/components/hermes/HermesMemoryPanel";
 
 type View =
+  | "workbench"
   | "dashboard"
   | "usage"
   | "billing"
@@ -160,6 +162,7 @@ const getInitialApp = (): AppId => {
 
 const VIEW_STORAGE_KEY = "hrouter-last-view";
 const VALID_VIEWS: View[] = [
+  "workbench",
   "dashboard",
   "usage",
   "billing",
@@ -176,7 +179,7 @@ const getInitialView = (): View => {
   if (saved && VALID_VIEWS.includes(saved)) {
     return saved;
   }
-  return "dashboard";
+  return "workbench";
 };
 
 function MainApp() {
@@ -191,6 +194,7 @@ function MainApp() {
     useState<SkillsPageSource>("repos");
   const [settingsDefaultTab, setSettingsDefaultTab] = useState("general");
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [addMode, setAddMode] = useState<"general" | "hrouter">("general");
   const [isWindowMaximized, setIsWindowMaximized] = useState(false);
   const [mcpManagementBusy, setMcpManagementBusy] = useState(false);
   const [skillsManagementBusy, setSkillsManagementBusy] = useState(false);
@@ -901,6 +905,19 @@ function MainApp() {
       switch (currentView) {
         case "dashboard":
           return <HRouterDashboard />;
+        case "workbench":
+          return (
+            <AccessWorkbench
+              onAdd={(mode, app) => {
+                setActiveApp(app);
+                setAddMode(mode);
+                setIsAddOpen(true);
+              }}
+              onProviders={() => setCurrentView("providers")}
+              onHRouterUsage={() => setCurrentView("usage")}
+              onHRouterAccount={() => setCurrentView("dashboard")}
+            />
+          );
         case "usage":
           return <HRouterUsagePage />;
         case "billing":
@@ -1041,7 +1058,10 @@ function MainApp() {
                       onDuplicate={handleDuplicateProvider}
                       onConfigureUsage={setUsageProvider}
                       onOpenWebsite={handleOpenWebsite}
-                      onCreate={() => setIsAddOpen(true)}
+                      onCreate={() => {
+                        setAddMode("general");
+                        setIsAddOpen(true);
+                      }}
                       onSetAsDefault={
                         activeApp === "openclaw"
                           ? setAsDefaultModel
@@ -1064,6 +1084,7 @@ function MainApp() {
   const isMainHeaderView = currentView === "providers";
   const showsAgentSwitcher = currentView === "providers";
   const isPrimaryNavigationView =
+    currentView === "workbench" ||
     currentView === "dashboard" ||
     currentView === "usage" ||
     currentView === "billing" ||
@@ -1163,6 +1184,7 @@ function MainApp() {
         style={{ top: dragBarHeight, width: SIDEBAR_WIDTH }}
       >
         <AppSidebar
+          onOpenWorkbench={() => setCurrentView("workbench")}
           currentView={currentView}
           onOpenDashboard={() => setCurrentView("dashboard")}
           onOpenUsage={() => setCurrentView("usage")}
@@ -1248,6 +1270,7 @@ function MainApp() {
             ) : (
               <div className="min-w-0">
                 <h1 className="truncate text-base font-semibold">
+                  {currentView === "workbench" && "接入工作台"}
                   {currentView === "dashboard" &&
                     t("navigation.dashboard", { defaultValue: "仪表盘" })}
                   {currentView === "usage" &&
@@ -1666,6 +1689,7 @@ function MainApp() {
 
                     <Button
                       onClick={() => {
+                        setAddMode("general");
                         setIsAddOpen(true);
                       }}
                       size="icon"
@@ -1689,6 +1713,7 @@ function MainApp() {
       </main>
 
       <AddProviderDialog
+        initialMode={addMode}
         open={isAddOpen}
         onOpenChange={setIsAddOpen}
         appId={activeApp}

@@ -366,6 +366,31 @@ pub async fn rebuild_codex_usage(
 
 /// 获取数据来源分布
 #[tauri::command]
+pub async fn rebuild_opencode_usage(
+    state: State<'_, AppState>,
+) -> Result<crate::services::session_usage::SessionSyncResult, AppError> {
+    let db = state.db.clone();
+    let _guard = crate::services::session_usage::session_sync_mutex()
+        .lock()
+        .await;
+    tauri::async_runtime::spawn_blocking(move || {
+        if !crate::opencode_config::get_opencode_db_path().exists() {
+            return Err(AppError::Message(
+                "未找到 OpenCode 原始数据库，未清理统计".into(),
+            ));
+        }
+        db.backup_database_file()?;
+        crate::services::session_usage_opencode::reset_opencode_usage(&db)?;
+        let result = crate::services::session_usage_opencode::sync_opencode_usage(&db);
+        crate::usage_events::notify_log_recorded();
+        result
+    })
+    .await
+    .map_err(|e| AppError::Message(e.to_string()))?
+}
+
+/// 获取数据来源分布
+#[tauri::command]
 pub fn get_usage_data_sources(
     state: State<'_, AppState>,
 ) -> Result<Vec<crate::services::session_usage::DataSourceSummary>, AppError> {

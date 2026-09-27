@@ -473,6 +473,18 @@ pub struct ProviderMeta {
     /// - "openai_responses": OpenAI Responses API 格式，需要转换
     #[serde(rename = "apiFormat", skip_serializing_if = "Option::is_none")]
     pub api_format: Option<String>,
+    /// Optional stateless replay for continuing Codex sessions on another upstream.
+    #[serde(
+        rename = "codexSessionCompatibility",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub codex_session_compatibility: Option<bool>,
+    /// Use the standard pooled HTTP transport for Anthropic-compatible upstreams.
+    #[serde(
+        rename = "standardHttpTransport",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub standard_http_transport: Option<bool>,
     /// 通用认证绑定（provider_config / managed_account）
     ///
     /// 新代码应只写入该字段；githubAccountId 仅保留兼容读取。

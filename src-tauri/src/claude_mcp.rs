@@ -148,6 +148,7 @@ pub fn read_mcp_json() -> Result<Option<String>, AppError> {
 /// 在 ~/.claude.json 根对象写入 hasCompletedOnboarding=true（用于跳过 Claude Code 初次安装确认）
 /// 仅增量写入该字段，其他字段保持不变
 pub fn set_has_completed_onboarding() -> Result<bool, AppError> {
+    crate::access_protection::require_full_mode()?;
     let path = user_config_path();
     let mut root = if path.exists() {
         read_json_value(&path)?
@@ -175,6 +176,7 @@ pub fn set_has_completed_onboarding() -> Result<bool, AppError> {
 /// 删除 ~/.claude.json 根对象的 hasCompletedOnboarding 字段（恢复 Claude Code 初次安装确认）
 /// 仅增量删除该字段，其他字段保持不变
 pub fn clear_has_completed_onboarding() -> Result<bool, AppError> {
+    crate::access_protection::require_full_mode()?;
     let path = user_config_path();
     if !path.exists() {
         return Ok(false);
@@ -195,6 +197,7 @@ pub fn clear_has_completed_onboarding() -> Result<bool, AppError> {
 }
 
 pub fn upsert_mcp_server(id: &str, spec: Value) -> Result<bool, AppError> {
+    crate::access_protection::require_full_mode()?;
     if id.trim().is_empty() {
         return Err(AppError::InvalidInput("MCP 服务器 ID 不能为空".into()));
     }
@@ -267,6 +270,7 @@ pub fn upsert_mcp_server(id: &str, spec: Value) -> Result<bool, AppError> {
 }
 
 pub fn delete_mcp_server(id: &str) -> Result<bool, AppError> {
+    crate::access_protection::require_full_mode()?;
     if id.trim().is_empty() {
         return Err(AppError::InvalidInput("MCP 服务器 ID 不能为空".into()));
     }

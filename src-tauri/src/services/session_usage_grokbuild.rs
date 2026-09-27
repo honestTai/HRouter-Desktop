@@ -413,6 +413,7 @@ fn insert_grok_session_entry(
 
     let clamp = |v: u64| v.min(u32::MAX as u64) as u32;
     let usage = TokenUsage {
+        cache_creation_1h_tokens: 0,
         input_tokens: clamp(turn.input),
         output_tokens: clamp(turn.output),
         cache_read_tokens: clamp(turn.cached),

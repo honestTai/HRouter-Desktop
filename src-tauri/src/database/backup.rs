@@ -72,6 +72,8 @@ fn import_authorizer(context: rusqlite::hooks::AuthContext<'_>) -> rusqlite::hoo
 
 /// Tables whose data rows are skipped when exporting for WebDAV sync.
 const SYNC_SKIP_TABLES: &[&str] = &[
+    "usage_pruned_ids",
+    "session_log_sync",
     "proxy_request_logs",
     "stream_check_logs",
     "provider_health",
@@ -82,6 +84,8 @@ const SYNC_SKIP_TABLES: &[&str] = &[
 /// Tables whose local data is preserved (restored from local snapshot) during WebDAV import.
 /// Excludes ephemeral tables like provider_health that can safely rebuild at runtime.
 const SYNC_PRESERVE_TABLES: &[&str] = &[
+    "usage_pruned_ids",
+    "session_log_sync",
     "proxy_request_logs",
     "stream_check_logs",
     "proxy_live_backup",
@@ -107,7 +111,61 @@ impl Database {
     /// Export SQL for sync (WebDAV), skipping local-only tables' data
     pub fn export_sql_string_for_sync(&self) -> Result<String, AppError> {
         let snapshot = self.snapshot_to_memory()?;
+        if crate::access_protection::providers_only_sync() {
+            // Provider records can contain old whole-file snapshots. Strip
+            // unrelated Claude/Codex fields too, not just the prompts/MCP tables.
+            let rows = {
+                let mut stmt = snapshot.prepare("SELECT id, app_type, settings_config FROM providers WHERE app_type IN ('claude','codex')")?;
+                let rows = stmt
+                    .query_map([], |r| {
+                        Ok((
+                            r.get::<_, String>(0)?,
+                            r.get::<_, String>(1)?,
+                            r.get::<_, String>(2)?,
+                        ))
+                    })?
+                    .collect::<Result<Vec<_>, _>>()?;
+                rows
+            };
+            for (id, app, raw) in rows {
+                let value: serde_json::Value = serde_json::from_str(&raw)
+                    .map_err(|_| AppError::Config("供应商配置 JSON 无效，未上传".into()))?;
+                let filtered = if app == "claude" {
+                    crate::access_protection::preserve_claude(&serde_json::json!({}), &value)?
+                } else {
+                    let config = crate::access_protection::preserve_codex(
+                        "",
+                        value
+                            .get("config")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or(""),
+                    )?;
+                    let mut auth = serde_json::json!({});
+                    if let Some(key) = value.pointer("/auth/OPENAI_API_KEY") {
+                        auth["OPENAI_API_KEY"] = key.clone();
+                    }
+                    serde_json::json!({"config":config,"auth":auth})
+                };
+                snapshot.execute(
+                    "UPDATE providers SET settings_config=?1 WHERE id=?2 AND app_type=?3",
+                    rusqlite::params![filtered.to_string(), id, app],
+                )?;
+            }
+            let tables = Self::non_provider_tables(&snapshot)?;
+            let skip: Vec<&str> = tables.iter().map(String::as_str).collect();
+            let sql = Self::dump_sql(&snapshot, &skip)?;
+            // This marker is part of the validated SQL export, not executable metadata.
+            return Ok(format!("-- hrouter-providers-only-v1\n{sql}"));
+        }
         Self::dump_sql(&snapshot, SYNC_SKIP_TABLES)
+    }
+
+    fn non_provider_tables(conn: &Connection) -> Result<Vec<String>, AppError> {
+        let mut stmt = conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('providers','provider_endpoints')")?;
+        let result = stmt
+            .query_map([], |r| r.get(0))?
+            .collect::<Result<Vec<String>, _>>()?;
+        Ok(result)
     }
 
     /// 导出为 SQLite 兼容的 SQL 文本
@@ -137,12 +195,23 @@ impl Database {
 
     /// 从 SQL 字符串导入，返回生成的备份 ID（若无备份则为空字符串）
     pub fn import_sql_string(&self, sql_raw: &str) -> Result<String, AppError> {
+        if sql_raw.starts_with("-- hrouter-providers-only-v1\n") {
+            return self.import_sql_string_for_sync(sql_raw);
+        }
         self.import_sql_string_inner(sql_raw, &[])
     }
 
     /// Import SQL generated for sync, then restore local-only tables from the
     /// current device snapshot before replacing the main database.
     pub(crate) fn import_sql_string_for_sync(&self, sql_raw: &str) -> Result<String, AppError> {
+        if crate::access_protection::providers_only_sync()
+            || sql_raw.starts_with("-- hrouter-providers-only-v1\n")
+        {
+            let snapshot = self.snapshot_to_memory()?;
+            let tables = Self::non_provider_tables(&snapshot)?;
+            let preserve: Vec<&str> = tables.iter().map(String::as_str).collect();
+            return self.import_sql_string_inner(sql_raw, &preserve);
+        }
         self.import_sql_string_inner(sql_raw, SYNC_PRESERVE_TABLES)
     }
 
@@ -152,6 +221,9 @@ impl Database {
         preserve_tables: &[&str],
     ) -> Result<String, AppError> {
         let sql_content = sql_raw.trim_start_matches('\u{feff}');
+        let sql_content = sql_content
+            .strip_prefix("-- hrouter-providers-only-v1\n")
+            .unwrap_or(sql_content);
         Self::validate_cc_switch_sql_export(sql_content)?;
 
         // 导入前备份现有数据库

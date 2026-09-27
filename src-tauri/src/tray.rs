@@ -610,6 +610,9 @@ fn handle_auto_click(app: &tauri::AppHandle, app_type: &AppType) -> Result<(), A
         // 3) 设置 auto_failover_enabled = true
         app_state
             .db
+            .set_setting(&format!("manual_failover_preference_{app_type_str}"), "")?;
+        app_state
+            .db
             .set_proxy_flags_sync(app_type_str, true, true)?;
 
         // 3.1) 立即切到队列 P1（热切换：不写 Live，仅更新 DB/settings/备份）
@@ -647,7 +650,7 @@ fn handle_auto_click(app: &tauri::AppHandle, app_type: &AppType) -> Result<(), A
     Ok(())
 }
 
-/// 处理供应商点击：关闭 auto_failover + 切换供应商
+/// 手动选择首选供应商，不改变用户的自动故障转移设置。
 fn handle_provider_click(
     app: &tauri::AppHandle,
     app_type: &AppType,
@@ -656,15 +659,12 @@ fn handle_provider_click(
     if let Some(app_state) = app.try_state::<AppState>() {
         let app_type_str = app_type.as_str();
 
-        // 获取当前 proxy 状态，保持 enabled 不变，只关闭 auto_failover
-        let (proxy_enabled, _) = app_state.db.get_proxy_flags_sync(app_type_str);
-        app_state
-            .db
-            .set_proxy_flags_sync(app_type_str, proxy_enabled, false)?;
-
         // 切换供应商。需要本地路由的供应商也不在这里自动启动代理，
         // 由用户在页面/设置中手动开启。
         crate::services::ProviderService::switch(app_state.inner(), app_type.clone(), provider_id)?;
+
+        let (proxy_enabled, auto_failover_enabled) =
+            app_state.db.get_proxy_flags_sync(app_type_str);
 
         // 更新托盘菜单
         if let Ok(new_menu) = create_tray_menu(app, app_state.inner()) {
@@ -677,7 +677,7 @@ fn handle_provider_click(
         let event_data = serde_json::json!({
             "appType": app_type_str,
             "proxyEnabled": proxy_enabled,
-            "autoFailoverEnabled": false,
+            "autoFailoverEnabled": auto_failover_enabled,
             "providerId": provider_id
         });
         if let Err(e) = app.emit("proxy-flags-changed", event_data.clone()) {

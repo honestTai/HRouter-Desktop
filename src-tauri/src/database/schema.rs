@@ -296,6 +296,26 @@ impl Database {
         )
         .map_err(|e| AppError::Database(e.to_string()))?;
 
+        Self::add_column_if_missing(
+            conn,
+            "proxy_request_logs",
+            "cache_creation_1h_tokens",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
+
+        // Retain identities after detail pruning. Cursors alone cannot prevent a
+        // changed source file from replaying an already aggregated message.
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS usage_pruned_ids (
+                request_id TEXT PRIMARY KEY
+             );
+             CREATE TRIGGER IF NOT EXISTS prevent_pruned_usage_replay
+             BEFORE INSERT ON proxy_request_logs
+             WHEN EXISTS (SELECT 1 FROM usage_pruned_ids WHERE request_id = NEW.request_id)
+             BEGIN SELECT RAISE(IGNORE); END;",
+        )
+        .map_err(|e| AppError::Database(e.to_string()))?;
+
         // 18. Session Log Sync 表 (会话日志同步状态)
         conn.execute(
             "CREATE TABLE IF NOT EXISTS session_log_sync (

@@ -21,6 +21,36 @@ pub struct ProviderRouter {
 }
 
 impl ProviderRouter {
+    pub async fn select_for_model(
+        &self,
+        app: &str,
+        model: &str,
+    ) -> Result<(Vec<Provider>, bool), AppError> {
+        let routes = crate::model_routes::read(&self.db, app)?;
+        let Some(route) = routes.iter().find(|r| r.model == model) else {
+            return self.select_providers(app).await.map(|p| (p, false));
+        };
+        let mut providers = Vec::new();
+        for id in &route.providers {
+            let provider = self.db.get_provider_by_id(id, app)?.ok_or_else(|| {
+                AppError::Config("模型路由引用的供应商已删除，请修正主备线路配置".into())
+            })?;
+            let breaker = self
+                .get_or_create_circuit_breaker(&format!("{app}:{id}"))
+                .await;
+            if breaker.is_available().await {
+                providers.push(provider);
+            }
+        }
+        if providers.is_empty() {
+            return Err(AppError::AllProvidersCircuitOpen);
+        }
+        log::info!(
+            "[{app}] 模型路由命中 {model}，候选线路数 {}",
+            providers.len()
+        );
+        Ok((providers, true))
+    }
     /// 创建新的供应商路由器
     pub fn new(db: Arc<Database>) -> Self {
         Self {
@@ -53,12 +83,21 @@ impl ProviderRouter {
             let all_providers = self.db.get_all_providers(app_type)?;
 
             // 使用 DAO 返回的排序结果，确保和前端展示一致
-            let ordered_ids: Vec<String> = self
+            let mut ordered_ids: Vec<String> = self
                 .db
                 .get_failover_queue(app_type)?
                 .into_iter()
                 .map(|item| item.provider_id)
                 .collect();
+
+            if let Some(preferred) = self
+                .db
+                .get_setting(&format!("manual_failover_preference_{app_type}"))?
+                .filter(|id| all_providers.contains_key(id))
+            {
+                ordered_ids.retain(|id| id != &preferred);
+                ordered_ids.insert(0, preferred);
+            }
 
             total_providers = ordered_ids.len();
 
@@ -335,6 +374,71 @@ mod tests {
 
         let breaker = router.get_or_create_circuit_breaker("claude:test").await;
         assert!(breaker.allow_request().await.allowed);
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn model_routes_are_ordered_isolated_and_do_not_change_global_selection() {
+        let _home = TempHome::new();
+        let db = Arc::new(Database::memory().unwrap());
+        for id in ["default", "primary", "backup"] {
+            db.save_provider(
+                "claude",
+                &Provider::with_id(id.into(), id.into(), json!({}), None),
+            )
+            .unwrap();
+        }
+        db.set_current_provider("claude", "default").unwrap();
+        db.set_proxy_flags_sync("claude", true, false).unwrap();
+        crate::model_routes::save(
+            &db,
+            "claude",
+            vec![crate::model_routes::ModelRoute {
+                model: "special".into(),
+                providers: vec!["primary".into(), "backup".into()],
+            }],
+        )
+        .unwrap();
+        let router = ProviderRouter::new(db.clone());
+        let (providers, routed) = router.select_for_model("claude", "special").await.unwrap();
+        assert!(routed);
+        assert_eq!(
+            providers.iter().map(|p| p.id.as_str()).collect::<Vec<_>>(),
+            vec!["primary", "backup"]
+        );
+        let (default, routed) = router.select_for_model("claude", "other").await.unwrap();
+        assert!(!routed);
+        assert_eq!(default[0].id, "default");
+        assert_eq!(
+            db.get_current_provider("claude").unwrap().as_deref(),
+            Some("default")
+        );
+        assert_eq!(db.get_proxy_flags_sync("claude"), (true, false));
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn manual_primary_preserves_backup_chain_with_auto_enabled() {
+        let _home = TempHome::new();
+        let db = Arc::new(Database::memory().unwrap());
+        for id in ["manual", "backup"] {
+            db.save_provider(
+                "claude",
+                &Provider::with_id(id.into(), id.into(), json!({}), None),
+            )
+            .unwrap();
+        }
+        db.add_to_failover_queue("claude", "backup").unwrap();
+        db.set_proxy_flags_sync("claude", true, true).unwrap();
+        db.set_setting("manual_failover_preference_claude", "manual")
+            .unwrap();
+        let router = ProviderRouter::new(db.clone());
+        let providers = router.select_providers("claude").await.unwrap();
+        assert_eq!(
+            providers.iter().map(|p| p.id.as_str()).collect::<Vec<_>>(),
+            vec!["manual", "backup"]
+        );
+        assert_eq!(db.get_proxy_flags_sync("claude"), (true, true));
     }
 
     #[tokio::test]

@@ -42,6 +42,25 @@ struct OpenCodeMessageQueryResult {
 }
 
 /// 同步 OpenCode 使用数据
+pub fn reset_opencode_usage(db: &Database) -> Result<(), AppError> {
+    let conn = lock_conn!(db.conn);
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
+        "DELETE FROM proxy_request_logs WHERE data_source = 'opencode_session'",
+        [],
+    )?;
+    tx.execute("DELETE FROM usage_daily_rollups WHERE app_type = 'opencode' AND provider_id = '_opencode_session'",[])?;
+    tx.execute(
+        "DELETE FROM usage_pruned_ids WHERE request_id GLOB 'opencode_session:*'",
+        [],
+    )?;
+    let source = get_opencode_db_path().to_string_lossy().into_owned();
+    tx.execute("DELETE FROM session_log_sync WHERE file_path = ?1 OR substr(file_path,1,length(?1)+1) = ?1 || ':'",[source])?;
+    tx.commit()?;
+    Ok(())
+}
+
+/// 同步 OpenCode 使用数据
 pub fn sync_opencode_usage(db: &Database) -> Result<SessionSyncResult, AppError> {
     let db_path = get_opencode_db_path();
 
@@ -147,8 +166,11 @@ pub fn sync_opencode_usage(db: &Database) -> Result<SessionSyncResult, AppError>
             continue;
         }
 
+        // Incomplete messages do not prevent checkpointing completed messages.
+        // Their eventual completion changes message.time_updated, which is part
+        // of query_sessions' watermark and causes another scan.
         if session_has_incomplete_usage {
-            continue;
+            result.deferred_files = 1;
         }
 
         // 更新会话级同步状态。失败时不要推进文件级状态，确保下次可重试。
@@ -364,6 +386,7 @@ fn insert_opencode_message(
         } else {
             // opencode 费用为 0（如免费模型），尝试用 cc-switch 自带的模型定价计算
             let usage = TokenUsage {
+                cache_creation_1h_tokens: 0,
                 input_tokens: msg.input_tokens,
                 output_tokens: output_with_reasoning,
                 cache_read_tokens: msg.cache_read_tokens,

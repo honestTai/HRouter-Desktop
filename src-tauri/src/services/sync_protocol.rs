@@ -119,7 +119,15 @@ pub(crate) fn build_local_snapshot(
         )
     })?;
     let skills_zip_path = tmp.path().join(REMOTE_SKILLS_ZIP);
-    zip_skills_ssot(&skills_zip_path)?;
+    if crate::access_protection::providers_only_sync() {
+        let file =
+            fs::File::create(&skills_zip_path).map_err(|e| AppError::io(&skills_zip_path, e))?;
+        zip::ZipWriter::new(file)
+            .finish()
+            .map_err(|e| AppError::Message(e.to_string()))?;
+    } else {
+        zip_skills_ssot(&skills_zip_path)?;
+    }
     let skills_zip = fs::read(&skills_zip_path).map_err(|e| AppError::io(&skills_zip_path, e))?;
 
     // Build artifact map and compute hashes
@@ -318,6 +326,12 @@ pub(crate) fn apply_snapshot(
             format!("SQL is not valid UTF-8: {e}"),
         )
     })?;
+    if crate::access_protection::providers_only_sync()
+        || sql_str.starts_with("-- hrouter-providers-only-v1\n")
+    {
+        db.import_sql_string_for_sync(sql_str)?;
+        return Ok(());
+    }
     let skills_backup = backup_current_skills()?;
 
     // Replace skills first, then import database; roll back skills on DB failure.

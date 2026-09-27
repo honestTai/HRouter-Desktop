@@ -31,6 +31,7 @@ impl PromptService {
         _id: &str,
         prompt: Prompt,
     ) -> Result<(), AppError> {
+        crate::access_protection::require_prompt_management(&app)?;
         // 检查是否为已启用的提示词
         let is_enabled = prompt.enabled;
 
@@ -71,6 +72,7 @@ impl PromptService {
     }
 
     pub fn enable_prompt(state: &AppState, app: AppType, id: &str) -> Result<(), AppError> {
+        crate::access_protection::require_prompt_management(&app)?;
         // 回填当前 live 文件内容到已启用的提示词，或创建备份
         let target_path = prompt_file_path(&app)?;
         if target_path.exists() {
@@ -144,6 +146,7 @@ impl PromptService {
     }
 
     pub fn import_from_file(state: &AppState, app: AppType) -> Result<String, AppError> {
+        crate::access_protection::require_prompt_management(&app)?;
         let file_path = prompt_file_path(&app)?;
 
         if !file_path.exists() {
@@ -188,6 +191,9 @@ impl PromptService {
         state: &AppState,
         app: AppType,
     ) -> Result<usize, AppError> {
+        if crate::access_protection::prompts_protected(&app) {
+            return Ok(0);
+        }
         // 幂等性保护：该应用已有提示词则跳过
         let existing = state.db.get_prompts(app.as_str())?;
         if !existing.is_empty() {

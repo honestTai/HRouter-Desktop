@@ -60,7 +60,7 @@ fn global_hyper_client() -> &'static HyperClient {
     static CLIENT: OnceLock<HyperClient> = OnceLock::new();
     CLIENT.get_or_init(|| {
         let connector = HttpsConnectorBuilder::new()
-            .with_webpki_roots()
+            .with_tls_config(shared_tls_config())
             .https_or_http()
             .enable_http1()
             .build();
@@ -280,10 +280,9 @@ pub async fn send_request(
         proxy_url.map(super::http_client::mask_url),
     );
 
-    if let Some(original_cases) = original_cases
-        .as_ref()
-        .filter(|cases| !cases.cases.is_empty())
-    {
+    if has_cases || proxy_url.is_some() {
+        let default_cases = OriginalHeaderCases::default();
+        let original_cases = original_cases.as_ref().unwrap_or(&default_cases);
         // Primary path: use raw write + hyper handshake for exact header casing
         let result = tokio::time::timeout(
             timeout,
@@ -292,17 +291,10 @@ pub async fn send_request(
         .await
         .map_err(|_| ProxyError::Timeout(format!("请求超时: {}s", timeout.as_secs())))?;
 
-        match result {
-            Ok(resp) => return Ok(resp),
-            Err(e) => {
-                if proxy_url.is_some() {
-                    // Don't bypass configured proxy with direct connect fallback
-                    return Err(e);
-                }
-                log::warn!("[HyperClient] Raw write failed, falling back to hyper-util: {e}");
-                // Fall through to hyper-util Client
-            }
-        }
+        // A failure can occur after the upstream accepted/billed the POST.
+        // Do not replay it through a second transport. A configured proxy must
+        // also be honored when the inbound header-case extension is absent.
+        return result;
     }
 
     // Fallback: hyper-util Client (title-case headers, no proxy support)
@@ -578,19 +570,21 @@ async fn connect_via_proxy(
 /// keychain are trusted through the CONNECT tunnel.
 fn global_tls_connector() -> &'static tokio_rustls::TlsConnector {
     static CONNECTOR: OnceLock<tokio_rustls::TlsConnector> = OnceLock::new();
-    CONNECTOR.get_or_init(|| {
-        let mut root_store = rustls::RootCertStore::empty();
-        // Baseline: Mozilla/webpki roots
-        root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-        // Native system certs (includes user-installed proxy CAs)
-        let native = rustls_native_certs::load_native_certs();
-        let (added, _errors) = root_store.add_parsable_certificates(native.certs);
-        log::debug!("[HyperClient] TLS root store: webpki + {added} native certs");
-        let config = rustls::ClientConfig::builder()
-            .with_root_certificates(root_store)
-            .with_no_client_auth();
-        tokio_rustls::TlsConnector::from(std::sync::Arc::new(config))
-    })
+    CONNECTOR
+        .get_or_init(|| tokio_rustls::TlsConnector::from(std::sync::Arc::new(shared_tls_config())))
+}
+
+fn shared_tls_config() -> rustls::ClientConfig {
+    let mut root_store = rustls::RootCertStore::empty();
+    // Baseline: Mozilla/webpki roots
+    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    // Native system certs (includes user-installed proxy CAs)
+    let native = rustls_native_certs::load_native_certs();
+    let (added, _errors) = root_store.add_parsable_certificates(native.certs);
+    log::debug!("[HyperClient] TLS root store: webpki + {added} native certs");
+    rustls::ClientConfig::builder()
+        .with_root_certificates(root_store)
+        .with_no_client_auth()
 }
 
 /// Build raw HTTP/1.1 request bytes with original header casing.
@@ -771,6 +765,51 @@ impl<S: Unpin> tokio::io::AsyncWrite for WriteFilter<S> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn configured_proxy_is_used_without_header_case_extension() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let proxy = format!("http://{}", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut header = Vec::new();
+            while !header.ends_with(b"\r\n\r\n") {
+                header.push(socket.read_u8().await.unwrap());
+            }
+            assert!(String::from_utf8_lossy(&header).starts_with("CONNECT upstream.invalid:80 "));
+            socket
+                .write_all(b"HTTP/1.1 200 Connection established\r\n\r\n")
+                .await
+                .unwrap();
+            header.clear();
+            while !header.ends_with(b"\r\n\r\n") {
+                header.push(socket.read_u8().await.unwrap());
+            }
+            assert!(String::from_utf8_lossy(&header).starts_with("POST /probe "));
+            socket
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK")
+                .await
+                .unwrap();
+        });
+        let response = send_request(
+            "http://upstream.invalid/probe".parse().unwrap(),
+            "test",
+            http::Method::POST,
+            http::HeaderMap::new(),
+            http::Extensions::new(),
+            vec![],
+            std::time::Duration::from_secs(3),
+            Some(&proxy),
+        )
+        .await
+        .unwrap();
+        assert_eq!(response.status(), http::StatusCode::OK);
+        tokio::time::timeout(std::time::Duration::from_secs(3), server)
+            .await
+            .unwrap()
+            .unwrap();
+    }
 
     fn buffered_with_content_type(content_type: Option<&str>) -> ProxyResponse {
         let mut headers = http::HeaderMap::new();

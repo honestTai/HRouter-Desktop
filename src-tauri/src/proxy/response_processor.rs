@@ -1086,6 +1086,7 @@ mod tests {
 
         let state = build_state(db.clone());
         let usage = TokenUsage {
+            cache_creation_1h_tokens: 0,
             input_tokens: 1_000_000,
             output_tokens: 0,
             cache_read_tokens: 0,
@@ -1154,6 +1155,7 @@ mod tests {
 
         let state = build_state(db.clone());
         let usage = TokenUsage {
+            cache_creation_1h_tokens: 0,
             input_tokens: 1_000_000,
             output_tokens: 0,
             cache_read_tokens: 0,
@@ -1236,6 +1238,7 @@ mod tests {
 
         let state = build_state(db.clone());
         let usage = TokenUsage {
+            cache_creation_1h_tokens: 0,
             input_tokens: 1_000_000,
             output_tokens: 0,
             cache_read_tokens: 0,

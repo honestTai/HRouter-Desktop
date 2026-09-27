@@ -152,6 +152,10 @@ pub async fn set_auto_failover_enabled(
     }
 
     // 更新 auto_failover_enabled 字段
+    state
+        .db
+        .set_setting(&format!("manual_failover_preference_{app_type}"), "")
+        .map_err(|e| e.to_string())?;
     config.auto_failover_enabled = enabled;
 
     // 写回数据库

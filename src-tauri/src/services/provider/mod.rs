@@ -2964,6 +2964,15 @@ impl ProviderService {
     ///    d. Write target provider config to live files
     ///    e. Sync MCP configuration
     pub fn switch(state: &AppState, app_type: AppType, id: &str) -> Result<SwitchResult, AppError> {
+        Self::switch_checked(state, app_type, id, None)
+    }
+
+    pub fn switch_checked(
+        state: &AppState,
+        app_type: AppType,
+        id: &str,
+        expected_fingerprint: Option<&str>,
+    ) -> Result<SwitchResult, AppError> {
         // Check if provider exists
         let providers = state.db.get_all_providers(app_type.as_str())?;
         let _provider = providers
@@ -3015,6 +3024,20 @@ impl ProviderService {
 
         let should_hot_switch = is_app_taken_over || live_taken_over;
 
+        if let Some(expected) = expected_fingerprint {
+            if should_hot_switch {
+                return Err(AppError::Message(
+                    "本地路由状态已变化，请关闭路由后重新预览。".into(),
+                ));
+            }
+            let actual = crate::access_protection::preview(&state.db, &app_type, id)?;
+            if actual.fingerprint != expected {
+                return Err(AppError::Message(
+                    "配置在预览后发生变化，请重新预览。".into(),
+                ));
+            }
+        }
+
         // Block switching to official providers when proxy takeover is active.
         // Using a proxy with official APIs (Anthropic/OpenAI/Google) may cause account bans.
         if should_hot_switch
@@ -3045,13 +3068,24 @@ impl ProviderService {
             )
             .map_err(|e| AppError::Message(format!("热切换失败: {e}")))?;
 
+            // A manual hot switch selects a preferred primary without disabling
+            // automatic fallback. Auto mode can explicitly reset this preference.
+            if state.db.get_proxy_flags_sync(app_type.as_str()).1 {
+                state.db.set_setting(
+                    &format!("manual_failover_preference_{}", app_type.as_str()),
+                    id,
+                )?;
+            }
+
             // The proxy server will route requests to the new provider via is_current.
             // MCP sync is intentionally skipped while Live config is owned by takeover.
             return Ok(SwitchResult::default());
         }
 
         // Normal mode: full switch with Live config write
-        Self::switch_normal(state, app_type, id, &providers)
+        let snapshot = crate::access_protection::begin(state, &app_type, id)?;
+        let result = Self::switch_normal(state, app_type.clone(), id, &providers);
+        crate::access_protection::finish(state, &app_type, snapshot, result)
     }
 
     /// Normal switch flow (non-proxy mode)
@@ -3095,7 +3129,7 @@ impl ProviderService {
             if current_id != id {
                 // Additive mode apps - all providers coexist in the same file,
                 // no backfill needed (backfill is for exclusive mode apps like Claude/Codex/Gemini)
-                if !app_type.is_additive_mode() {
+                if !app_type.is_additive_mode() && !crate::access_protection::lite_mode() {
                     // Only backfill when switching to a different provider
                     if let Ok(live_config) = read_live_settings(app_type.clone()) {
                         if let Some(mut current_provider) = providers.get(&current_id).cloned() {
@@ -3230,8 +3264,10 @@ impl ProviderService {
         // 走到这里 DB is_current 与 live 都已落盘，切换事实上已成功；
         // 投影失败上抛会让前端报"切换失败"制造分裂假象，故降级为警告
         // （MCP 投影可自愈：下次切换 / 任一 MCP 启停都会重新投影）。
-        if let Err(err) = McpService::sync_enabled_for_app(state, &app_type) {
-            log::warn!("切换供应商后重投影 {app_type:?} MCP 失败（将在下次同步时自愈）: {err}");
+        if !crate::access_protection::enabled(&app_type) {
+            if let Err(err) = McpService::sync_enabled_for_app(state, &app_type) {
+                log::warn!("切换供应商后重投影 {app_type:?} MCP 失败（将在下次同步时自愈）: {err}");
+            }
         }
 
         Ok(result)
@@ -3469,6 +3505,7 @@ impl ProviderService {
         state: &AppState,
         app_type: AppType,
     ) -> Result<String, AppError> {
+        crate::access_protection::require_full_mode()?;
         // Get current provider
         let current_id = Self::current(state, app_type.clone())?;
         if current_id.is_empty() {

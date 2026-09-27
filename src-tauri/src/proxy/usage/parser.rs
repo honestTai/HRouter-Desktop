@@ -9,6 +9,14 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+pub(crate) fn claude_cache_creation_1h(usage: &Value) -> u32 {
+    usage
+        .pointer("/cache_creation/ephemeral_1h_input_tokens")
+        .and_then(Value::as_u64)
+        .unwrap_or(0)
+        .min(u32::MAX as u64) as u32
+}
+
 fn openai_cache_read_tokens(usage: &Value) -> u32 {
     usage
         .get("cache_read_input_tokens")
@@ -54,6 +62,9 @@ pub struct TokenUsage {
     pub output_tokens: u32,
     pub cache_read_tokens: u32,
     pub cache_creation_tokens: u32,
+    /// One-hour cache writes are a subset of cache_creation_tokens.
+    #[serde(default)]
+    pub cache_creation_1h_tokens: u32,
     /// 从响应中提取的实际模型名称（如果可用）
     pub model: Option<String>,
     /// 从响应中提取的消息 ID（用于跨源去重）
@@ -104,6 +115,7 @@ impl TokenUsage {
         let message_id = response_id(body, "id");
 
         Some(Self {
+            cache_creation_1h_tokens: claude_cache_creation_1h(usage),
             input_tokens: usage.get("input_tokens")?.as_u64()? as u32,
             output_tokens: usage.get("output_tokens")?.as_u64()? as u32,
             cache_read_tokens: usage
@@ -144,6 +156,7 @@ impl TokenUsage {
                             }
                         }
                         if let Some(msg_usage) = event.get("message").and_then(|m| m.get("usage")) {
+                            usage.cache_creation_1h_tokens = claude_cache_creation_1h(msg_usage);
                             // 从 message_start 获取 input_tokens（原生 Claude API）
                             if let Some(input) =
                                 msg_usage.get("input_tokens").and_then(|v| v.as_u64())
@@ -164,6 +177,13 @@ impl TokenUsage {
                     }
                     "message_delta" => {
                         if let Some(delta_usage) = event.get("usage") {
+                            if delta_usage
+                                .pointer("/cache_creation/ephemeral_1h_input_tokens")
+                                .is_some()
+                            {
+                                usage.cache_creation_1h_tokens =
+                                    claude_cache_creation_1h(delta_usage);
+                            }
                             // 从 message_delta 获取 output_tokens
                             if let Some(output) =
                                 delta_usage.get("output_tokens").and_then(|v| v.as_u64())
@@ -268,6 +288,7 @@ impl TokenUsage {
         let cache_write_tokens = openai_cache_write_tokens(usage);
 
         Some(Self {
+            cache_creation_1h_tokens: 0,
             input_tokens: input_tokens? as u32,
             output_tokens: output_tokens? as u32,
             cache_read_tokens: cached_tokens,
@@ -341,6 +362,7 @@ impl TokenUsage {
             .map(|s| s.to_string());
 
         Some(Self {
+            cache_creation_1h_tokens: 0,
             input_tokens: prompt_tokens as u32,
             output_tokens: completion_tokens as u32,
             cache_read_tokens: cached_tokens,
@@ -388,6 +410,7 @@ impl TokenUsage {
         let output_tokens = total_tokens.saturating_sub(prompt_tokens);
 
         Some(Self {
+            cache_creation_1h_tokens: 0,
             input_tokens: prompt_tokens,
             output_tokens,
             cache_read_tokens: usage
@@ -446,6 +469,7 @@ impl TokenUsage {
 
         if total_input > 0 || total_output > 0 {
             Some(Self {
+                cache_creation_1h_tokens: 0,
                 input_tokens: total_input,
                 output_tokens: total_output,
                 cache_read_tokens: total_cache_read,

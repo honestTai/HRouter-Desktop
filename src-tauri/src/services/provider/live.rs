@@ -672,6 +672,10 @@ pub(crate) fn build_effective_settings_with_common_config(
     let snippet = db.get_config_snippet(app_type.as_str())?;
     let mut effective_settings = provider.settings_config.clone();
 
+    if crate::access_protection::lite_mode() && crate::access_protection::supported(app_type) {
+        return Ok(effective_settings);
+    }
+
     if provider_uses_common_config(app_type, provider, snippet.as_deref()) {
         if let Some(snippet_text) = snippet.as_deref() {
             match apply_common_config_to_settings(app_type, &effective_settings, snippet_text) {
@@ -703,6 +707,8 @@ pub(crate) fn write_live_with_common_config(
     let mut effective_provider = provider.clone();
     effective_provider.settings_config =
         build_effective_settings_with_common_config(db, app_type, provider)?;
+    effective_provider.settings_config =
+        crate::access_protection::protect_settings(app_type, effective_provider.settings_config)?;
 
     if matches!(app_type, AppType::ClaudeDesktop) {
         crate::claude_desktop_config::apply_provider(db, &effective_provider)?;
@@ -907,6 +913,9 @@ pub(crate) fn normalize_provider_common_config_for_storage(
     app_type: &AppType,
     provider: &mut Provider,
 ) -> Result<(), AppError> {
+    if crate::access_protection::lite_mode() {
+        return Ok(());
+    }
     let uses_common_config = provider
         .meta
         .as_ref()
@@ -1287,6 +1296,10 @@ pub fn sync_current_to_live(state: &AppState) -> Result<(), AppError> {
             // live file.
             sync_current_provider_for_app_respecting_takeover(state, &app_type)?;
         }
+    }
+
+    if crate::access_protection::providers_only_sync() {
+        return Ok(());
     }
 
     // MCP sync（best-effort 逐应用投影，内部已聚合失败）。错误暂存到

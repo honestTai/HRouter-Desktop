@@ -268,6 +268,7 @@ fn insert_gemini_session_entry(
 
     // 计算费用
     let usage = TokenUsage {
+        cache_creation_1h_tokens: 0,
         input_tokens: tokens.input,
         output_tokens,
         cache_read_tokens: tokens.cached,

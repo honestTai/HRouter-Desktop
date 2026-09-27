@@ -114,6 +114,7 @@ impl Drop for ActiveConnectionGuard {
 }
 
 pub struct RequestForwarder {
+    model_routed: bool,
     /// 共享的 ProviderRouter（持有熔断器状态）
     router: Arc<ProviderRouter>,
     status: Arc<RwLock<ProxyStatus>>,
@@ -149,6 +150,10 @@ pub struct RequestForwarder {
 }
 
 impl RequestForwarder {
+    pub fn with_model_route(mut self, enabled: bool) -> Self {
+        self.model_routed = enabled;
+        self
+    }
     /// 预防式 media 降级：发送前对 text-only 模型把图片块替换为标记。
     ///
     /// 受 `enabled && request_media_fallback` 管辖；其中"启发式模型名单预测"
@@ -225,6 +230,7 @@ impl RequestForwarder {
             codex_chat_history,
             failover_manager,
             app_handle,
+            model_routed: false,
             current_provider_id_at_start,
             session_id,
             session_client_provided,
@@ -510,8 +516,8 @@ impl RequestForwarder {
                         let mut status = self.status.write().await;
                         status.success_requests += 1;
                         status.last_error = None;
-                        let should_switch =
-                            self.current_provider_id_at_start.as_str() != provider.id.as_str();
+                        let should_switch = !self.model_routed
+                            && self.current_provider_id_at_start.as_str() != provider.id.as_str();
                         if should_switch {
                             status.failover_count += 1;
 
@@ -613,8 +619,8 @@ impl RequestForwarder {
                                         let mut status = self.status.write().await;
                                         status.success_requests += 1;
                                         status.last_error = None;
-                                        let should_switch =
-                                            self.current_provider_id_at_start.as_str()
+                                        let should_switch = !self.model_routed
+                                            && self.current_provider_id_at_start.as_str()
                                                 != provider.id.as_str();
                                         if should_switch {
                                             status.failover_count += 1;
@@ -759,8 +765,8 @@ impl RequestForwarder {
                                             let mut status = self.status.write().await;
                                             status.success_requests += 1;
                                             status.last_error = None;
-                                            let should_switch =
-                                                self.current_provider_id_at_start.as_str()
+                                            let should_switch = !self.model_routed
+                                                && self.current_provider_id_at_start.as_str()
                                                     != provider.id.as_str();
                                             if should_switch {
                                                 status.failover_count += 1;
@@ -923,8 +929,8 @@ impl RequestForwarder {
                                         let mut status = self.status.write().await;
                                         status.success_requests += 1;
                                         status.last_error = None;
-                                        let should_switch =
-                                            self.current_provider_id_at_start.as_str()
+                                        let should_switch = !self.model_routed
+                                            && self.current_provider_id_at_start.as_str()
                                                 != provider.id.as_str();
                                         if should_switch {
                                             status.failover_count += 1;
@@ -1170,6 +1176,17 @@ impl RequestForwarder {
 
         // 与 CCH 对齐：请求前不做 thinking 主动改写（仅保留兼容入口）
         let mut mapped_body = normalize_thinking_type(mapped_body);
+
+        if matches!(app_type, AppType::Codex)
+            && provider
+                .meta
+                .as_ref()
+                .and_then(|m| m.codex_session_compatibility)
+                .unwrap_or(false)
+        {
+            super::session_bridge::prepare_stateless_replay(&mut mapped_body)?;
+            super::providers::apply_codex_upstream_model(provider, &mut mapped_body);
+        }
 
         // Grok Build exposes a stable client-side model profile in config.toml.
         // Route requests to the provider's real upstream model before applying
@@ -3275,6 +3292,15 @@ fn should_preserve_exact_header_case(
         return false;
     }
 
+    if provider
+        .meta
+        .as_ref()
+        .and_then(|m| m.standard_http_transport)
+        .unwrap_or(false)
+    {
+        return false;
+    }
+
     if is_copilot || provider.is_codex_oauth() || provider.is_xai_oauth() {
         return false;
     }
@@ -3631,6 +3657,7 @@ mod tests {
             codex_chat_history: Arc::new(CodexChatHistoryStore::default()),
             failover_manager: Arc::new(FailoverSwitchManager::new(db)),
             app_handle: None,
+            model_routed: false,
             current_provider_id_at_start: String::new(),
             session_id: String::new(),
             session_client_provided: false,

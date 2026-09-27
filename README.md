@@ -4,10 +4,11 @@
 
 <img src="src-tauri/icons/128x128.png" width="96" alt="HRouter Desktop">
 
-**一个 Key，配置你的 AI 编程工具。**  
-**One key. Your AI coding tools, configured.**
+**接入你选择的模型服务，配得好、切得稳、费用看得清。**
 
-[Windows 下载](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.2.15/HRouter_0.2.15_x64-setup.exe) · [macOS 下载](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.2.15/HRouter_0.2.15_universal.dmg) · [所有版本 / Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest) · [HRouter](https://hrouter.net/home)
+**Connect your AI coding tools to the providers you choose.**
+
+[Windows 下载](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.3.0/HRouter_0.3.0_x64-setup.exe) · [macOS 下载](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.3.0/HRouter_0.3.0_universal.dmg) · [所有版本 / Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest) · [HRouter](https://hrouter.net/home)
 
 </div>
 
@@ -23,19 +24,26 @@ Developers who use multiple AI coding tools and want a central place for model c
 
 ## 下载与接入 · Download & connect
 
-截至 **2026-09-13** 核验，正式版本为 **v0.2.15**。版本更新后，以 [Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest) 为准。
+**v0.3.0** 为接入工作台版本，安装包及各平台发布状态以 [Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest) 为准。
 
 | 平台 / Platform | 安装包 / Installer |
 | --- | --- |
-| Windows x64 | [下载 EXE / Download EXE](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.2.15/HRouter_0.2.15_x64-setup.exe) |
-| macOS Universal | [下载 DMG / Download DMG](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.2.15/HRouter_0.2.15_universal.dmg) |
+| Windows x64 | [下载 EXE / Download EXE](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.3.0/HRouter_0.3.0_x64-setup.exe) |
+| macOS Universal | [下载 DMG / Download DMG](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.3.0/HRouter_0.3.0_universal.dmg) |
 
-**安装客户端 → 创建 HRouter Key → 选择 Agent → 识别模型并保存配置 → 查看用量。**  
-**Install → create a HRouter key → choose an agent → discover models and save → review usage.**
+**当前源码：打开接入工作台 → 添加任意供应商或导入 CC Switch 配置 → 检查接入 → 按需开启配置保护和主备线路。**
+
+**Current source: open the workbench → add or import providers → check compatibility → configure protection and failover.**
+
+> v0.3.0 包含接入工作台。功能范围和使用说明见 [接入工作台](docs/access-workbench.md)。
 
 ## 功能
 
-- 每个 Agent 只展示 HRouter 供应商，输入 HRouter Key 即可开始配置。
+- 支持官方预设和自定义供应商；通用功能无需 HRouter 账号。
+- 可只读预览并导入 CC Switch 供应商，不自动启用、不覆盖原数据库。
+- Claude Code / Codex 接入体检：模型目录、普通响应、流式响应和工具调用；真实请求由用户主动勾选执行。
+- 可选本机配置保护：字段差异预览、切换快照、检测冲突后恢复。
+- 主备线路工作台、本地估算和 HRouter 服务端账单核对、页面余额提醒。
 - 同一个 Agent 可以保存多个 HRouter Key 配置并快速切换。
 - 使用当前 Key 实时获取可用模型。
 - 自动预填默认模型和模型映射，保存前仍可手动调整。
@@ -45,12 +53,12 @@ Developers who use multiple AI coding tools and want a central place for model c
 
 ## 快速开始
 
-1. 前往 [HRouter](https://hrouter.net/) 注册或登录。
-2. 在控制台创建 API Key。
-3. 在上方选择 Windows x64 或 macOS Universal 安装包，安装并打开客户端。
-4. 打开 HRouter Desktop，选择 Agent，点击“添加 HRouter”。
-5. 输入 Key 并点击“识别 Key”。
-6. 确认模型绑定后保存并启用配置。
+1. 安装 v0.3.0 或从源码启动，进入“接入工作台”。
+2. 选择 Claude Code 或 Codex，添加官方预设、自定义 API 服务，或迁移 CC Switch 供应商。其他 Agent 在配置中心选择。
+3. 如使用 HRouter，选择“HRouter 快捷接入”，填写 Key 并识别模型；没有 Key 可自行前往 [HRouter](https://hrouter.net/) 注册。
+4. 在“接入体检”中查询目录，按需勾选真实请求测试。
+5. 在“配置保护”中主动开启保护，预览后切换；按客户端要求重启以加载配置。
+6. 按需配置主备线路，查看本地估算或登录 HRouter 查询服务端账单。
 
 > GitHub Releases 提供 Windows x64 和 macOS Universal 安装包；开发者也可以按照下面的说明从源码运行。
 
@@ -104,7 +112,9 @@ are documented in [docs/macos-signing.md](docs/macos-signing.md).
 
 ## English
 
-HRouter Desktop is an independent HRouter-focused distribution based on [CC Switch](https://github.com/farion1231/cc-switch). It lets users configure supported AI agents with a HRouter key, fetch available models, manage model mappings, and inspect subscription or pay-as-you-go usage. Windows x64 and macOS Universal installers are available from [GitHub Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest).
+HRouter Desktop is an independent distribution based on [CC Switch](https://github.com/farion1231/cc-switch). The current source adds an account-free provider workbench, read-only CC Switch provider import, opt-in diagnostic requests, configuration protection for Claude Code and Codex, failover controls, and local/server billing comparison. HRouter remains an optional integration. The workbench is included from v0.3.0.
+
+The source also includes Lite mode, provider-only sync, per-model failover routes, explicit Windows/WSL configuration targets, and usage-accounting corrections. See the [issue remediation and acceptance checklist](docs/issue-remediation.md) for verified behavior and remaining real-client validation; compatibility options are not a guarantee for every provider or historical session.
 
 Install the app, create a key in HRouter, select an agent, and choose “Add HRouter.” Enter the key, discover the available models, review the mappings, then save and enable the configuration. See the sections above for development commands.
 
