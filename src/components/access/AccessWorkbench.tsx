@@ -33,6 +33,7 @@ import { EnvironmentTargets } from "./EnvironmentTargets";
 import { UsageRepair } from "./UsageRepair";
 import { QuotaSummary } from "./QuotaSummary";
 import { Button } from "@/components/ui/button";
+import { ProviderIcon } from "@/components/ProviderIcon";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { extractErrorMessage } from "@/utils/errorUtils";
@@ -64,6 +65,38 @@ interface Props {
   onHRouterAccount: () => void;
 }
 
+const AGENT_WORKSPACES: Array<{
+  id: AppId;
+  name: string;
+  description: string;
+  icon: string;
+}> = [
+  {
+    id: "claude",
+    name: "Claude Code",
+    description: "Terminal agent",
+    icon: "claude",
+  },
+  {
+    id: "codex",
+    name: "Codex",
+    description: "OpenAI coding agent",
+    icon: "openai",
+  },
+  {
+    id: "gemini",
+    name: "Gemini CLI",
+    description: "Google terminal agent",
+    icon: "gemini",
+  },
+  {
+    id: "opencode",
+    name: "OpenCode",
+    description: "Open model workspace",
+    icon: "opencode",
+  },
+];
+
 export function AccessWorkbench(props: Props) {
   const { t } = useTranslation();
 
@@ -90,17 +123,35 @@ export function AccessWorkbench(props: Props) {
               )}
             </p>
           </div>
-          <select
-            aria-label={t("accessWorkbench.workbenchApp", {
-              defaultValue: "工作台应用",
-            })}
-            className={selectClass}
-            value={app}
-            onChange={(e) => setApp(e.target.value as AppId)}
-          >
-            <option value="claude">Claude Code</option>
-            <option value="codex">Codex</option>
-          </select>
+          <div className="grid w-full gap-2 sm:grid-cols-2 lg:w-[34rem] lg:grid-cols-4">
+            {AGENT_WORKSPACES.map((workspace) => (
+              <button
+                key={workspace.id}
+                type="button"
+                onClick={() => setApp(workspace.id)}
+                aria-pressed={app === workspace.id}
+                className={`group rounded-lg border px-3 py-3 text-left transition-colors ${
+                  app === workspace.id
+                    ? "border-primary bg-primary/5 shadow-sm"
+                    : "border-border bg-card hover:bg-muted/50"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <ProviderIcon
+                    icon={workspace.icon}
+                    name={workspace.name}
+                    size={20}
+                  />
+                  <span className="min-w-0 truncate text-xs font-medium">
+                    {workspace.name}
+                  </span>
+                </span>
+                <span className="mt-2 block truncate text-[10px] text-muted-foreground">
+                  {workspace.description}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="workbench-tabs mb-6 flex h-auto w-full flex-wrap justify-start gap-x-5 gap-y-1 rounded-none border-b border-border bg-transparent p-0">

@@ -74,7 +74,7 @@ import { HRouterOrdersPage } from "@/components/hrouter/HRouterOrdersPage";
 import { HRouterProfilePage } from "@/components/hrouter/HRouterProfilePage";
 import { HRouterUsagePage } from "@/components/hrouter/HRouterUsagePage";
 import { FeatureTour } from "@/components/FeatureTour";
-import { AppSidebar } from "@/components/layout/AppSidebar";
+import { MagpieTopNav } from "@/components/layout/MagpieTopNav";
 import { EnvWarningBanner } from "@/components/env/EnvWarningBanner";
 import { ProxyToggle } from "@/components/proxy/ProxyToggle";
 import { ClaudeDesktopRouteToggle } from "@/components/proxy/ClaudeDesktopRouteToggle";
@@ -138,8 +138,8 @@ interface SyncStatusUpdatedPayload {
 }
 
 const DEFAULT_DRAG_BAR_HEIGHT = isWindows() || isLinux() ? 0 : 28; // px
-const HEADER_HEIGHT = 64; // px
-const SIDEBAR_WIDTH = 216; // px
+const HEADER_HEIGHT = 112; // px: primary nav + contextual toolbar
+const SIDEBAR_WIDTH = 0; // px: the redesigned shell uses a top navigation
 
 const STORAGE_KEY = "hrouter-last-app";
 const VALID_APPS: AppId[] = [
@@ -1194,31 +1194,6 @@ function MainApp() {
         />
       )}
 
-      <div
-        className="fixed bottom-0 left-0 z-[55]"
-        style={{ top: dragBarHeight, width: SIDEBAR_WIDTH }}
-      >
-        <AppSidebar
-          onOpenWorkbench={() => setCurrentView("workbench")}
-          currentView={currentView}
-          onOpenDashboard={() => setCurrentView("dashboard")}
-          onOpenUsage={() => setCurrentView("usage")}
-          onOpenBilling={() => setCurrentView("billing")}
-          onOpenOrders={() => setCurrentView("orders")}
-          onOpenApiKeys={() => setCurrentView("apiKeys")}
-          onOpenProfile={() => setCurrentView("profile")}
-          onOpenFrontend={() =>
-            void handleOpenWebsite("https://hrouter.net/home")
-          }
-          onOpenProviders={() => setCurrentView("providers")}
-          onOpenAnnouncements={() => setCurrentView("announcements")}
-          onOpenSettings={() => {
-            setSettingsDefaultTab("general");
-            setCurrentView("settings");
-          }}
-        />
-      </div>
-
       <header
         className="fixed right-0 z-50 border-b border-border-default bg-card"
         {...DRAG_REGION_ATTR}
@@ -1231,8 +1206,18 @@ function MainApp() {
           } as any
         }
       >
+        <MagpieTopNav
+          currentView={currentView}
+          onNavigate={(view) => setCurrentView(view)}
+          onProfile={() => setCurrentView("profile")}
+          onFrontend={() => void handleOpenWebsite("https://hrouter.net/home")}
+          onSettings={() => {
+            setSettingsDefaultTab("general");
+            setCurrentView("settings");
+          }}
+        />
         <div
-          className="flex h-full items-center justify-between gap-2 px-6"
+          className="absolute inset-x-0 bottom-0 flex h-14 items-center justify-between gap-2 border-b border-border bg-background px-6 lg:px-8"
           {...DRAG_REGION_ATTR}
           style={{ ...DRAG_REGION_STYLE } as any}
         >
