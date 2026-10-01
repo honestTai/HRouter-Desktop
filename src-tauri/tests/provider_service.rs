@@ -247,7 +247,7 @@ command = "say"
 }
 
 #[test]
-fn provider_service_switch_codex_preserves_user_model_provider_id_after_migration() {
+fn provider_service_switch_codex_preserves_history_across_managed_providers() {
     let _guard = test_mutex().lock().expect("acquire test mutex");
     reset_test_fs();
     let _home = ensure_test_home();
@@ -290,12 +290,12 @@ requires_openai_auth = true
                 "AiHubMix".to_string(),
                 json!({
                     "auth": {"OPENAI_API_KEY": "fresh-key"},
-                    "config": r#"model_provider = "aihubmix"
+                    "config": r#"model_provider = "private-relay"
 model = "gpt-5.4"
 
-[model_providers.aihubmix]
+[model_providers.private-relay]
 name = "AiHubMix"
-base_url = "https://aihubmix.example/v1"
+base_url = "https://private-relay.example/v1"
 wire_api = "responses"
 requires_openai_auth = true
 "#
@@ -307,6 +307,37 @@ requires_openai_auth = true
 
     let state = create_test_state_with_config(&initial_config).expect("create test state");
 
+    // Both active and archived conversations must survive; unrelated and
+    // official conversations must not be silently opted into the shared bucket.
+    let codex_dir = cc_switch_lib::get_codex_config_path()
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    let message =
+        "{\"type\":\"response_item\",\"payload\":{\"text\":\"keep this conversation verbatim\"}}\n";
+    let cases = [
+        ("sessions/old.jsonl", "rightcode"),
+        ("archived_sessions/new.jsonl", "private-relay"),
+        ("sessions/official.jsonl", "openai"),
+        ("sessions/unmanaged.jsonl", "external"),
+    ];
+    for (path, provider) in cases {
+        let path = codex_dir.join(path);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let meta = json!({"type": "session_meta", "payload": {"id": provider, "model_provider": provider}});
+        std::fs::write(path, format!("{meta}\n{message}")).unwrap();
+    }
+    let state_db = rusqlite::Connection::open(codex_dir.join("state_6.sqlite")).unwrap();
+    state_db.execute_batch("CREATE TABLE threads (id TEXT PRIMARY KEY, model_provider TEXT, title TEXT);
+        INSERT INTO threads VALUES ('old', 'rightcode', 'old title'), ('new', 'private-relay', 'new title'),
+        ('official', 'openai', 'official title'), ('unmanaged', 'external', 'external title');").unwrap();
+
+    let originals: Vec<_> = cases
+        .iter()
+        .map(|(path, _)| std::fs::read(codex_dir.join(path)).unwrap())
+        .collect();
+    let db_before = std::fs::read(codex_dir.join("state_6.sqlite")).unwrap();
+
     ProviderService::switch(&state, AppType::Codex, "new-provider")
         .expect("switch provider should succeed");
 
@@ -316,8 +347,8 @@ requires_openai_auth = true
 
     assert_eq!(
         parsed.get("model_provider").and_then(|v| v.as_str()),
-        Some("aihubmix"),
-        "provider switching should preserve user-editable model_provider after the one-time migration"
+        Some("rightcode"),
+        "switching suppliers must not change the history bucket"
     );
 
     let model_providers = parsed
@@ -325,15 +356,15 @@ requires_openai_auth = true
         .and_then(|v| v.as_table())
         .expect("model_providers table exists");
     assert!(
-        model_providers.get("custom").is_none(),
-        "provider switching should not force user-edited provider ids back to custom"
+        model_providers.get("private-relay").is_none(),
+        "the live route uses the shared bucket"
     );
     assert_eq!(
         model_providers
-            .get("aihubmix")
+            .get("rightcode")
             .and_then(|v| v.get("base_url"))
             .and_then(|v| v.as_str()),
-        Some("https://aihubmix.example/v1"),
+        Some("https://private-relay.example/v1"),
         "selected provider id should point at the newly selected supplier endpoint"
     );
 
@@ -349,8 +380,56 @@ requires_openai_auth = true
         .and_then(|v| v.as_str())
         .unwrap_or_default();
     assert!(
-        new_config_text.contains("[model_providers.aihubmix]"),
+        new_config_text.contains("[model_providers.private-relay]"),
         "stored provider template should remain provider-specific"
+    );
+    assert_eq!(
+        std::fs::read(codex_dir.join("state_6.sqlite")).unwrap(),
+        db_before
+    );
+    for ((path, _), original) in cases.iter().zip(&originals) {
+        assert_eq!(&std::fs::read(codex_dir.join(path)).unwrap(), original);
+    }
+    for (path, original_provider) in cases {
+        let content = std::fs::read_to_string(codex_dir.join(path)).unwrap();
+        let (meta, body) = content.split_once('\n').unwrap();
+        let meta: serde_json::Value = serde_json::from_str(meta).unwrap();
+        assert_eq!(
+            meta["payload"]["model_provider"].as_str(),
+            Some(original_provider)
+        );
+        assert_eq!(
+            body, message,
+            "conversation contents must remain byte-for-byte intact"
+        );
+    }
+    assert_eq!(state_db.query_row("SELECT COUNT(*) FROM threads WHERE model_provider = 'rightcode' AND title = 'old title'", [], |row| row.get::<_, i64>(0)).unwrap(), 1);
+    assert_eq!(
+        state_db
+            .query_row("SELECT COUNT(*) FROM threads", [], |row| row
+                .get::<_, i64>(0))
+            .unwrap(),
+        4
+    );
+
+    ProviderService::switch(&state, AppType::Codex, "old-provider").unwrap();
+    let config: toml::Value =
+        toml::from_str(&std::fs::read_to_string(cc_switch_lib::get_codex_config_path()).unwrap())
+            .unwrap();
+    assert_eq!(config["model_provider"].as_str(), Some("rightcode"));
+    assert_eq!(
+        config["model_providers"]["rightcode"]["base_url"].as_str(),
+        Some("https://rightcode.example/v1")
+    );
+    assert_eq!(
+        state_db
+            .query_row(
+                "SELECT COUNT(*) FROM threads WHERE model_provider = 'rightcode'",
+                [],
+                |row| row.get::<_, i64>(0)
+            )
+            .unwrap(),
+        1
     );
 }
 
@@ -473,7 +552,7 @@ requires_openai_auth = true
     assert_eq!(
         parsed_live
             .get("model_providers")
-            .and_then(|v| v.get("aihubmix"))
+            .and_then(|v| v.get("rightcode"))
             .and_then(|v| v.get("experimental_bearer_token"))
             .and_then(|v| v.as_str()),
         Some("bridge-key"),
@@ -482,7 +561,7 @@ requires_openai_auth = true
     assert_eq!(
         parsed_live
             .get("model_providers")
-            .and_then(|v| v.get("aihubmix"))
+            .and_then(|v| v.get("rightcode"))
             .and_then(|v| v.get("requires_openai_auth"))
             .and_then(|v| v.as_bool()),
         Some(true)
@@ -1822,9 +1901,9 @@ wire_api = "responses"
         "live config should keep the proxy bearer placeholder"
     );
     assert!(
-        live_config.contains(r#"model_provider = "deepseek-new""#)
+        live_config.contains(r#"model_provider = "deepseek""#)
             && live_config.contains(r#"name = "DeepSeek New""#),
-        "live config should update the Codex-visible provider label during takeover"
+        "takeover keeps the history bucket while updating the Codex-visible supplier label"
     );
     assert!(
         !live_config.contains("https://new.deepseek.example/v1"),
@@ -1845,9 +1924,15 @@ wire_api = "responses"
         .get("config")
         .and_then(|v| v.as_str())
         .unwrap_or_default();
-    assert!(
-        backup_config.contains("new-key") && backup_config.contains("deepseek-new"),
-        "restore backup should be rebuilt from the newly selected provider"
+    let backup_doc: toml::Value = toml::from_str(backup_config).expect("parse restore backup");
+    assert_eq!(backup_doc["model_provider"].as_str(), Some("deepseek"));
+    assert_eq!(
+        backup_doc["model_providers"]["deepseek"]["experimental_bearer_token"].as_str(),
+        Some("new-key")
+    );
+    assert_eq!(
+        backup_doc["model_providers"]["deepseek"]["base_url"].as_str(),
+        Some("https://new.deepseek.example/v1")
     );
 
     let current = state
@@ -2540,9 +2625,15 @@ command = "ghost-cmd"
         live_after.contains("disable_response_storage = true"),
         "shared key should propagate to the next provider's live, got: {live_after}"
     );
-    assert!(
-        live_after.contains("model_provider = \"bprov\""),
-        "live should be provider B's own config, got: {live_after}"
+    let live_doc: toml::Value = toml::from_str(&live_after).expect("parse switched live");
+    assert_eq!(live_doc["model_provider"].as_str(), Some("aprov"));
+    assert_eq!(
+        live_doc["model_providers"]["aprov"]["name"].as_str(),
+        Some("B Prov")
+    );
+    assert_eq!(
+        live_doc["model_providers"]["aprov"]["base_url"].as_str(),
+        Some("https://b.example/v1")
     );
     assert!(
         !live_after.contains("sk-a-live-secret"),

@@ -2928,6 +2928,15 @@ impl ProxyService {
         // makes Codex supply its native authorization.
         if official_passthrough || placeholder_auth {
             let config_str = config.get("config").and_then(|v| v.as_str()).unwrap_or("");
+            let session_config = if !official_passthrough && provider.is_some() {
+                Some(
+                    crate::codex_config::prepare_codex_session_provider(config_str)
+                        .map_err(|e| format!("保留 Codex 会话标识失败: {e}"))?,
+                )
+            } else {
+                None
+            };
+            let config_str = session_config.as_deref().unwrap_or(config_str);
             let profile = provider
                 .map(crate::proxy::providers::resolve_codex_catalog_tool_profile)
                 .unwrap_or(crate::codex_config::CodexCatalogToolProfile::ProxyChat);
@@ -6003,7 +6012,7 @@ base_url = "https://new.example/v1"
 
     #[tokio::test]
     #[serial]
-    async fn hot_switch_codex_provider_preserves_provider_model_provider_in_backup_and_restore() {
+    async fn hot_switch_codex_provider_preserves_history_identity_in_backup_and_restore() {
         let _home = TempHome::new();
         crate::settings::reload_settings().expect("reload settings");
 
@@ -6100,8 +6109,8 @@ requires_openai_auth = true
             toml::from_str(backup_config).expect("parse backup config");
         assert_eq!(
             parsed_backup.get("model_provider").and_then(|v| v.as_str()),
-            Some("aihubmix"),
-            "provider-derived restore backup should preserve the provider's model_provider"
+            Some("rightcode"),
+            "provider-derived restore backup must preserve the existing history identity"
         );
         let backup_model_providers = parsed_backup
             .get("model_providers")
@@ -6110,7 +6119,7 @@ requires_openai_auth = true
         assert!(backup_model_providers.get("custom").is_none());
         assert_eq!(
             backup_model_providers
-                .get("aihubmix")
+                .get("rightcode")
                 .and_then(|v| v.get("base_url"))
                 .and_then(|v| v.as_str()),
             Some("https://aihubmix.example/v1"),
@@ -6125,13 +6134,13 @@ requires_openai_auth = true
         let parsed_live: toml::Value = toml::from_str(live_config).expect("parse live config");
         assert_eq!(
             parsed_live.get("model_provider").and_then(|v| v.as_str()),
-            Some("aihubmix"),
-            "hot-switched Codex live config should expose the selected provider"
+            Some("rightcode"),
+            "hot-switched Codex live config must keep the history identity across suppliers"
         );
         assert_eq!(
             parsed_live
                 .get("model_providers")
-                .and_then(|v| v.get("aihubmix"))
+                .and_then(|v| v.get("rightcode"))
                 .and_then(|v| v.get("name"))
                 .and_then(|v| v.as_str()),
             Some("AiHubMix"),
@@ -6140,7 +6149,7 @@ requires_openai_auth = true
         assert_eq!(
             parsed_live
                 .get("model_providers")
-                .and_then(|v| v.get("aihubmix"))
+                .and_then(|v| v.get("rightcode"))
                 .and_then(|v| v.get("base_url"))
                 .and_then(|v| v.as_str()),
             Some("http://127.0.0.1:15721/v1"),
@@ -6160,8 +6169,8 @@ requires_openai_auth = true
         let parsed_live: toml::Value = toml::from_str(live_config).expect("parse live config");
         assert_eq!(
             parsed_live.get("model_provider").and_then(|v| v.as_str()),
-            Some("aihubmix"),
-            "restored Codex live config should preserve the provider's model_provider"
+            Some("rightcode"),
+            "restored Codex live config must preserve the existing history identity"
         );
         assert_eq!(
             live.get("auth")
@@ -6269,12 +6278,12 @@ requires_openai_auth = true
 
         assert_eq!(
             parsed_live.get("model_provider").and_then(|v| v.as_str()),
-            Some("deepseek")
+            Some("stable")
         );
         assert_eq!(
             parsed_live
                 .get("model_providers")
-                .and_then(|v| v.get("deepseek"))
+                .and_then(|v| v.get("stable"))
                 .and_then(|v| v.get("name"))
                 .and_then(|v| v.as_str()),
             Some("DeepSeek")
@@ -6282,7 +6291,7 @@ requires_openai_auth = true
         assert_eq!(
             parsed_live
                 .get("model_providers")
-                .and_then(|v| v.get("deepseek"))
+                .and_then(|v| v.get("stable"))
                 .and_then(|v| v.get("base_url"))
                 .and_then(|v| v.as_str()),
             Some("http://127.0.0.1:15721/v1")

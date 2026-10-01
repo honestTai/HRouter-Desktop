@@ -14,9 +14,10 @@ use std::process::{Command, Stdio};
 use toml_edit::DocumentMut;
 
 pub const CC_SWITCH_CODEX_MODEL_PROVIDER_ID: &str = "custom";
-/// Temporary model-provider id used while the built-in `codex-official`
-/// provider is routed through HRouter.  A dedicated id is an ownership
-/// marker: unlike a generic localhost `base_url`, it can be detected and
+/// Legacy model-provider id and ownership marker for the built-in
+/// `codex-official` provider routed through HRouter. With unified history it is
+/// an inactive marker table; the active route remains `custom`. A dedicated id
+/// is an ownership marker: unlike a generic localhost `base_url`, it can be detected and
 /// cleaned up without mistaking a user's own local provider for takeover.
 pub const CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID: &str = "cc-switch-official";
 pub const CC_SWITCH_CODEX_MODEL_CATALOG_FILENAME: &str = "cc-switch-model-catalog.json";
@@ -310,6 +311,93 @@ pub(crate) fn is_custom_codex_model_provider_id(id: &str) -> bool {
         && !CODEX_RESERVED_MODEL_PROVIDER_IDS
             .iter()
             .any(|reserved| reserved.eq_ignore_ascii_case(id))
+}
+
+/// Project a managed third-party route into the existing history bucket. The
+/// upstream endpoint/auth stay unchanged. Built-in routes and inactive profiles
+/// for other providers are deliberately left alone.
+fn project_codex_session_provider(config_text: &str, bucket: &str) -> Result<String, AppError> {
+    let mut doc = config_text
+        .parse::<DocumentMut>()
+        .map_err(|e| AppError::Message(format!("Invalid Codex config.toml: {e}")))?;
+    let Some(source) = active_codex_model_provider_id(&doc) else {
+        return Ok(config_text.to_string());
+    };
+    if source == bucket
+        || source == CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID
+        || !is_custom_codex_model_provider_id(&source)
+    {
+        return Ok(config_text.to_string());
+    }
+    let Some(providers) = doc
+        .get_mut("model_providers")
+        .and_then(|v| v.as_table_like_mut())
+    else {
+        return Ok(config_text.to_string());
+    };
+    if !providers
+        .get(&source)
+        .is_some_and(|v| v.is_table() || v.is_inline_table())
+    {
+        return Ok(config_text.to_string());
+    }
+    // Common config can carry the old bucket's table too. Swap instead of
+    // deleting it, and remap both sets of profile references below.
+    let displaced = providers.remove(bucket);
+    let table = providers.remove(&source).expect("checked provider table");
+    providers.insert(bucket, table);
+    let swapped = displaced.is_some();
+    if let Some(displaced) = displaced {
+        providers.insert(&source, displaced);
+    }
+    doc["model_provider"] = toml_edit::value(bucket);
+    if let Some(profiles) = doc.get_mut("profiles").and_then(|v| v.as_table_like_mut()) {
+        for (_, profile) in profiles.iter_mut() {
+            if let Some(profile) = profile.as_table_like_mut() {
+                let id = profile.get("model_provider").and_then(|v| v.as_str());
+                let replacement = if id == Some(&source) {
+                    Some(bucket)
+                } else if swapped && id == Some(bucket) {
+                    Some(source.as_str())
+                } else {
+                    None
+                };
+                if let Some(replacement) = replacement {
+                    profile.insert("model_provider", toml_edit::value(replacement));
+                }
+            }
+        }
+    }
+    Ok(doc.to_string())
+}
+
+/// Keep the current third-party session identity across supplier switches.
+/// Never rewrite rollout files/SQLite here: Codex may still be appending to an
+/// open conversation. Without an existing identity, keep the target template.
+pub(crate) fn prepare_codex_session_provider(config_text: &str) -> Result<String, AppError> {
+    let live = read_codex_config_text()?;
+    let Some(bucket) = codex_session_bucket_from_live(&live) else {
+        // First activation (or returning from a built-in provider): retain the
+        // target template's identity rather than orphan its existing history.
+        return Ok(config_text.to_string());
+    };
+    project_codex_session_provider(config_text, &bucket)
+}
+
+fn codex_session_bucket_from_live(config_text: &str) -> Option<String> {
+    config_text.parse::<DocumentMut>().ok().and_then(|doc| {
+        let id = active_codex_model_provider_id(&doc)?;
+        if !is_custom_codex_model_provider_id(&id)
+            || id == CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID
+        {
+            return None;
+        }
+        doc.get("model_providers")?
+            .as_table_like()?
+            .get(&id)?
+            .as_table_like()?;
+        Some(id)
+    })
 }
 
 /// Write only Codex `config.toml` for provider switching.
@@ -1949,6 +2037,18 @@ pub fn apply_codex_official_proxy_route(
     config_text: &str,
     proxy_base_url: &str,
 ) -> Result<String, AppError> {
+    apply_codex_official_proxy_route_with_history(
+        config_text,
+        proxy_base_url,
+        crate::settings::unify_codex_session_history(),
+    )
+}
+
+fn apply_codex_official_proxy_route_with_history(
+    config_text: &str,
+    proxy_base_url: &str,
+    unified: bool,
+) -> Result<String, AppError> {
     let mut doc = config_text
         .parse::<DocumentMut>()
         .map_err(|e| AppError::Message(format!("Invalid Codex config.toml: {e}")))?;
@@ -1956,7 +2056,12 @@ pub fn apply_codex_official_proxy_route(
     // A third-party takeover may have left the proxy placeholder in config.toml.
     // The official route must use Codex's native OpenAI login instead.
     doc.as_table_mut().remove("experimental_bearer_token");
-    doc["model_provider"] = toml_edit::value(CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID);
+    let provider_id = if unified {
+        CC_SWITCH_CODEX_MODEL_PROVIDER_ID
+    } else {
+        CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID
+    };
+    doc["model_provider"] = toml_edit::value(provider_id);
 
     let mut providers = match doc.as_table_mut().remove("model_providers") {
         Some(item) => item.into_table().map_err(|_| {
@@ -1978,6 +2083,11 @@ pub fn apply_codex_official_proxy_route(
     // The local proxy currently exposes HTTP/SSE, not Codex websocket routes.
     let table = codex_official_provider_table(Some(proxy_base_url), false);
 
+    if unified {
+        providers.insert(provider_id, toml_edit::Item::Table(table.clone()));
+    }
+    // Keep a dedicated inactive ownership marker; detection requires an exact
+    // match so a user's own localhost/custom route is never mistaken for ours.
     providers.insert(
         CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID,
         toml_edit::Item::Table(table),
@@ -1991,16 +2101,22 @@ pub fn codex_config_has_official_proxy_route(config_text: &str) -> bool {
     if !config_text.contains(CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID) {
         return false;
     }
-    config_text
-        .parse::<DocumentMut>()
-        .ok()
-        .and_then(|doc| {
-            doc.get("model_provider")
-                .and_then(|item| item.as_str())
-                .map(str::to_string)
-        })
-        .as_deref()
-        == Some(CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID)
+    let Ok(doc) = config_text.parse::<toml::Value>() else {
+        return false;
+    };
+    let active = doc.get("model_provider").and_then(|v| v.as_str());
+    if active == Some(CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID) {
+        return true;
+    }
+    let Some(providers) = doc.get("model_providers") else {
+        return false;
+    };
+    active == Some(CC_SWITCH_CODEX_MODEL_PROVIDER_ID)
+        && providers
+            .get(CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID)
+            .is_some()
+        && providers.get(CC_SWITCH_CODEX_MODEL_PROVIDER_ID)
+            == providers.get(CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID)
 }
 
 /// Remove only the official takeover route owned by HRouter. This is a
@@ -2009,11 +2125,11 @@ pub fn remove_codex_official_proxy_route(config_text: &str) -> Result<String, Ap
     let mut doc = config_text
         .parse::<DocumentMut>()
         .map_err(|e| AppError::Message(format!("Invalid Codex config.toml: {e}")))?;
-    if doc.get("model_provider").and_then(|item| item.as_str())
-        != Some(CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID)
-    {
+    if !codex_config_has_official_proxy_route(config_text) {
         return Ok(config_text.to_string());
     }
+    let unified = doc.get("model_provider").and_then(|v| v.as_str())
+        == Some(CC_SWITCH_CODEX_MODEL_PROVIDER_ID);
 
     doc.as_table_mut().remove("model_provider");
     if let Some(item) = doc.as_table_mut().remove("model_providers") {
@@ -2022,11 +2138,17 @@ pub fn remove_codex_official_proxy_route(config_text: &str) -> Result<String, Ap
                 "Invalid Codex config.toml: model_providers must be a table".to_string(),
             )
         })?;
+        if unified {
+            providers.remove(CC_SWITCH_CODEX_MODEL_PROVIDER_ID);
+        }
         providers.remove(CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID);
         remove_codex_proxy_placeholders_from_providers(&mut providers);
         if !providers.is_empty() {
             doc["model_providers"] = toml_edit::Item::Table(providers);
         }
+    }
+    if unified {
+        return inject_codex_unified_session_bucket(&doc.to_string());
     }
     Ok(doc.to_string())
 }
@@ -2136,7 +2258,7 @@ pub fn strip_codex_unified_session_bucket(config_text: &str) -> Result<String, A
 }
 
 /// 统一会话开关开启时，把官方供应商 `{ auth, config }` 设置对象中的
-/// config 文本注入共享 custom 路由；开关关闭或非官方供应商时不做改动。
+/// config 文本注入共享 custom 路由；第三方供应商则沿用当前 live 会话标识。
 ///
 /// 普通 live 写入（`write_codex_live_for_provider`）与代理接管备份
 /// （`update_live_backup_from_provider`）两条落盘路径共用：接管期间
@@ -2145,7 +2267,14 @@ pub fn apply_codex_unified_session_bucket_to_settings(
     category: Option<&str>,
     settings: &mut Value,
 ) -> Result<(), AppError> {
-    if category != Some("official") || !crate::settings::unify_codex_session_history() {
+    if category != Some("official") {
+        if let Some(text) = settings.get("config").and_then(Value::as_str) {
+            let normalized = prepare_codex_session_provider(text)?;
+            settings["config"] = Value::String(normalized);
+        }
+        return Ok(());
+    }
+    if !crate::settings::unify_codex_session_history() {
         return Ok(());
     }
     let config_text = settings
@@ -2235,6 +2364,14 @@ pub fn write_codex_live_for_provider(
     auth: &Value,
     config_text: Option<&str>,
 ) -> Result<(), AppError> {
+    let normalized_config = if category != Some("official") {
+        config_text
+            .map(prepare_codex_session_provider)
+            .transpose()?
+    } else {
+        None
+    };
+    let config_text = normalized_config.as_deref().or(config_text);
     let unified_official_config =
         if category == Some("official") && crate::settings::unify_codex_session_history() {
             Some(inject_codex_unified_session_bucket(
@@ -2323,6 +2460,18 @@ pub fn restore_codex_settings_for_backfill(
     template_settings: &Value,
     restore_provider_token: bool,
 ) -> Result<(), AppError> {
+    // The stable session key is a live projection, not the supplier's stored
+    // identity. Reverse it before backfill (including matching profiles), so
+    // exporting/editing a provider never inherits another supplier's key.
+    if let (Some(template), Some(live)) = (
+        template_settings.get("config").and_then(Value::as_str),
+        settings.get("config").and_then(Value::as_str),
+    ) {
+        if let Some(id) = codex_session_bucket_from_live(template) {
+            let restored = project_codex_session_provider(live, &id)?;
+            settings["config"] = Value::String(restored);
+        }
+    }
     if restore_provider_token {
         restore_codex_provider_token_for_backfill(settings, template_settings)?;
     }
@@ -2476,6 +2625,178 @@ pub fn remove_codex_toml_base_url_if(toml_str: &str, predicate: impl Fn(&str) ->
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn existing_custom_history_identity_is_preserved_without_rewriting_history() {
+        let live = r#"model_provider = "my-old-relay"
+[model_providers.my-old-relay]
+name = "Old relay"
+"#;
+        let bucket = codex_session_bucket_from_live(live).unwrap();
+        assert_eq!(bucket, "my-old-relay");
+        let next = r#"model_provider = "custom"
+[model_providers.custom]
+name = "New supplier"
+base_url = "https://new.example/v1"
+"#;
+        let projected = project_codex_session_provider(next, &bucket).unwrap();
+        let doc: toml::Value = toml::from_str(&projected).unwrap();
+        assert_eq!(doc["model_provider"].as_str(), Some("my-old-relay"));
+        assert_eq!(
+            doc["model_providers"]["my-old-relay"]["name"].as_str(),
+            Some("New supplier")
+        );
+        assert_eq!(
+            doc["model_providers"]["my-old-relay"]["base_url"].as_str(),
+            Some("https://new.example/v1")
+        );
+        for live in [
+            "",
+            "invalid = [",
+            "model_provider = \"openai\"",
+            "model_provider = \"missing\"",
+            "model_provider = \"cc-switch-official\"",
+        ] {
+            assert!(codex_session_bucket_from_live(live).is_none());
+        }
+    }
+
+    #[test]
+    fn switching_third_party_providers_keeps_one_history_bucket() {
+        for name in ["rightcode", "my-private-relay"] {
+            let input = format!(
+                r#"model_provider = "{name}"
+model = "test-model"
+[model_providers.{name}]
+name = "Private relay"
+base_url = "https://relay.example/v1"
+experimental_bearer_token = "test-secret"
+wire_api = "responses"
+[profiles.work]
+model_provider = "{name}"
+[profiles.local]
+model_provider = "ollama"
+[mcp_servers.example]
+command = "example"
+"#
+            );
+            let output = project_codex_session_provider(&input, "custom").unwrap();
+            let doc: toml::Value = toml::from_str(&output).unwrap();
+            assert_eq!(doc["model_provider"].as_str(), Some("custom"));
+            assert_eq!(
+                doc["model_providers"]["custom"]["base_url"].as_str(),
+                Some("https://relay.example/v1")
+            );
+            assert_eq!(
+                doc["model_providers"]["custom"]["experimental_bearer_token"].as_str(),
+                Some("test-secret")
+            );
+            assert_eq!(
+                doc["profiles"]["work"]["model_provider"].as_str(),
+                Some("custom")
+            );
+            assert_eq!(
+                doc["profiles"]["local"]["model_provider"].as_str(),
+                Some("ollama")
+            );
+            assert_eq!(
+                doc["mcp_servers"]["example"]["command"].as_str(),
+                Some("example")
+            );
+            assert_eq!(
+                project_codex_session_provider(&output, "custom").unwrap(),
+                output
+            );
+        }
+    }
+
+    #[test]
+    fn session_bucket_handles_inline_tables_and_preserves_builtin_routes() {
+        let input = r#"model_provider = "relay"
+model_providers = { relay = { name = "Relay", base_url = "https://relay.example/v1" } }
+"#;
+        let doc: toml::Value =
+            toml::from_str(&project_codex_session_provider(input, "custom").unwrap()).unwrap();
+        assert_eq!(doc["model_provider"].as_str(), Some("custom"));
+        assert_eq!(
+            doc["model_providers"]["custom"]["name"].as_str(),
+            Some("Relay")
+        );
+        for input in [
+            "",
+            "model_provider = \"openai\"\n",
+            "model_provider = \"ollama\"\n",
+            "model_provider = \"undefined\"\n",
+        ] {
+            assert_eq!(
+                project_codex_session_provider(input, "custom").unwrap(),
+                input
+            );
+        }
+        assert!(project_codex_session_provider("invalid = [", "custom").is_err());
+        let input = r#"model_provider = "relay"
+[model_providers.relay]
+name = "Relay"
+[model_providers.custom]
+name = "Do not overwrite"
+[profiles.selected]
+model_provider = "relay"
+[profiles.other]
+model_provider = "custom"
+"#;
+        let output = project_codex_session_provider(input, "custom").unwrap();
+        let doc: toml::Value = toml::from_str(&output).unwrap();
+        assert_eq!(
+            doc["model_providers"]["custom"]["name"].as_str(),
+            Some("Relay")
+        );
+        assert_eq!(
+            doc["model_providers"]["relay"]["name"].as_str(),
+            Some("Do not overwrite")
+        );
+        assert_eq!(
+            doc["profiles"]["selected"]["model_provider"].as_str(),
+            Some("custom")
+        );
+        assert_eq!(
+            doc["profiles"]["other"]["model_provider"].as_str(),
+            Some("relay")
+        );
+    }
+
+    #[test]
+    fn unified_official_proxy_keeps_custom_history_on_takeover_and_cleanup() {
+        let input = inject_codex_unified_session_bucket("model = \"test-model\"\n").unwrap();
+        let output = apply_codex_official_proxy_route_with_history(
+            &input,
+            "http://127.0.0.1:15721/v1",
+            true,
+        )
+        .unwrap();
+        let doc: toml::Value = toml::from_str(&output).unwrap();
+        assert_eq!(doc["model_provider"].as_str(), Some("custom"));
+        assert_eq!(
+            doc["model_providers"]["custom"]["requires_openai_auth"].as_bool(),
+            Some(true)
+        );
+        assert!(codex_config_has_official_proxy_route(&output));
+        let cleaned = remove_codex_official_proxy_route(&output).unwrap();
+        let doc: toml::Value = toml::from_str(&cleaned).unwrap();
+        assert_eq!(doc["model_provider"].as_str(), Some("custom"));
+        assert!(doc["model_providers"]["custom"].get("base_url").is_none());
+        assert!(!codex_config_has_official_proxy_route(&cleaned));
+        // A stale marker is not ownership of an unrelated user route.
+        let changed = output.replacen(
+            "base_url = \"http://127.0.0.1:15721/v1\"",
+            "base_url = \"https://user.example/v1\"",
+            1,
+        );
+        assert!(!codex_config_has_official_proxy_route(&changed));
+        assert_eq!(
+            remove_codex_official_proxy_route(&changed).unwrap(),
+            changed
+        );
+    }
 
     #[test]
     fn catalog_tool_profile_from_api_format() {
@@ -2984,7 +3305,7 @@ model = "gpt-5.4"
     }
 
     #[test]
-    fn backfill_preserves_live_model_provider_id() {
+    fn backfill_restores_template_identity_without_losing_live_endpoint() {
         let mut live_settings = json!({
             "auth": {},
             "config": r#"model_provider = "vendor_beta"
@@ -3012,15 +3333,18 @@ wire_api = "responses"
 
         assert_eq!(
             parsed.get("model_provider").and_then(|v| v.as_str()),
-            Some("vendor_beta")
+            Some("custom")
         );
-        assert!(
-            parsed
-                .get("model_providers")
-                .and_then(|v| v.get("vendor_beta"))
-                .is_some(),
-            "backfill should not rewrite user-selected provider tables"
+        assert_eq!(
+            parsed["model_providers"]["custom"]["base_url"].as_str(),
+            Some("https://beta.example/v1"),
+            "restore the template key, not the stale template endpoint"
         );
+        assert_eq!(
+            parsed["model_providers"]["custom"]["name"].as_str(),
+            Some("Vendor Beta")
+        );
+        assert!(parsed["model_providers"].get("vendor_beta").is_none());
     }
 
     #[test]
