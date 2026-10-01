@@ -1,3 +1,12 @@
+import { DateTimeField } from "@/components/ui/date-time-field";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from "@/components/ui/table";
 import { SearchSelect } from "@/components/ui/search-select";
 import i18n from "i18next";
 import { useTranslation } from "react-i18next";
@@ -206,24 +215,22 @@ export function BillingReconciliation({ userId }: { userId: number }) {
       <div className="grid gap-3 md:grid-cols-3">
         <label className="space-y-2 text-sm">
           {t("accessWorkbench.startDate", { defaultValue: "起始日期" })}
-          <Input
-            type="date"
+          <DateTimeField
             value={start}
             disabled={busy}
-            onChange={(e) => {
-              setStart(e.target.value);
+            onValueChange={(value) => {
+              setStart(value);
               setResult(null);
             }}
           />
         </label>
         <label className="space-y-2 text-sm">
           {t("accessWorkbench.endDate", { defaultValue: "结束日期" })}
-          <Input
-            type="date"
+          <DateTimeField
             value={end}
             disabled={busy}
-            onChange={(e) => {
-              setEnd(e.target.value);
+            onValueChange={(value) => {
+              setEnd(value);
               setResult(null);
             }}
           />
@@ -267,43 +274,45 @@ export function BillingReconciliation({ userId }: { userId: number }) {
       {result && (
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">{result.scope}</p>
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="py-2">
+          <Table className="w-full text-left text-sm">
+            <TableHeader>
+              <TableRow className="border-b">
+                <TableHead className="py-2">
                   {t("accessWorkbench.metric", { defaultValue: "统计项" })}
-                </th>
-                <th>
+                </TableHead>
+                <TableHead>
                   {t("accessWorkbench.localEstimate125", {
                     defaultValue: "本机估算",
                   })}
-                </th>
-                <th>
+                </TableHead>
+                <TableHead>
                   {t("accessWorkbench.serverRecords", {
                     defaultValue: "服务端记录",
                   })}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="py-2">
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell className="py-2">
                   {t("accessWorkbench.requests", { defaultValue: "请求数" })}
-                </td>
-                <td>{result.local?.requestCount ?? 0}</td>
-                <td>{result.remote.total_requests}</td>
-              </tr>
-              <tr>
-                <td className="py-2">
+                </TableCell>
+                <TableCell>{result.local?.requestCount ?? 0}</TableCell>
+                <TableCell>{result.remote.total_requests}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="py-2">
                   {t("accessWorkbench.cost", { defaultValue: "费用" })}
-                </td>
-                <td>${Number(result.local?.totalCost ?? 0).toFixed(4)} USD</td>
-                <td>
+                </TableCell>
+                <TableCell>
+                  ${Number(result.local?.totalCost ?? 0).toFixed(4)} USD
+                </TableCell>
+                <TableCell>
                   ¥{Number(result.remote.total_actual_cost).toFixed(4)} CNY
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
           {result.rate !== null && (
             <p className="text-sm">
               {t("accessWorkbench.convertedDifference", {

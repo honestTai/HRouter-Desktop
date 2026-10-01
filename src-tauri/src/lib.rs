@@ -1,3 +1,5 @@
+mod resource_target;
+pub use resource_target::ResourceTarget;
 mod access_protection;
 mod app_config;
 mod app_store;
@@ -15,6 +17,8 @@ mod deeplink;
 mod environment_targets;
 mod error;
 mod external_agents;
+mod agent_configs;
+mod file_provider_service;
 mod gemini_config;
 mod gemini_mcp;
 mod grok_config;
@@ -1536,6 +1540,7 @@ pub fn run() {
             commands::add_skill_repo,
             commands::remove_skill_repo,
             commands::install_skills_from_zip,
+            commands::export_skill_zip,
             // Auto launch
             commands::set_auto_launch,
             commands::get_auto_launch_status,
@@ -1584,6 +1589,9 @@ pub fn run() {
             commands::fetch_hrouter_model_plaza,
             commands::fetch_hrouter_announcements,
             commands::hrouter_platform_request,
+            commands::open_usage_widget,
+            commands::get_usage_widget_snapshot,
+            commands::get_usage_widget_finance,
             commands::get_model_pricing,
             commands::update_model_pricing,
             commands::update_model_pricing_batch,
@@ -1599,6 +1607,9 @@ pub fn run() {
             // Stream health check
             commands::stream_check_provider,
             commands::diagnose_provider,
+            agent_configs::inspect_agent_config,
+            agent_configs::preview_agent_config,
+            agent_configs::apply_agent_config,
             external_agents::preview_pi_connection,
             external_agents::apply_pi_connection,
             commands::preview_cc_switch_import,

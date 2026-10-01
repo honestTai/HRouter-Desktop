@@ -1,15 +1,13 @@
-import { useState } from "react";
+import { AgentPicker } from "@/components/common/AgentPicker";
+import { APP_IDS, APP_ICON_MAP } from "@/config/appConfig";
 import { useTranslation } from "react-i18next";
 import type { AppId } from "@/lib/api";
 import { RoutesPanel } from "@/components/access/AccessWorkbench";
-import { cn } from "@/lib/utils";
 
-export const ROUTE_APPS = [
-  { id: "claude", label: "Claude Code" },
-  { id: "codex", label: "Codex" },
-  { id: "gemini", label: "Gemini CLI" },
-  { id: "grokbuild", label: "Grok Build" },
-] as const;
+export const ROUTE_APPS = APP_IDS.map((id) => ({
+  id,
+  label: APP_ICON_MAP[id].label,
+}));
 export function RoutesPage({
   activeApp,
   onAppChange,
@@ -20,9 +18,10 @@ export function RoutesPage({
   onAdd: (app: AppId) => void;
 }) {
   const { t } = useTranslation();
-  const supported = ROUTE_APPS.some((item) => item.id === activeApp);
-  const [fallback, setFallback] = useState<AppId>("claude");
-  const app = supported ? activeApp : fallback;
+  const app = activeApp;
+  const supportsFailover = ["claude", "codex", "gemini", "grokbuild"].includes(
+    app,
+  );
   return (
     <div className="h-full overflow-y-auto px-6 py-8 lg:px-8">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -35,36 +34,21 @@ export function RoutesPage({
             {t("routePolicies.description")}
           </p>
         </header>
-        {!supported && (
-          <p role="status" className="text-sm text-muted-foreground">
-            {t("routePolicies.supported")}
-          </p>
-        )}
-        <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-4">
-          {ROUTE_APPS.map((item) => (
-            <button
-              type="button"
-              aria-pressed={item.id === app}
-              key={item.id}
-              onClick={() => {
-                setFallback(item.id);
-                onAppChange(item.id);
-              }}
-              className={cn(
-                "rounded-lg border p-4 text-left text-sm font-medium",
-                app === item.id
-                  ? "border-primary bg-primary/5"
-                  : "border-border bg-card",
-              )}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        <AgentPicker
+          value={app}
+          supported={ROUTE_APPS.map((item) => item.id)}
+          onChange={(next) => {
+            onAppChange(next);
+          }}
+        />
         <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm leading-relaxed">
           <h2 className="font-medium">{t("routePolicies.boundary")}</h2>
           <p className="mt-1 text-muted-foreground">
-            {t("routePolicies.hint")}
+            {t(
+              supportsFailover
+                ? "routePolicies.hint"
+                : "routePolicies.directHint",
+            )}
           </p>
         </div>
         <RoutesPanel key={app} app={app} onAdd={() => onAdd(app)} />

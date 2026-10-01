@@ -1,4 +1,9 @@
-import { ExtraAgentConnections } from "@/components/agents/ExtraAgentConnections";
+import {
+  invalidateAgentContext,
+  invalidateAllAgentContexts,
+} from "@/lib/query/agentContext";
+import { DirectRoutesPanel } from "./DirectRoutesPanel";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SearchSelect } from "@/components/ui/search-select";
 import i18n from "i18next";
 import { useTranslation } from "react-i18next";
@@ -26,7 +31,7 @@ import {
 } from "@/lib/api/access";
 import { proxyApi } from "@/lib/api/proxy";
 import { hrouterAccountApi } from "@/lib/api/hrouterPlatform";
-import { useHRouterSession } from "@/hooks/useHRouterSession";
+import { useHRouterAccess } from "@/hooks/useHRouterAccess";
 import { FailoverQueueManager } from "@/components/proxy/FailoverQueueManager";
 import { UsageDashboard } from "@/components/usage/UsageDashboard";
 import { BillingReconciliation } from "./BillingReconciliation";
@@ -108,9 +113,18 @@ const AGENT_WORKSPACES: Array<{
   { id: "grokbuild", name: "Grok Build", description: "", icon: "grok" },
   { id: "openclaw", name: "OpenClaw", description: "", icon: "openclaw" },
   { id: "hermes", name: "Hermes", description: "", icon: "hermes" },
+  { id: "pi", name: "Pi Agent", description: "", icon: "pi" },
+  {
+    id: "deepseek-harness",
+    name: "DeepSeek Harness",
+    description: "",
+    icon: "deepseek",
+  },
+  { id: "workbuddy", name: "WorkBuddy", description: "", icon: "workbuddy" },
 ];
 
 export function AccessWorkbench(props: Props) {
+  const { connected } = useHRouterAccess();
   const { t } = useTranslation();
 
   const [localApp, setLocalApp] = useState<AppId>(props.activeApp ?? "claude");
@@ -135,8 +149,7 @@ export function AccessWorkbench(props: Props) {
               {t(
                 "accessWorkbench.connectOfficialServicesYourOwnEndpointsOrThirdParty",
                 {
-                  defaultValue:
-                    "官方服务、自建端点、第三方中转，统一接入。通用功能无需登录。",
+                  defaultValue: "官方服务、自建端点、第三方中转，统一接入。",
                 },
               )}
             </p>
@@ -144,7 +157,7 @@ export function AccessWorkbench(props: Props) {
           <div className="grid w-full gap-2 sm:grid-cols-2 md:grid-cols-4">
             {AGENT_WORKSPACES.filter(
               (workspace) =>
-                !props.visibleApps || props.visibleApps[workspace.id],
+                !props.visibleApps || props.visibleApps[workspace.id] !== false,
             ).map((workspace) => (
               <AgentAccessCard
                 key={workspace.id}
@@ -157,7 +170,6 @@ export function AccessWorkbench(props: Props) {
             ))}
           </div>
         </div>
-        <ExtraAgentConnections />
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="workbench-tabs mb-6 flex h-auto w-full flex-wrap justify-start gap-x-5 gap-y-1 rounded-none border-b border-border bg-transparent p-0">
             <TabsTrigger value="connect">
@@ -186,7 +198,9 @@ export function AccessWorkbench(props: Props) {
           </TabsList>
           <TabsContent value="connect">
             <div className="space-y-5">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div
+                className={`grid gap-4 ${connected ? "md:grid-cols-2" : ""}`}
+              >
                 <section className={panelClass}>
                   <Activity className="h-5 w-5 text-primary" />
                   <h2 className="font-semibold">
@@ -219,39 +233,41 @@ export function AccessWorkbench(props: Props) {
                     </Button>
                   </div>
                 </section>
-                <section className={panelClass}>
-                  <Wallet className="h-5 w-5 text-primary" />
-                  <h2 className="font-semibold">
-                    {t("accessWorkbench.quickHrouterSetup", {
-                      defaultValue: "HRouter 快捷接入",
-                    })}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    {t(
-                      "accessWorkbench.discoverModelsWithAnExistingHrouterKeyAccountServices",
-                      {
-                        defaultValue:
-                          "已有 HRouter Key 可直接识别模型。账号服务提供余额和服务端消费记录。",
-                      },
-                    )}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => props.onAdd("hrouter", app)}
-                    >
-                      {t("accessWorkbench.addHrouterKey", {
-                        defaultValue: "添加 HRouter Key",
+                {connected && (
+                  <section className={panelClass}>
+                    <Wallet className="h-5 w-5 text-primary" />
+                    <h2 className="font-semibold">
+                      {t("accessWorkbench.quickHrouterSetup", {
+                        defaultValue: "HRouter 快捷接入",
                       })}
-                    </Button>
-                    <Button variant="ghost" onClick={props.onHRouterAccount}>
-                      {t("accessWorkbench.aboutSignInToHrouter", {
-                        defaultValue: "了解 / 登录 HRouter",
-                      })}{" "}
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </div>
-                </section>
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      {t(
+                        "accessWorkbench.discoverModelsWithAnExistingHrouterKeyAccountServices",
+                        {
+                          defaultValue:
+                            "已有 HRouter Key 可直接识别模型。账号服务提供余额和服务端消费记录。",
+                        },
+                      )}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => props.onAdd("hrouter", app)}
+                      >
+                        {t("accessWorkbench.addHrouterKey", {
+                          defaultValue: "添加 HRouter Key",
+                        })}
+                      </Button>
+                      <Button variant="ghost" onClick={props.onHRouterAccount}>
+                        {t("accessWorkbench.aboutSignInToHrouter", {
+                          defaultValue: "了解 / 登录 HRouter",
+                        })}{" "}
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </div>
+                  </section>
+                )}
               </div>
               <ImportPanel />
               <div className="grid gap-3 md:grid-cols-3">
@@ -292,14 +308,16 @@ export function AccessWorkbench(props: Props) {
                     ),
                   ],
                 ].map(([value, title, desc]) => (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="auto"
                     key={value}
                     onClick={() => setTab(value)}
                     className="rounded-lg border border-border bg-card p-4 text-left transition-colors hover:bg-muted/50"
                   >
                     <p className="text-sm font-medium">{title} →</p>
                     <p className="mt-2 text-xs text-muted-foreground">{desc}</p>
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -326,8 +344,10 @@ export function AccessWorkbench(props: Props) {
           </TabsContent>
           <TabsContent value="costs">
             <div className="space-y-5">
-              <UsageRepair />
+              {app === "opencode" && <UsageRepair />}
               <CostsPanel
+                key={app}
+                app={app}
                 onHRouterUsage={props.onHRouterUsage}
                 onHRouterAccount={props.onHRouterAccount}
               />
@@ -394,7 +414,7 @@ function ImportPanel() {
       );
       setItems(await accessApi.previewImport(path));
       setSelected([]);
-      await queryClient.invalidateQueries({ queryKey: ["providers"] });
+      await invalidateAllAgentContexts(queryClient);
     } catch (e) {
       setError(e);
     } finally {
@@ -442,15 +462,12 @@ function ImportPanel() {
                   key={key}
                   className="flex items-center gap-3 rounded-md border p-3 text-sm"
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     disabled={busy || item.exists}
                     checked={selected.includes(key)}
-                    onChange={(e) =>
+                    onCheckedChange={(e) =>
                       setSelected((s) =>
-                        e.target.checked
-                          ? [...s, key]
-                          : s.filter((k) => k !== key),
+                        e === true ? [...s, key] : s.filter((k) => k !== key),
                       )
                     }
                   />
@@ -607,12 +624,11 @@ function DiagnosticsPanel({ app }: { app: AppId }) {
         />
       </div>
       <label className="flex items-start gap-2 text-sm">
-        <input
+        <Checkbox
           className="mt-1"
-          type="checkbox"
           checked={paid}
           disabled={busy}
-          onChange={(e) => setPaid(e.target.checked)}
+          onCheckedChange={(e) => setPaid(e === true)}
         />
         <span>
           {t(
@@ -743,7 +759,9 @@ function ProtectionPanel({ app }: { app: AppId }) {
   };
   const refresh = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["providers"] }),
+      invalidateAgentContext(queryClient, app),
+      queryClient.invalidateQueries({ queryKey: ["proxy"] }),
+      queryClient.invalidateQueries({ queryKey: ["access-route-status"] }),
       snapshots.refetch(),
     ]);
     await providersApi.updateTrayMenu().catch(() => undefined);
@@ -758,12 +776,11 @@ function ProtectionPanel({ app }: { app: AppId }) {
           })}
         </h2>
         <label className="flex gap-2 text-sm">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={lite.data ?? false}
             disabled={busy || lite.isLoading || !!lite.error}
-            onChange={(e) => {
-              const enabled = e.target.checked;
+            onCheckedChange={(e) => {
+              const enabled = e === true;
               void run(async () => {
                 await accessApi.setLiteMode(enabled);
                 await Promise.all([
@@ -794,12 +811,11 @@ function ProtectionPanel({ app }: { app: AppId }) {
         </p>
         <ErrorMessage error={lite.error} />
         <label className="flex gap-2 text-sm">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={syncScope.data ?? false}
             disabled={busy || syncScope.isLoading || !!syncScope.error}
-            onChange={(e) => {
-              const enabled = e.target.checked;
+            onCheckedChange={(e) => {
+              const enabled = e === true;
               void run(async () => {
                 await accessApi.setProvidersOnlySync(enabled);
                 await syncScope.refetch();
@@ -819,14 +835,13 @@ function ProtectionPanel({ app }: { app: AppId }) {
         </p>
         <ErrorMessage error={syncScope.error} />
         <label className="flex gap-2 text-sm">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={promptProtection.data ?? false}
             disabled={
               busy || promptProtection.isLoading || !!promptProtection.error
             }
-            onChange={(e) => {
-              const enabled = e.target.checked;
+            onCheckedChange={(e) => {
+              const enabled = e === true;
               void run(async () => {
                 await accessApi.setPromptProtection(app, enabled);
                 await promptProtection.refetch();
@@ -849,12 +864,11 @@ function ProtectionPanel({ app }: { app: AppId }) {
           )}
         </p>
         <label className="flex gap-2 text-sm">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={protection.data ?? false}
             disabled={busy || protection.isLoading || !!protection.error}
-            onChange={(e) => {
-              const enabled = e.target.checked;
+            onCheckedChange={(e) => {
+              const enabled = e === true;
               void run(async () => {
                 await accessApi.setProtection(app, enabled);
                 setPreview(null);
@@ -1113,16 +1127,8 @@ function ProtectionPanel({ app }: { app: AppId }) {
 }
 
 export function RoutesPanel({ app, onAdd }: { app: AppId; onAdd: () => void }) {
-  const { t } = useTranslation();
   if (!["claude", "codex", "gemini", "grokbuild"].includes(app))
-    return (
-      <p
-        role="status"
-        className="rounded-lg border p-5 text-sm text-muted-foreground"
-      >
-        {t("routePolicies.supported")}
-      </p>
-    );
+    return <DirectRoutesPanel key={app} app={app} onAdd={onAdd} />;
   return <SupportedRoutesPanel key={app} app={app} onAdd={onAdd} />;
 }
 function SupportedRoutesPanel({
@@ -1282,7 +1288,7 @@ function SupportedRoutesPanel({
       <p className="text-xs text-muted-foreground">
         {t("accessWorkbench.seeEachRequestSProviderActualModelStatusAnd", {
           defaultValue:
-            "逐条请求的供应商、实际模型、状态与费用，可在“费用与账单 → 本地估算”中查看。全局切换次数：",
+            "逐条请求的供应商、实际模型、状态与费用，可在“费用与账单 → 费用估算”中查看。全局切换次数：",
         })}
         {status.data?.failover_count ?? "—"}。
       </p>
@@ -1291,22 +1297,23 @@ function SupportedRoutesPanel({
 }
 
 function CostsPanel({
+  app,
   onHRouterUsage,
   onHRouterAccount,
-}: Pick<Props, "onHRouterUsage" | "onHRouterAccount">) {
+}: Pick<Props, "onHRouterUsage" | "onHRouterAccount"> & { app: AppId }) {
   const { t } = useTranslation();
 
-  const session = useHRouterSession();
+  const { connected, cloudEnabled, session } = useHRouterAccess();
   const profile = useQuery({
     queryKey: ["hrouter-account", session?.user.id, "profile"],
     queryFn: hrouterAccountApi.profile,
-    enabled: !!session,
+    enabled: cloudEnabled,
     refetchInterval: 60000,
   });
   const stats = useQuery({
     queryKey: ["hrouter-account", session?.user.id, "usage-stats", "all"],
     queryFn: () => hrouterAccountApi.usageStats(),
-    enabled: !!session,
+    enabled: cloudEnabled,
   });
   const [threshold, setThreshold] = useState(() => {
     const n = Number(localStorage.getItem("hrouter-balance-alert") ?? "10");
@@ -1319,138 +1326,124 @@ function CostsPanel({
   }, [threshold]);
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 md:grid-cols-2">
-        <section className={panelClass}>
-          <h2 className="font-semibold">
-            {t("accessWorkbench.localEstimate", { defaultValue: "本地估算" })}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {t(
-              "accessWorkbench.calculatedFromLocalRequestsSessionLogsAndConfiguredPrices",
-              {
-                defaultValue:
-                  "根据本机请求与会话记录、配置的模型价格计算。受数据覆盖、缓存、重试和价格表影响，不作为服务商扣费凭证。",
-              },
-            )}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {t("accessWorkbench.filterByAppProviderModelOrDateAndInspect", {
-              defaultValue:
-                "下方仪表盘可筛选应用、供应商、模型和时间，并查看逐条请求。",
-            })}
-          </p>
-        </section>
-        <section className={panelClass}>
-          <h2 className="font-semibold">
-            {t("accessWorkbench.hrouterServerBilling", {
-              defaultValue: "HRouter 服务端账单",
-            })}
-          </h2>
-          {session ? (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    {t("accessWorkbench.accountBalanceCny", {
-                      defaultValue: "账户余额 · CNY",
-                    })}
-                  </p>
-                  <p className="mt-1 text-xl font-semibold">
-                    {balance !== undefined
-                      ? `¥${Number(balance).toFixed(2)}`
-                      : "—"}
-                  </p>
+      <div className={`grid gap-4 ${connected ? "md:grid-cols-2" : ""}`}>
+        {connected && (
+          <section className={panelClass}>
+            <h2 className="font-semibold">
+              {t("accessWorkbench.hrouterServerBilling", {
+                defaultValue: "HRouter 服务端账单",
+              })}
+            </h2>
+            {session ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">
+                      {t("accessWorkbench.accountBalanceCny", {
+                        defaultValue: "账户余额 · CNY",
+                      })}
+                    </p>
+                    <p className="mt-1 text-xl font-semibold">
+                      {balance !== undefined
+                        ? `¥${Number(balance).toFixed(2)}`
+                        : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">
+                      {t("accessWorkbench.totalActualAccountSpendCny", {
+                        defaultValue: "账号累计实际消费 · CNY",
+                      })}
+                    </p>
+                    <p className="mt-1 text-xl font-semibold">
+                      {stats.data
+                        ? `¥${Number(stats.data.total_actual_cost).toFixed(4)}`
+                        : "—"}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    {t("accessWorkbench.totalActualAccountSpendCny", {
-                      defaultValue: "账号累计实际消费 · CNY",
-                    })}
-                  </p>
-                  <p className="mt-1 text-xl font-semibold">
-                    {stats.data
-                      ? `¥${Number(stats.data.total_actual_cost).toFixed(4)}`
-                      : "—"}
-                  </p>
-                </div>
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                {t("accessWorkbench.alertBelow", {
-                  defaultValue: "余额低于 ¥",
-                })}
-                <Input
-                  aria-label={t("accessWorkbench.balanceAlertThreshold", {
-                    defaultValue: "余额提醒阈值",
+                <label className="flex items-center gap-2 text-sm">
+                  {t("accessWorkbench.alertBelow", {
+                    defaultValue: "余额低于 ¥",
                   })}
-                  className="w-24"
-                  type="number"
-                  min="0"
-                  value={threshold}
-                  onChange={(e) => {
-                    const n = Number(e.target.value);
-                    if (Number.isFinite(n) && n >= 0) setThreshold(n);
-                  }}
-                />
-                {t("accessWorkbench.remaining", { defaultValue: "时在此提醒" })}
-              </label>
-              {low && (
-                <p
-                  role="status"
-                  className="rounded-md bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300"
-                >
+                  <Input
+                    aria-label={t("accessWorkbench.balanceAlertThreshold", {
+                      defaultValue: "余额提醒阈值",
+                    })}
+                    className="w-24"
+                    type="number"
+                    min="0"
+                    value={threshold}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      if (Number.isFinite(n) && n >= 0) setThreshold(n);
+                    }}
+                  />
+                  {t("accessWorkbench.remaining", {
+                    defaultValue: "时在此提醒",
+                  })}
+                </label>
+                {low && (
+                  <p
+                    role="status"
+                    className="rounded-md bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300"
+                  >
+                    {t(
+                      "accessWorkbench.balanceIsBelowYourThresholdMeteredCallsMayBe",
+                      {
+                        defaultValue:
+                          "余额低于设定阈值，按量调用可能受到影响。套餐额度请以服务端记录为准。",
+                      },
+                    )}
+                  </p>
+                )}
+                <ErrorMessage error={profile.error || stats.error} />
+                <Button variant="outline" onClick={onHRouterUsage}>
+                  {t("accessWorkbench.viewIndividualServerCharges", {
+                    defaultValue: "查看服务端逐笔消费",
+                  })}
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
                   {t(
-                    "accessWorkbench.balanceIsBelowYourThresholdMeteredCallsMayBe",
+                    "accessWorkbench.signInToViewActualChargesBalanceAndPlans",
                     {
-                      defaultValue:
-                        "余额低于设定阈值，按量调用可能受到影响。套餐额度请以服务端记录为准。",
+                      defaultValue: "查看 HRouter 实际扣费、余额和套餐。",
                     },
                   )}
                 </p>
-              )}
-              <ErrorMessage error={profile.error || stats.error} />
-              <Button variant="outline" onClick={onHRouterUsage}>
-                {t("accessWorkbench.viewIndividualServerCharges", {
-                  defaultValue: "查看服务端逐笔消费",
-                })}
-              </Button>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-muted-foreground">
-                {t("accessWorkbench.signInToViewActualChargesBalanceAndPlans", {
-                  defaultValue:
-                    "登录后查看服务端实际扣费、余额和套餐。不登录也可使用本地统计。",
-                })}
-              </p>
-              <Button variant="outline" onClick={onHRouterAccount}>
-                {t("accessWorkbench.aboutSignInToHrouter", {
-                  defaultValue: "了解 / 登录 HRouter",
-                })}
-              </Button>
-            </>
-          )}
-          <p className="text-xs text-muted-foreground">
-            {t(
-              "accessWorkbench.serverRecordsMayIncludeOtherDevicesLocalEstimatesAnd",
-              {
-                defaultValue:
-                  "服务端记录可能涵盖其他设备。本地估算与账号累计消费范围、币种可能不同，不直接相减。",
-              },
+                <Button variant="outline" onClick={onHRouterAccount}>
+                  {t("accessWorkbench.aboutSignInToHrouter", {
+                    defaultValue: "了解 / 登录 HRouter",
+                  })}
+                </Button>
+              </>
             )}
-          </p>
-        </section>
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "accessWorkbench.serverRecordsMayIncludeOtherDevicesLocalEstimatesAnd",
+                {
+                  defaultValue:
+                    "服务端记录可能涵盖其他设备。费用估算与账号累计消费范围、币种可能不同，不直接相减。",
+                },
+              )}
+            </p>
+          </section>
+        )}
       </div>
-      {session && (
+      {cloudEnabled && session && (
         <BillingReconciliation key={session.user.id} userId={session.user.id} />
       )}
       <section className="rounded-lg border border-border bg-card p-3">
         <div className="mb-3 flex items-center gap-2 px-2 text-sm font-semibold">
           <CheckCircle2 className="h-4 w-4" />
           {t("accessWorkbench.localRequestsAndEstimatedCosts", {
-            defaultValue: "本机请求与估算明细",
+            defaultValue: "请求与费用明细",
           })}
         </div>
-        <UsageDashboard />
+        <UsageDashboard key={app} fixedApp={app} />
       </section>
     </div>
   );

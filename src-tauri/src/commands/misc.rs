@@ -250,8 +250,17 @@ pub struct ToolVersion {
     wsl_distro: Option<String>,
 }
 
-const VALID_TOOLS: [&str; 7] = [
-    "claude", "codex", "gemini", "grok", "opencode", "openclaw", "hermes",
+const VALID_TOOLS: [&str; 10] = [
+    "claude",
+    "codex",
+    "gemini",
+    "grok",
+    "opencode",
+    "openclaw",
+    "hermes",
+    "pi",
+    "dsh",
+    "codebuddy",
 ];
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -572,6 +581,9 @@ fn tool_display_name(tool: &str) -> &'static str {
         "opencode" => "OpenCode",
         "openclaw" => "OpenClaw",
         "hermes" => "Hermes",
+        "pi" => "Pi Agent",
+        "dsh" => "DeepSeek Harness CLI",
+        "codebuddy" => "CodeBuddy CLI",
         _ => "Unknown",
     }
 }
@@ -652,6 +664,9 @@ fn npm_install_command_for(tool: &str) -> Option<&'static str> {
         "grok" => Some("npm i -g @xai-official/grok@latest"),
         "opencode" => Some("npm i -g opencode-ai@latest"),
         "openclaw" => Some("npm i -g openclaw@latest"),
+        "pi" => Some("npm i -g --ignore-scripts @earendil-works/pi-coding-agent@latest"),
+        "dsh" => Some("npm i -g @deepseek-ai/dsh@latest"),
+        "codebuddy" => Some("npm i -g @tencent-ai/codebuddy-code@latest"),
         _ => None,
     }
 }
@@ -996,6 +1011,10 @@ async fn get_single_tool_version_impl(
         }
         "openclaw" => fetch_npm_latest_for_tool(&client, "openclaw", tool, local).await,
         "hermes" => fetch_pypi_latest_version(&client, "hermes-agent").await,
+        "pi" | "dsh" | "codebuddy" => match npm_package_for(tool) {
+            Some(package) => fetch_npm_latest_for_tool(&client, package, tool, local).await,
+            None => None,
+        },
         _ => None,
     };
 
@@ -2596,6 +2615,9 @@ fn npm_package_for(tool: &str) -> Option<&'static str> {
         "grok" => Some("@xai-official/grok"),
         "opencode" => Some("opencode-ai"),
         "openclaw" => Some("openclaw"),
+        "pi" => Some("@earendil-works/pi-coding-agent"),
+        "dsh" => Some("@deepseek-ai/dsh"),
+        "codebuddy" => Some("@tencent-ai/codebuddy-code"),
         _ => None,
     }
 }
@@ -4752,6 +4774,27 @@ pub async fn set_window_theme(window: tauri::Window, theme: String) -> Result<()
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn added_cli_tools_have_install_update_and_package_entries() {
+        for (tool, package) in [
+            ("pi", "@earendil-works/pi-coding-agent"),
+            ("dsh", "@deepseek-ai/dsh"),
+            ("codebuddy", "@tencent-ai/codebuddy-code"),
+        ] {
+            assert!(VALID_TOOLS.contains(&tool));
+            assert_eq!(npm_package_for(tool), Some(package));
+            for action in [ToolLifecycleAction::Install, ToolLifecycleAction::Update] {
+                let command =
+                    tool_action_shell_command_for_shell(tool, action, LifecycleCommandShell::Posix)
+                        .unwrap();
+                assert!(command.contains(package));
+                assert!(!command.contains("sudo"));
+            }
+        }
+        assert!(!VALID_TOOLS.contains(&"claude-desktop"));
+        assert!(!VALID_TOOLS.contains(&"workbuddy"));
+    }
+
     use super::*;
     use std::path::{Path, PathBuf};
 

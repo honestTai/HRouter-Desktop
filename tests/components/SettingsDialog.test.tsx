@@ -21,6 +21,7 @@ vi.mock("react-i18next", () => ({
 interface SettingsMock {
   settings: Record<string, unknown> | null;
   isLoading: boolean;
+  reloadSettings: ReturnType<typeof vi.fn>;
   requiresRestart: boolean;
   updateSettings: ReturnType<typeof vi.fn>;
   autoSaveSettings: ReturnType<typeof vi.fn>;
@@ -37,6 +38,7 @@ const createSettingsMock = (
     visibleApps: ["claude", "codex"],
   },
   isLoading: false,
+  reloadSettings: vi.fn().mockResolvedValue(undefined),
   requiresRestart: false,
   updateSettings: vi.fn(),
   autoSaveSettings: vi.fn().mockResolvedValue({ requiresRestart: false }),
@@ -134,6 +136,16 @@ const renderSettingsPage = (
 ) => render(<SettingsPage open={true} onOpenChange={vi.fn()} {...props} />);
 
 describe("SettingsPage", () => {
+  it("shows an actionable error instead of a blank page when settings fail to load", () => {
+    settingsMock = createSettingsMock({ settings: null });
+    renderSettingsPage();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "workspaceUi.settingsUnavailable",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "common.retry" }));
+    expect(settingsMock.reloadSettings).toHaveBeenCalledOnce();
+  });
+
   beforeEach(() => {
     settingsMock = createSettingsMock();
     tMock.mockClear();

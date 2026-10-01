@@ -1,3 +1,4 @@
+import { MCP_APP_IDS, APP_ICON_MAP } from "@/config/appConfig";
 import React, { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -61,31 +62,17 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
   const [formDocs, setFormDocs] = useState(initialData?.docs || "");
   const [formTags, setFormTags] = useState(initialData?.tags?.join(", ") || "");
 
-  const [enabledApps, setEnabledApps] = useState<{
-    claude: boolean;
-    codex: boolean;
-    gemini: boolean;
-    grokbuild: boolean;
-    opencode: boolean;
-    openclaw: boolean;
-    hermes: boolean;
-  }>(() => {
-    if (initialData?.apps) {
-      return {
-        ...initialData.apps,
-        grokbuild: initialData.apps.grokbuild ?? false,
-      };
-    }
-    return {
-      claude: defaultEnabledApps.includes("claude"),
-      codex: defaultEnabledApps.includes("codex"),
-      gemini: defaultEnabledApps.includes("gemini"),
-      grokbuild: defaultEnabledApps.includes("grokbuild"),
-      opencode: defaultEnabledApps.includes("opencode"),
-      openclaw: defaultEnabledApps.includes("openclaw"),
-      hermes: defaultEnabledApps.includes("hermes"),
-    };
-  });
+  const [enabledApps, setEnabledApps] = useState<Record<AppId, boolean>>(
+    () =>
+      Object.fromEntries(
+        MCP_APP_IDS.map((app) => [
+          app,
+          initialData?.apps
+            ? Boolean(initialData.apps[app])
+            : defaultEnabledApps.includes(app),
+        ]),
+      ) as Record<AppId, boolean>,
+  );
 
   const isEditing = !!editingId;
 
@@ -457,7 +444,9 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
                   {t("mcp.presets.title")}
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="auto"
                     type="button"
                     onClick={applyCustom}
                     className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -467,11 +456,13 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
                     }`}
                   >
                     {t("presetSelector.custom")}
-                  </button>
+                  </Button>
                   {mcpPresets.map((preset, idx) => {
                     const descriptionKey = `mcp.presets.${preset.id}.description`;
                     return (
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="auto"
                         key={preset.id}
                         type="button"
                         onClick={() => applyPreset(idx)}
@@ -483,7 +474,7 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
                         title={t(descriptionKey)}
                       >
                         {preset.id}
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
@@ -529,108 +520,36 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
               <label className="block text-sm font-medium text-foreground mb-3">
                 {t("mcp.form.enabledApps")}
               </label>
-              <div className="flex flex-wrap gap-4">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="enable-claude"
-                    checked={enabledApps.claude}
-                    onCheckedChange={(checked: boolean) =>
-                      setEnabledApps({ ...enabledApps, claude: checked })
-                    }
-                  />
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {MCP_APP_IDS.map((app) => (
                   <label
-                    htmlFor="enable-claude"
-                    className="text-sm text-foreground cursor-pointer select-none"
+                    key={app}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-sm"
+                    htmlFor={`enable-${app}`}
                   >
-                    {t("mcp.unifiedPanel.apps.claude")}
+                    <Checkbox
+                      id={`enable-${app}`}
+                      aria-label={APP_ICON_MAP[app].label}
+                      checked={enabledApps[app]}
+                      onCheckedChange={(checked) =>
+                        setEnabledApps((previous) => ({
+                          ...previous,
+                          [app]: checked === true,
+                        }))
+                      }
+                    />
+                    {APP_ICON_MAP[app].icon}
+                    {APP_ICON_MAP[app].label}
                   </label>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="enable-codex"
-                    checked={enabledApps.codex}
-                    onCheckedChange={(checked: boolean) =>
-                      setEnabledApps({ ...enabledApps, codex: checked })
-                    }
-                  />
-                  <label
-                    htmlFor="enable-codex"
-                    className="text-sm text-foreground cursor-pointer select-none"
-                  >
-                    {t("mcp.unifiedPanel.apps.codex")}
-                  </label>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="enable-gemini"
-                    checked={enabledApps.gemini}
-                    onCheckedChange={(checked: boolean) =>
-                      setEnabledApps({ ...enabledApps, gemini: checked })
-                    }
-                  />
-                  <label
-                    htmlFor="enable-gemini"
-                    className="text-sm text-foreground cursor-pointer select-none"
-                  >
-                    {t("mcp.unifiedPanel.apps.gemini")}
-                  </label>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="enable-grokbuild"
-                    checked={enabledApps.grokbuild}
-                    onCheckedChange={(checked: boolean) =>
-                      setEnabledApps({ ...enabledApps, grokbuild: checked })
-                    }
-                  />
-                  <label
-                    htmlFor="enable-grokbuild"
-                    className="text-sm text-foreground cursor-pointer select-none"
-                  >
-                    {t("mcp.unifiedPanel.apps.grokbuild")}
-                  </label>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="enable-opencode"
-                    checked={enabledApps.opencode}
-                    onCheckedChange={(checked: boolean) =>
-                      setEnabledApps({ ...enabledApps, opencode: checked })
-                    }
-                  />
-                  <label
-                    htmlFor="enable-opencode"
-                    className="text-sm text-foreground cursor-pointer select-none"
-                  >
-                    {t("mcp.unifiedPanel.apps.opencode")}
-                  </label>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="enable-hermes"
-                    checked={enabledApps.hermes}
-                    onCheckedChange={(checked: boolean) =>
-                      setEnabledApps({ ...enabledApps, hermes: checked })
-                    }
-                  />
-                  <label
-                    htmlFor="enable-hermes"
-                    className="text-sm text-foreground cursor-pointer select-none"
-                  >
-                    {t("mcp.unifiedPanel.apps.hermes")}
-                  </label>
-                </div>
+                ))}
               </div>
             </div>
 
             {/* 可折叠的附加信息按钮 */}
             <div>
-              <button
+              <Button
+                variant="ghost"
+                size="auto"
                 type="button"
                 onClick={() => setShowMetadata(!showMetadata)}
                 className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -641,7 +560,7 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
                   <ChevronDown size={16} />
                 )}
                 {t("mcp.form.additionalInfo")}
-              </button>
+              </Button>
             </div>
 
             {/* 附加信息区域（可折叠） */}
@@ -705,13 +624,15 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
                 {useToml ? t("mcp.form.tomlConfig") : t("mcp.form.jsonConfig")}
               </label>
               {(isEditing || selectedPreset === -1) && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="auto"
                   type="button"
                   onClick={() => setIsWizardOpen(true)}
                   className="text-sm text-blue-500 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
                 >
                   {t("mcp.form.useWizard")}
-                </button>
+                </Button>
               )}
             </div>
             <div className="flex-1 min-h-0 flex flex-col">

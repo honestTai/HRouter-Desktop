@@ -1,3 +1,5 @@
+> Superseded for Agent integration scope by `unified-agent-configs-2026-10-01.md`: DeepSeek Harness and WorkBuddy now have file adapters, not copy-only guides. UI control verification below remains historical.
+
 # React 控件统一与扩展 Agent 接入（2026-10-01）
 
 ## UI 修改

@@ -2,15 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type { AppId } from "@/lib/api/types";
 
-export type AppType =
-  | "claude"
-  | "claude-desktop"
-  | "codex"
-  | "gemini"
-  | "grokbuild"
-  | "opencode"
-  | "openclaw"
-  | "hermes";
+export type AppType = AppId;
 
 /** Skill 应用启用状态 */
 export interface SkillApps {
@@ -22,6 +14,9 @@ export interface SkillApps {
   opencode: boolean;
   openclaw: boolean;
   hermes: boolean;
+  pi?: boolean;
+  "deepseek-harness"?: boolean;
+  workbuddy?: boolean;
 }
 
 /** 已安装的 Skill（v3.10.0+ 统一结构） */
@@ -136,6 +131,9 @@ export interface SkillRepo {
 // ========== API ==========
 
 export const skillsApi = {
+  async exportZip(id: string, path: string): Promise<boolean> {
+    return invoke("export_skill_zip", { id, path });
+  },
   // ========== 统一管理 API (v3.10.0+) ==========
 
   /** 获取所有已安装的 Skills */

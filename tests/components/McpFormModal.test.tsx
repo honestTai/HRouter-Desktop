@@ -1,3 +1,4 @@
+import { APP_IDS } from "@/config/appConfig";
 import React from "react";
 import {
   render,
@@ -168,6 +169,30 @@ describe("McpFormModal", () => {
     );
     return { onSave, onClose };
   };
+
+  it.each(APP_IDS)(
+    "submits only the explicitly selected %s target",
+    async (target) => {
+      renderForm({ defaultEnabledApps: [target] });
+      fireEvent.change(
+        screen.getByPlaceholderText("mcp.form.titlePlaceholder"),
+        {
+          target: { value: "scoped-server" },
+        },
+      );
+      fireEvent.change(
+        screen.getByPlaceholderText("mcp.form.jsonPlaceholder"),
+        {
+          target: { value: '{"type":"stdio","command":"run"}' },
+        },
+      );
+      fireEvent.click(screen.getByText("common.add"));
+      await waitFor(() => expect(upsertMock).toHaveBeenCalledTimes(1));
+      expect(upsertMock.mock.calls[0][0].apps).toEqual(
+        Object.fromEntries(APP_IDS.map((app) => [app, app === target])),
+      );
+    },
+  );
 
   it("应用预设后填充 ID 与配置内容", async () => {
     renderForm();
@@ -389,6 +414,7 @@ type = "stdio"
     expect(entry.server.command).toBe("updated");
     expect(entry.enabled).toBe(true);
     expect(entry.apps).toEqual({
+      ...Object.fromEntries(APP_IDS.map((app) => [app, false])),
       claude: true,
       codex: false,
       gemini: false,
@@ -408,26 +434,20 @@ type = "stdio"
       target: { value: '{"type":"stdio","command":"run"}' },
     });
 
-    const claudeCheckbox = screen.getByLabelText(
-      "mcp.unifiedPanel.apps.claude",
-    ) as HTMLInputElement;
+    const claudeCheckbox = screen.getByLabelText("Claude") as HTMLInputElement;
     expect(claudeCheckbox.checked).toBe(true);
     fireEvent.click(claudeCheckbox);
 
-    const codexCheckbox = screen.getByLabelText(
-      "mcp.unifiedPanel.apps.codex",
-    ) as HTMLInputElement;
+    const codexCheckbox = screen.getByLabelText("Codex") as HTMLInputElement;
     expect(codexCheckbox.checked).toBe(true);
     fireEvent.click(codexCheckbox);
 
-    const geminiCheckbox = screen.getByLabelText(
-      "mcp.unifiedPanel.apps.gemini",
-    ) as HTMLInputElement;
+    const geminiCheckbox = screen.getByLabelText("Gemini") as HTMLInputElement;
     expect(geminiCheckbox.checked).toBe(true);
     fireEvent.click(geminiCheckbox);
 
     const grokbuildCheckbox = screen.getByLabelText(
-      "mcp.unifiedPanel.apps.grokbuild",
+      "Grok Build",
     ) as HTMLInputElement;
     expect(grokbuildCheckbox.checked).toBe(true);
     fireEvent.click(grokbuildCheckbox);
@@ -438,6 +458,7 @@ type = "stdio"
     const [entry] = upsertMock.mock.calls.at(-1) ?? [];
     expect(entry.id).toBe("no-apps");
     expect(entry.apps).toEqual({
+      ...Object.fromEntries(APP_IDS.map((app) => [app, false])),
       claude: false,
       codex: false,
       gemini: false,

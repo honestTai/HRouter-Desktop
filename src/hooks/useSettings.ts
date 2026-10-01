@@ -22,6 +22,7 @@ export interface UseSettingsResult {
   settings: SettingsFormState | null;
   isLoading: boolean;
   isSaving: boolean;
+  reloadSettings: () => Promise<unknown>;
   isPortable: boolean;
   appConfigDir?: string;
   resolvedDirs: ResolvedDirectories;
@@ -61,7 +62,7 @@ const sanitizeDir = (value?: string | null): string | undefined => {
  */
 export function useSettings(): UseSettingsResult {
   const { t } = useTranslation();
-  const { data } = useSettingsQuery();
+  const { data, refetch: reloadSettings } = useSettingsQuery();
   const saveMutation = useSaveSettingsMutation();
   const queryClient = useQueryClient();
 
@@ -500,6 +501,7 @@ export function useSettings(): UseSettingsResult {
     settings,
     isLoading,
     isSaving: saveMutation.isPending,
+    reloadSettings,
     isPortable,
     appConfigDir,
     resolvedDirs,

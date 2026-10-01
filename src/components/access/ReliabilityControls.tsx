@@ -1,3 +1,5 @@
+import { invalidateAgentContext } from "@/lib/query/agentContext";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SearchSelect } from "@/components/ui/search-select";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
@@ -210,12 +212,11 @@ export function ReliabilityControls({ app }: { app: AppId }) {
         {selected && (
           <>
             <label className="flex gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={selected.meta?.standardHttpTransport ?? false}
                 disabled={busy}
-                onChange={(e) => {
-                  const checked = e.target.checked;
+                onCheckedChange={(e) => {
+                  const checked = e === true;
                   void run(async () => {
                     await accessApi.setCompatibility(
                       app,
@@ -223,7 +224,7 @@ export function ReliabilityControls({ app }: { app: AppId }) {
                       selected.meta?.codexSessionCompatibility ?? false,
                       checked,
                     );
-                    await client.invalidateQueries({ queryKey: ["providers"] });
+                    await invalidateAgentContext(client, app);
                   });
                 }}
               />
@@ -237,12 +238,11 @@ export function ReliabilityControls({ app }: { app: AppId }) {
             </label>
             {app === "codex" && (
               <label className="flex gap-2 text-sm">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={selected.meta?.codexSessionCompatibility ?? false}
                   disabled={busy}
-                  onChange={(e) => {
-                    const checked = e.target.checked;
+                  onCheckedChange={(e) => {
+                    const checked = e === true;
                     void run(async () => {
                       await accessApi.setCompatibility(
                         app,
@@ -250,9 +250,7 @@ export function ReliabilityControls({ app }: { app: AppId }) {
                         checked,
                         selected.meta?.standardHttpTransport ?? false,
                       );
-                      await client.invalidateQueries({
-                        queryKey: ["providers"],
-                      });
+                      await invalidateAgentContext(client, app);
                     });
                   }}
                 />

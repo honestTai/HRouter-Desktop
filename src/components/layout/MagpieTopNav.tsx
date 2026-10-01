@@ -1,37 +1,31 @@
+import { toast } from "sonner";
+import { usageWidgetApi } from "@/lib/api/usageWidget";
 import {
   BarChart3,
-  ExternalLink,
+  PanelsTopLeft,
   KeyRound,
   LayoutGrid,
   Network,
   Rows3,
-  MoreHorizontal,
-  CircleDollarSign,
-  ReceiptText,
-  Megaphone,
+  MessagesSquare,
+  Puzzle,
+  Sparkles,
   Settings,
-  UserRound,
 } from "lucide-react";
 import type { AppId } from "@/lib/api";
 import { useTranslation } from "react-i18next";
 import hrouterLogo from "@/assets/icons/hrouter.svg";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { useHRouterSession } from "@/hooks/useHRouterSession";
+import { useHRouterAccess } from "@/hooks/useHRouterAccess";
 
 type PrimaryView =
+  | "hrouter"
   | "workbench"
   | "providers"
   | "profiles"
   | "routes"
   | "usage"
-  | "dashboard"
   | "billing"
   | "orders"
   | "apiKeys"
@@ -39,7 +33,6 @@ type PrimaryView =
   | "sessions"
   | "mcp"
   | "skills"
-  | "prompts"
   | "workspace"
   | "openclawEnv"
   | "openclawTools"
@@ -65,11 +58,9 @@ export function MagpieTopNav({
   currentView,
   onNavigate,
   onSettings,
-  onProfile,
-  onFrontend,
 }: Props) {
   const { t } = useTranslation();
-  const session = useHRouterSession();
+  const { connected } = useHRouterAccess();
   const item = (view: PrimaryView) =>
     cn(
       navItemClass,
@@ -101,139 +92,184 @@ export function MagpieTopNav({
         className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
         style={{ WebkitAppRegion: "no-drag" } as any}
       >
-        <button
+        <Button
+          variant="ghost"
+          size="auto"
           type="button"
+          data-tour="workbench"
           aria-current={currentView === "workbench" ? "page" : undefined}
           className={item("workbench")}
           onClick={() => onNavigate("workbench")}
         >
           <LayoutGrid className="h-3.5 w-3.5" />
           {t("workspace.agents", { defaultValue: "工作台" })}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="ghost"
+          size="auto"
           type="button"
+          data-tour="providers"
           aria-current={currentView === "providers" ? "page" : undefined}
           className={item("providers")}
           onClick={() => onNavigate("providers")}
         >
           <KeyRound className="h-3.5 w-3.5" />
           {t("navigation.providers", { defaultValue: "供应商" })}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="ghost"
+          size="auto"
           type="button"
+          data-tour="profiles"
           aria-current={currentView === "profiles" ? "page" : undefined}
           className={item("profiles")}
           onClick={() => onNavigate("profiles")}
         >
           <Rows3 className="h-3.5 w-3.5" />
           {t("workspace.profiles", { defaultValue: "接入方案" })}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="ghost"
+          size="auto"
           type="button"
+          data-tour="routes"
           aria-current={currentView === "routes" ? "page" : undefined}
           className={item("routes")}
           onClick={() => onNavigate("routes")}
         >
           <Network className="h-3.5 w-3.5" />
           {t("workspace.routes", { defaultValue: "线路策略" })}
-        </button>
-        <button
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="auto"
           type="button"
-          aria-current={currentView === "dashboard" ? "page" : undefined}
-          className={item("dashboard")}
-          onClick={() => onNavigate("dashboard")}
-        >
-          <BarChart3 className="h-3.5 w-3.5" />
-          {t("navigation.dashboard", { defaultValue: "概览" })}
-        </button>
-        <button
-          type="button"
+          data-tour="usage"
           aria-current={currentView === "usage" ? "page" : undefined}
           className={item("usage")}
           onClick={() => onNavigate("usage")}
         >
           <BarChart3 className="h-3.5 w-3.5" />
-          {t("navigation.usage", { defaultValue: "用量" })}
-        </button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
+          {t("workspaceUi.analyticsTitle")}
+        </Button>
+        <Button
+          variant="ghost"
+          size="auto"
+          type="button"
+          className={item("sessions")}
+          aria-current={currentView === "sessions" ? "page" : undefined}
+          onClick={() => onNavigate("sessions")}
+        >
+          <MessagesSquare className="h-3.5 w-3.5" />
+          {t("sessionManager.title")}
+        </Button>
+        {activeApp === "openclaw" && (
+          <>
+            <Button
+              variant="ghost"
+              size="auto"
               type="button"
-              className={cn(
-                navItemClass,
-                "text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-              aria-label={t("navigation.more", { defaultValue: "更多" })}
+              className={item("workspace")}
+              aria-current={currentView === "workspace" ? "page" : undefined}
+              onClick={() => onNavigate("workspace")}
             >
-              <MoreHorizontal className="h-4 w-4" />
-              <span className="hidden sm:inline">
-                {t("navigation.more", { defaultValue: "更多" })}
-              </span>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-48">
-            <DropdownMenuItem onSelect={() => onNavigate("billing")}>
-              <CircleDollarSign className="h-4 w-4" />
-              {t("navigation.billing", { defaultValue: "充值支付" })}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onNavigate("orders")}>
-              <ReceiptText className="h-4 w-4" />
-              {t("navigation.orders", { defaultValue: "个人订单" })}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onNavigate("apiKeys")}>
-              <KeyRound className="h-4 w-4" />
-              {t("navigation.apiKeys", { defaultValue: "API 密钥" })}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onNavigate("announcements")}>
-              <Megaphone className="h-4 w-4" />
-              {t("navigation.announcements", { defaultValue: "公告与服务" })}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onNavigate("sessions")}>
-              {t("sessionManager.title")}
-            </DropdownMenuItem>
-            {activeApp === "openclaw" ? (
-              <>
-                <DropdownMenuItem onSelect={() => onNavigate("workspace")}>
-                  {t("workspace.manage")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onNavigate("openclawEnv")}>
-                  {t("openclaw.env.title")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onNavigate("openclawTools")}>
-                  {t("openclaw.tools.title")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onNavigate("openclawAgents")}>
-                  {t("openclaw.agents.title")}
-                </DropdownMenuItem>
-              </>
-            ) : (
-              <>
-                <DropdownMenuItem onSelect={() => onNavigate("mcp")}>
-                  {t("mcp.title")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onNavigate("skills")}>
-                  {t("skills.manage")}
-                </DropdownMenuItem>
-                {activeApp === "hermes" ? (
-                  <>
-                    <DropdownMenuItem
-                      onSelect={() => onNavigate("hermesMemory")}
-                    >
-                      {t("hermes.memory.title")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={onHermesWebUI}>
-                      {t("hermes.webui.open")}
-                    </DropdownMenuItem>
-                  </>
-                ) : (
-                  <DropdownMenuItem onSelect={() => onNavigate("prompts")}>
-                    {t("prompts.manage")}
-                  </DropdownMenuItem>
-                )}
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {t("workspace.manage")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="auto"
+              type="button"
+              className={item("openclawEnv")}
+              aria-current={currentView === "openclawEnv" ? "page" : undefined}
+              onClick={() => onNavigate("openclawEnv")}
+            >
+              {t("openclaw.env.title")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="auto"
+              type="button"
+              className={item("openclawTools")}
+              aria-current={
+                currentView === "openclawTools" ? "page" : undefined
+              }
+              onClick={() => onNavigate("openclawTools")}
+            >
+              {t("openclaw.tools.title")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="auto"
+              type="button"
+              className={item("openclawAgents")}
+              aria-current={
+                currentView === "openclawAgents" ? "page" : undefined
+              }
+              onClick={() => onNavigate("openclawAgents")}
+            >
+              {t("openclaw.agents.title")}
+            </Button>
+          </>
+        )}
+        <>
+          <Button
+            variant="ghost"
+            size="auto"
+            type="button"
+            className={item("mcp")}
+            aria-current={currentView === "mcp" ? "page" : undefined}
+            onClick={() => onNavigate("mcp")}
+          >
+            <Puzzle className="h-3.5 w-3.5" />
+            {t("mcp.title")}
+          </Button>
+          <Button
+            variant="ghost"
+            size="auto"
+            type="button"
+            className={item("skills")}
+            aria-current={currentView === "skills" ? "page" : undefined}
+            onClick={() => onNavigate("skills")}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            {t("skills.manage")}
+          </Button>
+          {connected && (
+            <Button
+              variant="ghost"
+              size="auto"
+              type="button"
+              className={item("hrouter")}
+              aria-current={currentView === "hrouter" ? "page" : undefined}
+              onClick={() => onNavigate("hrouter")}
+            >
+              <img src={hrouterLogo} alt="" className="size-4" />
+              HRouter
+            </Button>
+          )}
+          {activeApp === "hermes" ? (
+            <>
+              <Button
+                variant="ghost"
+                size="auto"
+                className={item("hermesMemory")}
+                onClick={() => onNavigate("hermesMemory")}
+              >
+                {t("hermes.memory.title")}
+              </Button>
+              <Button
+                variant="ghost"
+                size="auto"
+                type="button"
+                className={navItemClass}
+                onClick={onHermesWebUI}
+              >
+                {t("hermes.webui.open")}
+              </Button>
+            </>
+          ) : null}
+        </>
       </nav>
 
       <div
@@ -242,30 +278,16 @@ export function MagpieTopNav({
       >
         <Button
           variant="ghost"
-          size="sm"
-          onClick={onFrontend}
-          className="hidden 2xl:inline-flex"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          {t("hrouterPlatform.openFrontend", { defaultValue: "前台" })}
-        </Button>
-        <Button
-          variant={session ? "ghost" : "outline"}
-          size="sm"
-          onClick={onProfile}
-          className="max-w-40"
-          aria-label={
-            session
-              ? session.user.username || session.user.email
-              : t("hrouterAccount.welcome")
+          size="icon"
+          aria-label={t("usageWidget.open")}
+          title={t("usageWidget.open")}
+          onClick={() =>
+            void usageWidgetApi
+              .open(activeApp)
+              .catch(() => toast.error(t("usageWidget.windowError")))
           }
         >
-          <UserRound className="h-3.5 w-3.5 shrink-0" />
-          <span className="hidden xl:inline truncate">
-            {session
-              ? session.user.username || session.user.email
-              : t("hrouterAccount.welcome", { defaultValue: "登录 HRouter" })}
-          </span>
+          <PanelsTopLeft className="size-4" />
         </Button>
         <Button
           variant="ghost"

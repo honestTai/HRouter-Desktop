@@ -89,14 +89,16 @@ export function ImportExportSection({
               )}
             </Button>
             {selectedFile && (
-              <button
+              <Button
+                variant="ghost"
+                size="auto"
                 type="button"
                 onClick={onClear}
                 className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-lg transition-colors z-10"
                 aria-label={t("common.clear")}
               >
                 <XCircle className="h-4 w-4" />
-              </button>
+              </Button>
             )}
           </div>
 

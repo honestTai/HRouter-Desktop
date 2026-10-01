@@ -118,11 +118,13 @@ describe("Route policies with real hooks and queue UI", () => {
   it("does not pretend OpenCode has supported failover", async () => {
     show("opencode");
     expect(
-      await screen.findByText(zh.routePolicies.supported),
+      await screen.findByText(zh.routePolicies.directMode),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "OpenCode" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "OpenCode" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "OpenCode" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(failoverApi.getFailoverQueue).not.toHaveBeenCalledWith("opencode");
   });
   it("surfaces native status failures without enabling writes", async () => {

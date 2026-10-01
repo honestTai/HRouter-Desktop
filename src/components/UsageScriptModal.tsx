@@ -971,7 +971,9 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
                             ••••••••
                           </code>
                         )}
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="auto"
                           type="button"
                           onClick={() => setShowApiKey(!showApiKey)}
                           className="text-muted-foreground hover:text-foreground transition-colors ml-1"
@@ -986,7 +988,7 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
                           ) : (
                             <Eye size={12} />
                           )}
-                        </button>
+                        </Button>
                       </>
                     ) : (
                       <span className="text-muted-foreground/50 italic">
@@ -1109,7 +1111,9 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
                             className="border-white/10"
                           />
                           {script.apiKey && (
-                            <button
+                            <Button
+                              variant="ghost"
+                              size="auto"
                               type="button"
                               onClick={() => setShowApiKey(!showApiKey)}
                               className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground transition-colors"
@@ -1124,7 +1128,7 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
                               ) : (
                                 <Eye size={16} />
                               )}
-                            </button>
+                            </Button>
                           )}
                         </div>
                       </div>
@@ -1192,7 +1196,9 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
                             className="border-white/10"
                           />
                           {script.accessToken && (
-                            <button
+                            <Button
+                              variant="ghost"
+                              size="auto"
                               type="button"
                               onClick={() =>
                                 setShowAccessToken(!showAccessToken)
@@ -1209,7 +1215,7 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
                               ) : (
                                 <Eye size={16} />
                               )}
-                            </button>
+                            </Button>
                           )}
                         </div>
                       </div>
@@ -1271,7 +1277,9 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
                               className="border-white/10"
                             />
                             {script.apiKey && (
-                              <button
+                              <Button
+                                variant="ghost"
+                                size="auto"
                                 type="button"
                                 onClick={() => setShowApiKey(!showApiKey)}
                                 className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground transition-colors"
@@ -1286,7 +1294,7 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
                                 ) : (
                                   <Eye size={16} />
                                 )}
-                              </button>
+                              </Button>
                             )}
                           </div>
                         </div>
@@ -1309,7 +1317,9 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
                     </p>
                     <p className="text-xs text-muted-foreground mt-1.5">
                       {t("usageScript.volcengineKeyConsoleLink")}{" "}
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="auto"
                         type="button"
                         onClick={() =>
                           settingsApi.openExternal(VOLCENGINE_KEY_CONSOLE_URL)
@@ -1318,7 +1328,7 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
                       >
                         {VOLCENGINE_KEY_CONSOLE_URL}
                         <ExternalLink size={12} className="shrink-0" />
-                      </button>
+                      </Button>
                     </p>
                   </div>
 
@@ -1363,7 +1373,9 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
                           className="border-white/10"
                         />
                         {script.secretAccessKey && (
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="auto"
                             type="button"
                             onClick={() => setShowApiKey(!showApiKey)}
                             className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground transition-colors"
@@ -1378,7 +1390,7 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
                             ) : (
                               <Eye size={16} />
                             )}
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </div>
@@ -1399,7 +1411,9 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
                     </p>
                     <p className="text-xs text-muted-foreground mt-1.5">
                       {t("usageScript.zhipuTeamConsoleLink")}{" "}
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="auto"
                         type="button"
                         onClick={() =>
                           settingsApi.openExternal(ZHIPU_TEAM_USAGE_URL)
@@ -1408,7 +1422,7 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
                       >
                         {ZHIPU_TEAM_USAGE_URL}
                         <ExternalLink size={12} className="shrink-0" />
-                      </button>
+                      </Button>
                     </p>
                   </div>
 

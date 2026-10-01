@@ -1,3 +1,4 @@
+import { APP_IDS, APP_ICON_MAP } from "@/config/appConfig";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { UsageHero } from "./UsageHero";
@@ -5,12 +6,7 @@ import { UsageTrendChart } from "./UsageTrendChart";
 import { RequestLogTable } from "./RequestLogTable";
 import { ProviderStatsTable } from "./ProviderStatsTable";
 import { ModelStatsTable } from "./ModelStatsTable";
-import {
-  KNOWN_APP_TYPES,
-  type AppType,
-  type AppTypeFilter,
-  type UsageRangeSelection,
-} from "@/types/usage";
+import { type AppTypeFilter, type UsageRangeSelection } from "@/types/usage";
 import { motion } from "framer-motion";
 import {
   BarChart3,
@@ -22,7 +18,6 @@ import {
   DatabaseBackup,
   Loader2,
 } from "lucide-react";
-import { ProviderIcon } from "@/components/ProviderIcon";
 import {
   Select,
   SelectContent,
@@ -50,8 +45,6 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { usageApi } from "@/lib/api/usage";
 import { toast } from "sonner";
 
-const APP_FILTER_OPTIONS: AppTypeFilter[] = ["all", ...KNOWN_APP_TYPES];
-
 const DEFAULT_REFRESH_INTERVAL_MS = 30000;
 const REFRESH_INTERVAL_OPTIONS_MS = [0, 5000, 10000, 30000, 60000] as const;
 type RefreshIntervalOption = (typeof REFRESH_INTERVAL_OPTIONS_MS)[number];
@@ -64,15 +57,6 @@ const isRefreshIntervalOption = (
 const normalizeRefreshInterval = (value: number | undefined) =>
   isRefreshIntervalOption(value) ? value : DEFAULT_REFRESH_INTERVAL_MS;
 
-// 与 AppSwitcher 的 appIconName 保持一致（codex 复用 openai 图标）
-const APP_FILTER_ICON: Record<AppType, string> = {
-  claude: "claude",
-  codex: "openai",
-  gemini: "gemini",
-  grokbuild: "grok",
-  opencode: "opencode",
-};
-
 // Select 的 "all" 哨兵和用户自定义名称同处一个值域——真有来源/模型叫 "all"
 // 就会撞名（重复 value、选中即清空筛选）。动态选项统一加前缀编码隔离值域。
 const DYNAMIC_OPTION_PREFIX = "v:";
@@ -81,18 +65,27 @@ const decodeOptionValue = (value: string) =>
   value === "all" ? undefined : value.slice(DYNAMIC_OPTION_PREFIX.length);
 
 interface UsageDashboardProps {
+  mode?: "full" | "overview" | "records";
+  /** Workbench pins analytics to its selected Agent; no independent filter. */
+  fixedApp?: AppTypeFilter;
+  /** Initial read-only filter; choosing All must not change the configuration Agent. */
+  initialApp?: AppTypeFilter;
   refreshIntervalMs?: number;
   onRefreshIntervalChange?: (next: number) => Promise<boolean> | boolean | void;
 }
 
 export function UsageDashboard({
+  mode = "full",
+  fixedApp,
+  initialApp = "all",
   refreshIntervalMs: savedRefreshIntervalMs,
   onRefreshIntervalChange,
 }: UsageDashboardProps = {}) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const [range, setRange] = useState<UsageRangeSelection>({ preset: "today" });
-  const [appType, setAppType] = useState<AppTypeFilter>("all");
+  const [selectedAppType, setAppType] = useState<AppTypeFilter>(initialApp);
+  const appType = fixedApp ?? selectedAppType;
   const [providerName, setProviderName] = useState<string | undefined>(
     undefined,
   );
@@ -242,45 +235,59 @@ export function UsageDashboard({
       transition={{ duration: 0.4 }}
       className="space-y-8 pb-8"
     >
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-2">
+      <div className="flex flex-col gap-4 mb-2">
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-bold tracking-tight">
             {t("usage.title")}
           </h2>
           <p className="text-sm text-muted-foreground">{t("usage.subtitle")}</p>
+          {!fixedApp && initialApp !== "all" && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("agentContext.filterHint")}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center p-1 bg-muted/30 rounded-lg border border-border/50">
-            {APP_FILTER_OPTIONS.map((type) => {
-              const label = t(`usage.appFilter.${type}`);
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => changeAppType(type)}
-                  title={label}
-                  aria-label={label}
-                  className={cn(
-                    "flex h-8 items-center justify-center px-2.5 rounded-md transition-all",
-                    appType === type
-                      ? "bg-background text-primary shadow-sm"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
-                  )}
-                >
-                  {type === "all" ? (
-                    <LayoutGrid className="h-4 w-4" />
-                  ) : (
-                    <ProviderIcon
-                      icon={APP_FILTER_ICON[type]}
-                      name={label}
-                      size={16}
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          {!fixedApp && (
+            <div className="flex w-full flex-wrap items-center gap-1 rounded-lg border border-border/50 bg-muted/30 p-1">
+              {(["all", ...APP_IDS] as const).map((type) => {
+                const label =
+                  type === "all"
+                    ? t("usage.appFilter.all")
+                    : APP_ICON_MAP[type].label;
+                return (
+                  <Button
+                    variant="ghost"
+                    size="auto"
+                    key={type}
+                    type="button"
+                    onClick={() => changeAppType(type as AppTypeFilter)}
+                    title={label}
+                    aria-label={label}
+                    aria-pressed={appType === type}
+                    className={cn(
+                      "flex h-8 items-center justify-center px-2.5 rounded-md transition-all",
+                      appType === type
+                        ? "bg-primary/15 text-primary ring-1 ring-primary shadow-sm hover:bg-primary/20"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                    )}
+                  >
+                    {type === "all" ? (
+                      <LayoutGrid className="h-4 w-4" />
+                    ) : (
+                      APP_ICON_MAP[type].icon
+                    )}
+                    <span>
+                      {type === "all"
+                        ? t("usage.appFilter.all")
+                        : APP_ICON_MAP[type].label}
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+          )}
 
           <Select
             value={
@@ -375,135 +382,147 @@ export function UsageDashboard({
         refreshIntervalMs={refreshIntervalMs}
       />
 
-      <UsageTrendChart
-        range={range}
-        rangeLabel={rangeLabel}
-        appType={appType}
-        providerName={providerName}
-        model={model}
-        refreshIntervalMs={refreshIntervalMs}
-      />
+      {mode !== "records" && (
+        <UsageTrendChart
+          range={range}
+          rangeLabel={rangeLabel}
+          appType={appType}
+          providerName={providerName}
+          model={model}
+          refreshIntervalMs={refreshIntervalMs}
+        />
+      )}
 
-      <div className="space-y-4">
-        <Tabs defaultValue="logs" className="w-full">
-          <div className="flex items-center justify-between mb-4">
-            <TabsList className="bg-muted/50">
-              <TabsTrigger value="logs" className="gap-2">
-                <ListFilter className="h-4 w-4" />
-                {t("usage.requestLogs")}
-              </TabsTrigger>
-              <TabsTrigger value="providers" className="gap-2">
-                <Activity className="h-4 w-4" />
-                {t("usage.providerStats")}
-              </TabsTrigger>
-              <TabsTrigger value="models" className="gap-2">
-                <BarChart3 className="h-4 w-4" />
-                {t("usage.modelStats")}
-              </TabsTrigger>
-            </TabsList>
-          </div>
+      {mode !== "overview" && (
+        <div className="space-y-4">
+          <Tabs defaultValue="logs" className="w-full">
+            <div className="flex items-center justify-between mb-4">
+              <TabsList className="bg-muted/50">
+                <TabsTrigger value="logs" className="gap-2">
+                  <ListFilter className="h-4 w-4" />
+                  {t("usage.requestLogs")}
+                </TabsTrigger>
+                <TabsTrigger value="providers" className="gap-2">
+                  <Activity className="h-4 w-4" />
+                  {t("usage.providerStats")}
+                </TabsTrigger>
+                <TabsTrigger value="models" className="gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  {t("usage.modelStats")}
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <TabsContent value="logs" className="mt-0">
+                <RequestLogTable
+                  range={range}
+                  rangeLabel={rangeLabel}
+                  appType={appType}
+                  providerName={providerName}
+                  model={model}
+                  refreshIntervalMs={refreshIntervalMs}
+                  onRangeChange={setRange}
+                />
+              </TabsContent>
+
+              <TabsContent value="providers" className="mt-0">
+                <ProviderStatsTable
+                  range={range}
+                  appType={appType}
+                  providerName={providerName}
+                  model={model}
+                  refreshIntervalMs={refreshIntervalMs}
+                />
+              </TabsContent>
+
+              <TabsContent value="models" className="mt-0">
+                <ModelStatsTable
+                  range={range}
+                  appType={appType}
+                  providerName={providerName}
+                  model={model}
+                  refreshIntervalMs={refreshIntervalMs}
+                />
+              </TabsContent>
+            </motion.div>
+          </Tabs>
+        </div>
+      )}
+
+      {mode !== "overview" && (
+        <Accordion
+          type="multiple"
+          defaultValue={[]}
+          className="w-full space-y-4"
+        >
+          <AccordionItem
+            value="pricing"
+            className="rounded-xl glass-card overflow-hidden"
           >
-            <TabsContent value="logs" className="mt-0">
-              <RequestLogTable
-                range={range}
-                rangeLabel={rangeLabel}
-                appType={appType}
-                providerName={providerName}
-                model={model}
-                refreshIntervalMs={refreshIntervalMs}
-                onRangeChange={setRange}
-              />
-            </TabsContent>
-
-            <TabsContent value="providers" className="mt-0">
-              <ProviderStatsTable
-                range={range}
-                appType={appType}
-                providerName={providerName}
-                model={model}
-                refreshIntervalMs={refreshIntervalMs}
-              />
-            </TabsContent>
-
-            <TabsContent value="models" className="mt-0">
-              <ModelStatsTable
-                range={range}
-                appType={appType}
-                providerName={providerName}
-                model={model}
-                refreshIntervalMs={refreshIntervalMs}
-              />
-            </TabsContent>
-          </motion.div>
-        </Tabs>
-      </div>
-
-      <Accordion type="multiple" defaultValue={[]} className="w-full space-y-4">
-        <AccordionItem
-          value="pricing"
-          className="rounded-xl glass-card overflow-hidden"
-        >
-          <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 data-[state=open]:bg-muted/50">
-            <div className="flex items-center gap-3">
-              <Coins className="h-5 w-5 text-yellow-500" />
-              <div className="text-left">
-                <h3 className="text-base font-semibold">
-                  {t("settings.advanced.pricing.title")}
-                </h3>
-                <p className="text-sm text-muted-foreground font-normal">
-                  {t("settings.advanced.pricing.description")}
-                </p>
+            <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 data-[state=open]:bg-muted/50">
+              <div className="flex items-center gap-3">
+                <Coins className="h-5 w-5 text-yellow-500" />
+                <div className="text-left">
+                  <h3 className="text-base font-semibold">
+                    {t("settings.advanced.pricing.title")}
+                  </h3>
+                  <p className="text-sm text-muted-foreground font-normal">
+                    {t("settings.advanced.pricing.description")}
+                  </p>
+                </div>
               </div>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-6 pb-6 pt-4 border-t border-border/50">
-            <PricingConfigPanel />
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem
-          value="maintenance"
-          className="rounded-xl glass-card overflow-hidden"
-        >
-          <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 data-[state=open]:bg-muted/50">
-            <div className="flex items-center gap-3">
-              <DatabaseBackup className="h-5 w-5 text-orange-500" />
-              <div className="text-left">
-                <h3 className="text-base font-semibold">
-                  {t("usage.rebuildCodex.title")}
-                </h3>
-                <p className="text-sm text-muted-foreground font-normal">
-                  {t("usage.rebuildCodex.description")}
-                </p>
-              </div>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-6 pb-6 pt-4 border-t border-border/50">
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
-              <p className="text-sm text-muted-foreground">
-                {t("usage.rebuildCodex.warning")}
-              </p>
-              <Button
-                variant="destructive"
-                disabled={rebuildingCodex}
-                onClick={() => setShowRebuildConfirm(true)}
-                className="shrink-0"
-              >
-                {rebuildingCodex ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <DatabaseBackup className="mr-2 h-4 w-4" />
-                )}
-                {t("usage.rebuildCodex.action")}
-              </Button>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+            </AccordionTrigger>
+            <AccordionContent className="px-6 pb-6 pt-4 border-t border-border/50">
+              <PricingConfigPanel />
+            </AccordionContent>
+          </AccordionItem>
+          {(!fixedApp || fixedApp === "codex") && (
+            <AccordionItem
+              value="maintenance"
+              className="rounded-xl glass-card overflow-hidden"
+            >
+              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 data-[state=open]:bg-muted/50">
+                <div className="flex items-center gap-3">
+                  <DatabaseBackup className="h-5 w-5 text-orange-500" />
+                  <div className="text-left">
+                    <h3 className="text-base font-semibold">
+                      {t("usage.rebuildCodex.title")}
+                    </h3>
+                    <p className="text-sm text-muted-foreground font-normal">
+                      {t("usage.rebuildCodex.description")}
+                    </p>
+                  </div>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pb-6 pt-4 border-t border-border/50">
+                <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+                  <p className="text-sm text-muted-foreground">
+                    {t("usage.rebuildCodex.warning")}
+                  </p>
+                  <Button
+                    variant="destructive"
+                    disabled={rebuildingCodex}
+                    onClick={() => setShowRebuildConfirm(true)}
+                    className="shrink-0"
+                  >
+                    {rebuildingCodex ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <DatabaseBackup className="mr-2 h-4 w-4" />
+                    )}
+                    {t("usage.rebuildCodex.action")}
+                  </Button>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          )}
+        </Accordion>
+      )}
 
       <ConfirmDialog
         isOpen={showRebuildConfirm}

@@ -35,6 +35,5 @@ describe("AppToggleGroup", () => {
     const disabledButton = screen.getByRole("button", { name: "Claude" });
     expect(disabledButton).toHaveAttribute("aria-pressed", "false");
     expect(disabledButton).toBeDisabled();
-    expect(disabledButton.className).not.toContain("disabled:opacity-");
   });
 });

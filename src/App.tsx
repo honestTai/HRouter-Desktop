@@ -1,3 +1,10 @@
+import { NativeWidgetSync } from "@/components/widget/NativeWidgetSync";
+import { emitTo } from "@tauri-apps/api/event";
+import { HRouterWorkspace } from "@/components/hrouter/HRouterWorkspace";
+import {
+  invalidateAgentContext,
+  invalidateAllAgentContexts,
+} from "@/lib/query/agentContext";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,7 +18,6 @@ import {
   Maximize2,
   Minimize2,
   X,
-  Book,
   Brain,
   Wrench,
   History,
@@ -67,12 +73,11 @@ import { EditProviderDialog } from "@/components/providers/EditProviderDialog";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SettingsPage } from "@/components/settings/SettingsPage";
 import { HRouterAnnouncements } from "@/components/HRouterAnnouncements";
-import { HRouterDashboard } from "@/components/HRouterDashboard";
-import { HRouterApiKeysPage } from "@/components/hrouter/HRouterApiKeysPage";
-import { HRouterBillingPage } from "@/components/hrouter/HRouterBillingPage";
-import { HRouterOrdersPage } from "@/components/hrouter/HRouterOrdersPage";
-import { HRouterProfilePage } from "@/components/hrouter/HRouterProfilePage";
-import { HRouterUsagePage } from "@/components/hrouter/HRouterUsagePage";
+import {
+  AnalyticsPage,
+  type AnalyticsSource,
+} from "@/components/usage/AnalyticsPage";
+import { useHRouterAccess } from "@/hooks/useHRouterAccess";
 import { FeatureTour } from "@/components/FeatureTour";
 import { MagpieTopNav } from "@/components/layout/MagpieTopNav";
 import { ProfilesPage } from "@/components/profiles/ProfilesPage";
@@ -83,7 +88,6 @@ import { ClaudeDesktopRouteToggle } from "@/components/proxy/ClaudeDesktopRouteT
 import { FailoverToggle } from "@/components/proxy/FailoverToggle";
 import UsageScriptModal from "@/components/UsageScriptModal";
 import UnifiedMcpPanel from "@/components/mcp/UnifiedMcpPanel";
-import PromptPanel from "@/components/prompts/PromptPanel";
 import {
   SkillsPage,
   getSkillsPageHeaderActions,
@@ -110,8 +114,8 @@ import OpenClawHealthBanner from "@/components/openclaw/OpenClawHealthBanner";
 import HermesMemoryPanel from "@/components/hermes/HermesMemoryPanel";
 
 type View =
+  | "hrouter"
   | "workbench"
-  | "dashboard"
   | "usage"
   | "billing"
   | "orders"
@@ -121,7 +125,6 @@ type View =
   | "profiles"
   | "routes"
   | "settings"
-  | "prompts"
   | "skills"
   | "skillsDiscovery"
   | "mcp"
@@ -154,6 +157,9 @@ const VALID_APPS: AppId[] = [
   "opencode",
   "openclaw",
   "hermes",
+  "pi",
+  "deepseek-harness",
+  "workbuddy",
 ];
 
 const getInitialApp = (): AppId => {
@@ -166,8 +172,8 @@ const getInitialApp = (): AppId => {
 
 const VIEW_STORAGE_KEY = "hrouter-last-view";
 const VALID_VIEWS: View[] = [
+  "hrouter",
   "workbench",
-  "dashboard",
   "usage",
   "billing",
   "orders",
@@ -182,6 +188,7 @@ const VALID_VIEWS: View[] = [
 
 const getInitialView = (): View => {
   const saved = localStorage.getItem(VIEW_STORAGE_KEY) as View | null;
+  if ((saved as string) === "dashboard") return "usage";
   if (saved && VALID_VIEWS.includes(saved)) {
     return saved;
   }
@@ -195,10 +202,34 @@ function MainApp() {
   const [activeApp, setActiveApp] = useState<AppId>(getInitialApp);
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, activeApp);
+    void emitTo("usage-widget", "usage-widget-agent", activeApp).catch(
+      () => undefined,
+    );
   }, [activeApp]);
-  const sharedFeatureApp: AppId =
-    activeApp === "claude-desktop" ? "claude" : activeApp;
   const [currentView, setCurrentView] = useState<View>(getInitialView);
+  const [analyticsSource, setAnalyticsSource] =
+    useState<AnalyticsSource>("local");
+  const {
+    connected: hrouterConnected,
+    cloudEnabled: hrouterCloudEnabled,
+    isLoading: hrouterAccessLoading,
+  } = useHRouterAccess();
+  useEffect(() => {
+    if (hrouterAccessLoading) return;
+    if (
+      (!hrouterConnected &&
+        ["hrouter", "profile", "announcements"].includes(currentView)) ||
+      (!hrouterCloudEnabled &&
+        ["billing", "orders", "apiKeys"].includes(currentView))
+    ) {
+      setCurrentView("usage");
+    }
+  }, [
+    currentView,
+    hrouterConnected,
+    hrouterCloudEnabled,
+    hrouterAccessLoading,
+  ]);
   const [skillsDiscoverySource, setSkillsDiscoverySource] =
     useState<SkillsPageSource>("repos");
   const [settingsDefaultTab, setSettingsDefaultTab] = useState("general");
@@ -208,8 +239,6 @@ function MainApp() {
   const [mcpManagementBusy, setMcpManagementBusy] = useState(false);
   const [skillsManagementBusy, setSkillsManagementBusy] = useState(false);
   const [skillsNavigationBusy, setSkillsNavigationBusy] = useState(false);
-  const [promptManagementBusy, setPromptManagementBusy] = useState(false);
-  const [promptNavigationBusy, setPromptNavigationBusy] = useState(false);
   const [skillsCheckUpdatesState, setSkillsCheckUpdatesState] =
     useState<SkillsCheckUpdatesState>({
       isChecking: false,
@@ -224,9 +253,12 @@ function MainApp() {
   const useAppWindowControls =
     isLinux() && (settingsData?.useAppWindowControls ?? false);
   const dragBarHeight = useAppWindowControls ? 32 : DEFAULT_DRAG_BAR_HEIGHT;
-  const hasContextToolbar = !["workbench", "profiles", "routes"].includes(
-    currentView,
-  );
+  const hasContextToolbar = ![
+    "workbench",
+    "profiles",
+    "routes",
+    "hrouter",
+  ].includes(currentView);
   const headerHeight = hasContextToolbar ? 112 : 56;
   const contentTopOffset = dragBarHeight + headerHeight;
   const visibleApps: VisibleApps = settingsData?.visibleApps ?? {
@@ -238,41 +270,19 @@ function MainApp() {
     opencode: true,
     openclaw: true,
     hermes: true,
+    pi: true,
+    "deepseek-harness": true,
+    workbuddy: true,
   };
 
-  const getFirstVisibleApp = (): AppId => {
-    if (visibleApps.claude) return "claude";
-    if (visibleApps["claude-desktop"]) return "claude-desktop";
-    if (visibleApps.codex) return "codex";
-    if (visibleApps.gemini) return "gemini";
-    if (visibleApps.grokbuild) return "grokbuild";
-    if (visibleApps.opencode) return "opencode";
-    if (visibleApps.openclaw) return "openclaw";
-    if (visibleApps.hermes) return "hermes";
-    return "claude"; // fallback
-  };
+  const getFirstVisibleApp = (): AppId =>
+    VALID_APPS.find((app) => visibleApps[app] !== false) ?? "claude";
 
   useEffect(() => {
-    if (!visibleApps[activeApp]) {
+    if (visibleApps[activeApp] === false) {
       setActiveApp(getFirstVisibleApp());
     }
   }, [visibleApps, activeApp]);
-
-  // Fallback from sessions view when switching to an app without session support
-  useEffect(() => {
-    if (
-      currentView === "sessions" &&
-      sharedFeatureApp !== "claude" &&
-      sharedFeatureApp !== "codex" &&
-      sharedFeatureApp !== "grokbuild" &&
-      sharedFeatureApp !== "opencode" &&
-      sharedFeatureApp !== "openclaw" &&
-      sharedFeatureApp !== "gemini" &&
-      sharedFeatureApp !== "hermes"
-    ) {
-      setCurrentView("providers");
-    }
-  }, [sharedFeatureApp, currentView]);
 
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
   const [usageProvider, setUsageProvider] = useState<Provider | null>(null);
@@ -289,7 +299,6 @@ function MainApp() {
   useUsageCacheBridge();
   useHRouterTraySummary();
 
-  const promptPanelRef = useRef<any>(null);
   const mcpPanelRef = useRef<any>(null);
   const skillsPageRef = useRef<any>(null);
   const unifiedSkillsPanelRef = useRef<any>(null);
@@ -313,7 +322,12 @@ function MainApp() {
     return target?.provider_id;
   }, [proxyStatus?.active_targets, activeApp]);
 
-  const { data, isLoading, refetch } = useProvidersQuery(activeApp, {
+  const {
+    data,
+    isLoading,
+    refetch,
+    error: providersError,
+  } = useProvidersQuery(activeApp, {
     isProxyRunning,
   });
   const providers = useMemo(() => data?.providers ?? {}, [data]);
@@ -328,15 +342,29 @@ function MainApp() {
       currentView === "openclawAgents");
   const { data: openclawHealthWarnings = [] } =
     useOpenClawHealth(isOpenClawView);
-  const hasSkillsSupport = sharedFeatureApp !== "openclaw";
+  const hasSkillsSupport = [
+    "claude",
+    "codex",
+    "gemini",
+    "grokbuild",
+    "opencode",
+    "hermes",
+    "openclaw",
+    "pi",
+    "deepseek-harness",
+    "workbuddy",
+  ].includes(activeApp);
   const hasSessionSupport =
-    sharedFeatureApp === "claude" ||
-    sharedFeatureApp === "codex" ||
-    sharedFeatureApp === "grokbuild" ||
-    sharedFeatureApp === "opencode" ||
-    sharedFeatureApp === "openclaw" ||
-    sharedFeatureApp === "gemini" ||
-    sharedFeatureApp === "hermes";
+    activeApp === "pi" ||
+    activeApp === "workbuddy" ||
+    activeApp === "deepseek-harness" ||
+    activeApp === "claude" ||
+    activeApp === "codex" ||
+    activeApp === "grokbuild" ||
+    activeApp === "opencode" ||
+    activeApp === "openclaw" ||
+    activeApp === "gemini" ||
+    activeApp === "hermes";
 
   const {
     addProvider,
@@ -393,8 +421,8 @@ function MainApp() {
       try {
         const off = await providersApi.onSwitched(
           async (event: ProviderSwitchEvent) => {
-            if (event.appType === activeApp) {
-              await refetch();
+            if (VALID_APPS.includes(event.appType)) {
+              await invalidateAgentContext(queryClient, event.appType);
             }
           },
         );
@@ -413,10 +441,10 @@ function MainApp() {
       active = false;
       unsubscribe?.();
     };
-  }, [activeApp, refetch]);
+  }, [queryClient]);
 
   useTauriEvent("universal-provider-synced", async () => {
-    await queryClient.invalidateQueries({ queryKey: ["providers"] });
+    await invalidateAllAgentContexts(queryClient);
     try {
       await providersApi.updateTrayMenu();
     } catch (error) {
@@ -426,7 +454,10 @@ function MainApp() {
 
   // 应用项目后刷新相关缓存（providers 由既有 provider-switched 监听承接；
   // proxy 状态由后端直接改 DB，不走 mutation，必须显式刷新）
-  useTauriEvent("profile-applied", async () => {
+  useTauriEvent<{ scope?: AppId } | null>("profile-applied", async (event) => {
+    if (event?.scope && VALID_APPS.includes(event.scope)) {
+      await invalidateAgentContext(queryClient, event.scope);
+    }
     await queryClient.invalidateQueries({ queryKey: ["profiles"] });
     await queryClient.invalidateQueries({ queryKey: ["mcp", "all"] });
     await queryClient.invalidateQueries({ queryKey: ["skills"] });
@@ -631,8 +662,7 @@ function MainApp() {
   }, [activeApp]);
 
   const currentViewRef = useRef(currentView);
-  const managementBusy =
-    mcpManagementBusy || skillsNavigationBusy || promptNavigationBusy;
+  const managementBusy = mcpManagementBusy || skillsNavigationBusy;
   const managementBusyRef = useRef(false);
   managementBusyRef.current = managementBusy;
 
@@ -709,6 +739,7 @@ function MainApp() {
       // Remove from live config only (for additive mode apps like OpenCode/OpenClaw)
       // Does NOT delete from database - provider remains in the list
       await providersApi.removeFromLiveConfig(provider.id, activeApp);
+      await invalidateAgentContext(queryClient, activeApp);
       // Invalidate queries to refresh the isInConfig state
       if (activeApp === "opencode") {
         await queryClient.invalidateQueries({
@@ -915,9 +946,31 @@ function MainApp() {
 
   const renderContent = () => {
     const content = (() => {
+      if (
+        (["hrouter", "profile", "announcements"].includes(currentView) &&
+          !hrouterConnected) ||
+        (["billing", "orders", "apiKeys"].includes(currentView) &&
+          !hrouterCloudEnabled)
+      ) {
+        return (
+          <AnalyticsPage
+            activeApp={activeApp}
+            source="local"
+            onSourceChange={setAnalyticsSource}
+            onLogin={() => setCurrentView("hrouter")}
+          />
+        );
+      }
       switch (currentView) {
-        case "dashboard":
-          return <HRouterDashboard />;
+        case "usage":
+          return (
+            <AnalyticsPage
+              activeApp={activeApp}
+              source={analyticsSource}
+              onSourceChange={setAnalyticsSource}
+              onLogin={() => setCurrentView("hrouter")}
+            />
+          );
         case "workbench":
           return (
             <AccessWorkbench
@@ -933,14 +986,17 @@ function MainApp() {
                 if (app) setActiveApp(app);
                 setCurrentView("providers");
               }}
-              onHRouterUsage={() => setCurrentView("usage")}
-              onHRouterAccount={() => setCurrentView("dashboard")}
+              onHRouterUsage={() => {
+                setCurrentView("hrouter");
+              }}
+              onHRouterAccount={() => setCurrentView("hrouter")}
             />
           );
-        case "usage":
-          return <HRouterUsagePage />;
+
         case "profiles":
-          return <ProfilesPage activeApp={activeApp} />;
+          return (
+            <ProfilesPage activeApp={activeApp} onAppChange={setActiveApp} />
+          );
         case "routes":
           return (
             <RoutesPage
@@ -953,14 +1009,12 @@ function MainApp() {
               }}
             />
           );
+        case "hrouter":
         case "billing":
-          return <HRouterBillingPage />;
         case "orders":
-          return <HRouterOrdersPage />;
         case "apiKeys":
-          return <HRouterApiKeysPage />;
         case "profile":
-          return <HRouterProfilePage />;
+          return <HRouterWorkspace />;
         case "settings":
           return (
             <SettingsPage
@@ -968,17 +1022,6 @@ function MainApp() {
               onOpenChange={() => setCurrentView("providers")}
               onImportSuccess={handleImportSuccess}
               defaultTab={settingsDefaultTab}
-            />
-          );
-        case "prompts":
-          return (
-            <PromptPanel
-              ref={promptPanelRef}
-              open={true}
-              onOpenChange={() => setCurrentView("providers")}
-              appId={sharedFeatureApp}
-              onInteractionBlockedChange={setPromptManagementBusy}
-              onNavigationBlockedChange={setPromptNavigationBusy}
             />
           );
         case "hermesMemory":
@@ -993,18 +1036,16 @@ function MainApp() {
               onInteractionBlockedChange={setSkillsManagementBusy}
               onNavigationBlockedChange={setSkillsNavigationBusy}
               onCheckUpdatesStateChange={setSkillsCheckUpdatesState}
-              currentApp={
-                sharedFeatureApp === "openclaw" ? "claude" : sharedFeatureApp
-              }
+              currentApp={activeApp}
+              onAppChange={setActiveApp}
             />
           );
         case "skillsDiscovery":
           return (
             <SkillsPage
               ref={skillsPageRef}
-              initialApp={
-                sharedFeatureApp === "openclaw" ? "claude" : sharedFeatureApp
-              }
+              initialApp={activeApp}
+              onAppChange={setActiveApp}
               onSourceChange={setSkillsDiscoverySource}
             />
           );
@@ -1012,6 +1053,8 @@ function MainApp() {
           return (
             <UnifiedMcpPanel
               ref={mcpPanelRef}
+              currentApp={activeApp}
+              onAppChange={setActiveApp}
               onOpenChange={() => setCurrentView("providers")}
               onInteractionBlockedChange={setMcpManagementBusy}
             />
@@ -1028,12 +1071,7 @@ function MainApp() {
           );
 
         case "sessions":
-          return (
-            <SessionManagerPage
-              key={sharedFeatureApp}
-              appId={sharedFeatureApp}
-            />
-          );
+          return <SessionManagerPage key={activeApp} appId={activeApp} />;
         case "workspace":
           return <WorkspaceFilesPanel />;
         case "openclawEnv":
@@ -1043,6 +1081,25 @@ function MainApp() {
         case "openclawAgents":
           return <AgentsDefaultsPanel />;
         default:
+          if (providersError)
+            return (
+              <div
+                role="alert"
+                className="m-6 rounded-lg border border-destructive/30 bg-destructive/5 p-5"
+              >
+                <p className="font-medium">{t("agentContext.loadFailed")}</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {extractErrorMessage(providersError)}
+                </p>
+                <Button
+                  className="mt-4"
+                  variant="outline"
+                  onClick={() => void refetch()}
+                >
+                  {t("common.retry")}
+                </Button>
+              </div>
+            );
           return (
             <div className="px-6 lg:px-8 flex flex-col flex-1 min-h-0 overflow-hidden">
               <div className="flex-1 overflow-y-auto overflow-x-hidden pb-12 px-1">
@@ -1132,7 +1189,6 @@ function MainApp() {
   const showsAgentSwitcher = currentView === "providers";
   const isPrimaryNavigationView =
     currentView === "workbench" ||
-    currentView === "dashboard" ||
     currentView === "usage" ||
     currentView === "billing" ||
     currentView === "orders" ||
@@ -1153,6 +1209,7 @@ function MainApp() {
         paddingTop: contentTopOffset,
       }}
     >
+      <NativeWidgetSync app={activeApp} />
       {(dragBarHeight > 0 || useAppWindowControls) && (
         <div
           className="fixed top-0 left-0 right-0 z-[70] flex items-center justify-end px-2"
@@ -1245,7 +1302,7 @@ function MainApp() {
           onHermesWebUI={() => void openHermesWebUI()}
           currentView={currentView}
           onNavigate={(view) => setCurrentView(view)}
-          onProfile={() => setCurrentView("profile")}
+          onProfile={() => setCurrentView("hrouter")}
           onFrontend={() => void handleOpenWebsite("https://hrouter.net/home")}
           onSettings={() => {
             setSettingsDefaultTab("general");
@@ -1283,10 +1340,6 @@ function MainApp() {
                     <ArrowLeft className="w-4 h-4" />
                   </Button>
                   <h1 className="text-lg font-semibold">
-                    {currentView === "prompts" &&
-                      t("prompts.title", {
-                        appName: t(`apps.${sharedFeatureApp}`),
-                      })}
                     {currentView === "skills" && t("skills.title")}
                     {currentView === "skillsDiscovery" && t("skills.title")}
                     {currentView === "mcp" && t("mcp.unifiedPanel.title")}
@@ -1309,10 +1362,7 @@ function MainApp() {
                 <div className="min-w-0">
                   <h1 className="truncate text-base font-semibold">
                     {currentView === "workbench" && "接入工作台"}
-                    {currentView === "dashboard" &&
-                      t("navigation.dashboard", { defaultValue: "仪表盘" })}
-                    {currentView === "usage" &&
-                      t("navigation.usage", { defaultValue: "使用记录" })}
+                    {currentView === "usage" && t("workspaceUi.analyticsTitle")}
                     {currentView === "billing" &&
                       t("navigation.billing", { defaultValue: "充值支付" })}
                     {currentView === "orders" &&
@@ -1334,14 +1384,7 @@ function MainApp() {
                     {currentView === "settings" && t("settings.title")}
                   </h1>
                   <p className="truncate text-[11px] text-muted-foreground">
-                    {currentView === "dashboard" &&
-                      t("navigation.dashboardHint", {
-                        defaultValue: "查看 HRouter 余额、消费与模型用量",
-                      })}
-                    {currentView === "usage" &&
-                      t("navigation.usageHint", {
-                        defaultValue: "查看请求、Token 与实际消费明细",
-                      })}
+                    {currentView === "usage" && t("localAnalytics.usageHint")}
                     {currentView === "billing" &&
                       t("navigation.billingHint", {
                         defaultValue: "充值账户余额并管理邀请返利",
@@ -1359,11 +1402,9 @@ function MainApp() {
                         defaultValue: "管理个人资料与账户密码",
                       })}
                     {currentView === "providers" &&
-                      t("navigation.providersHint", {
-                        defaultValue: "管理 Agent、供应商与 HRouter Key",
-                      })}
+                      t("localAnalytics.providersHint")}
                     {currentView === "profiles" &&
-                      "保存和切换整套 Agent 接入配置"}
+                      "保存和切换 Agent 接入配置、MCP 与 Skills"}
                     {currentView === "routes" &&
                       "管理主线路、备用线路和自动故障切换"}
                     {currentView === "announcements" &&
@@ -1425,18 +1466,6 @@ function MainApp() {
                   className="flex shrink-0 items-center gap-1.5"
                   style={{ WebkitAppRegion: "no-drag" } as any}
                 >
-                  {currentView === "prompts" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={promptManagementBusy}
-                      onClick={() => promptPanelRef.current?.openAdd()}
-                      className="hover:bg-black/5 disabled:opacity-100 dark:hover:bg-white/5"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {t("prompts.add")}
-                    </Button>
-                  )}
                   {currentView === "mcp" && (
                     <>
                       <Button
@@ -1698,15 +1727,7 @@ function MainApp() {
                                 >
                                   <Wrench className="flex-shrink-0 w-4 h-4" />
                                 </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setCurrentView("prompts")}
-                                  className="text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 w-8 px-2"
-                                  title={t("prompts.manage")}
-                                >
-                                  <Book className="w-4 h-4" />
-                                </Button>
+
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -1845,6 +1866,8 @@ function MainApp() {
       />
 
       <FeatureTour
+        hrouterConnected={hrouterConnected}
+        hrouterCloudEnabled={hrouterCloudEnabled}
         onNavigate={(view) => {
           const nextView = view as View;
           if (VALID_VIEWS.includes(nextView)) setCurrentView(nextView);

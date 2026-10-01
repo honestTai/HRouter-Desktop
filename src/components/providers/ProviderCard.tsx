@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+import { isFileAgent } from "@/config/fileAgents";
 import { useMemo, useState, useEffect } from "react";
 import {
   GripVertical,
@@ -120,6 +122,9 @@ const APP_LABELS: Record<AppId, string> = {
   opencode: "OpenCode",
   openclaw: "OpenClaw",
   hermes: "Hermes",
+  pi: "Pi Agent",
+  "deepseek-harness": "DeepSeek Harness",
+  workbuddy: "WorkBuddy",
 };
 
 const extractApiUrl = (provider: Provider, fallbackText: string) => {
@@ -134,6 +139,8 @@ const extractApiUrl = (provider: Provider, fallbackText: string) => {
   const config = provider.settingsConfig;
 
   if (config && typeof config === "object") {
+    if (typeof (config as Record<string, unknown>).baseUrl === "string")
+      return (config as Record<string, string>).baseUrl;
     const envBase =
       (config as Record<string, any>)?.env?.ANTHROPIC_BASE_URL ||
       (config as Record<string, any>)?.env?.GOOGLE_GEMINI_BASE_URL;
@@ -219,7 +226,8 @@ export function ProviderCard({
     return true;
   }, [provider.notes, displayUrl, fallbackUrlText]);
 
-  const usageEnabled = provider.meta?.usage_script?.enabled ?? false;
+  const usageEnabled =
+    !isFileAgent(appId) && (provider.meta?.usage_script?.enabled ?? false);
   const isOfficial = isOfficialProvider(provider, appId);
   const supportsOfficialSubscription =
     isOfficial && ["claude", "codex", "gemini", "grokbuild"].includes(appId);
@@ -328,8 +336,10 @@ export function ProviderCard({
         isAutoFailoverEnabled || isProxyTakeover
           ? "hover:border-emerald-500/50"
           : "hover:border-border-active",
-        shouldUseGreen && "border-emerald-500/40",
-        shouldUseBlue && "border-primary/40",
+        shouldUseGreen &&
+          "border-emerald-500 bg-emerald-500/5 ring-1 ring-emerald-500/40 hover:border-emerald-500",
+        shouldUseBlue &&
+          "border-primary bg-primary/5 ring-1 ring-primary/40 hover:border-primary",
         !(isActiveProvider || hasPersistentConfigHighlight) &&
           "hover:shadow-sm",
         dragHandleProps?.isDragging &&
@@ -349,7 +359,9 @@ export function ProviderCard({
       />
       <div className="relative flex flex-col gap-4">
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             type="button"
             className={cn(
               "-ml-1.5 flex-shrink-0 cursor-grab active:cursor-grabbing p-1.5",
@@ -361,7 +373,7 @@ export function ProviderCard({
             {...(dragHandleProps?.listeners ?? {})}
           >
             <GripVertical className="h-4 w-4" />
-          </button>
+          </Button>
 
           <div className="h-8 w-8 flex-shrink-0 rounded-lg bg-muted flex items-center justify-center border border-border group-hover:scale-105 transition-transform duration-300">
             <ProviderIcon
@@ -492,7 +504,9 @@ export function ProviderCard({
             </div>
 
             {displayUrl && (
-              <button
+              <Button
+                variant="ghost"
+                size="auto"
                 type="button"
                 onClick={handleOpenWebsite}
                 className={cn(
@@ -505,7 +519,7 @@ export function ProviderCard({
                 disabled={!isClickableUrl}
               >
                 <span className="min-w-0 truncate">{displayUrl}</span>
-              </button>
+              </Button>
             )}
             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
               <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5">
@@ -600,7 +614,9 @@ export function ProviderCard({
                 />
               )}
               {canExpandUsage && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="auto"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsExpanded(!isExpanded);
@@ -617,7 +633,7 @@ export function ProviderCard({
                   ) : (
                     <ChevronDown size={14} />
                   )}
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -641,11 +657,14 @@ export function ProviderCard({
                 // (category === "official") 一律隐藏：它们 base_url 故意留空、走客户端
                 // 默认/OAuth 端点，cc-switch 没有可靠的探测目标（尤其 Claude Desktop
                 // 官方是原生 1P 模式，根本不在请求路径上）。
-                onTest && provider.category !== "official"
+                onTest &&
+                !isFileAgent(appId) &&
+                provider.category !== "official"
                   ? () => onTest(provider)
                   : undefined
               }
               onConfigureUsage={
+                isFileAgent(appId) ||
                 isHRouter ||
                 (isOfficial && !supportsOfficialSubscription) ||
                 isCopilot ||

@@ -874,6 +874,14 @@ pub fn create_tray_menu(
                 ProfileScope::Claude => "Claude Code",
                 ProfileScope::ClaudeDesktop => "Claude Desktop",
                 ProfileScope::Codex => "Codex",
+                ProfileScope::Gemini => "Gemini",
+                ProfileScope::GrokBuild => "GrokBuild",
+                ProfileScope::OpenCode => "OpenCode",
+                ProfileScope::OpenClaw => "OpenClaw",
+                ProfileScope::Hermes => "Hermes",
+                ProfileScope::Pi => "Pi",
+                ProfileScope::DeepSeekHarness => "DeepSeekHarness",
+                ProfileScope::WorkBuddy => "WorkBuddy",
             };
             let mut scope_builder = SubmenuBuilder::with_id(
                 app,

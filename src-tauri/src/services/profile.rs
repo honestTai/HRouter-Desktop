@@ -9,7 +9,7 @@
 //! - 供应商：`ProviderService::switch`（内建代理接管热切换与接管下禁切官方）
 //! - MCP：`McpService::toggle_app`（改标志 + 单 server 物化）
 //! - Skills：`SkillService::toggle_app`（改标志 + 单 skill 物化）
-//! - Prompt：`PromptService::enable_prompt`（互斥激活 + 原子写 live）
+//! - Legacy prompt references are retained for compatibility, but never applied.
 //!
 //! apply 为 best-effort：单项失败收集为 warning 继续，不整体回滚。
 
@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use crate::app_config::AppType;
 use crate::database::Profile;
 use crate::error::AppError;
-use crate::services::{McpService, PromptService, ProviderService, SkillService};
+use crate::services::{McpService, ProviderService, SkillService};
 use crate::store::AppState;
 
 /// Profile 操作的应用分组：项目实体全应用共享，但快照/应用/当前指针按组进行。
@@ -35,14 +35,38 @@ pub enum ProfileScope {
     #[serde(rename = "claude-desktop")]
     ClaudeDesktop,
     Codex,
+    #[serde(rename = "gemini")]
+    Gemini,
+    #[serde(rename = "grokbuild")]
+    GrokBuild,
+    #[serde(rename = "opencode")]
+    OpenCode,
+    #[serde(rename = "openclaw")]
+    OpenClaw,
+    #[serde(rename = "hermes")]
+    Hermes,
+    #[serde(rename = "pi")]
+    Pi,
+    #[serde(rename = "deepseek-harness")]
+    DeepSeekHarness,
+    #[serde(rename = "workbuddy")]
+    WorkBuddy,
 }
 
 impl ProfileScope {
     /// 全部分组（扩展新分组时同步扩展 apps/for_app 与前端 scope.ts 镜像）
-    pub const ALL: [ProfileScope; 3] = [
+    pub const ALL: [ProfileScope; 11] = [
         ProfileScope::Claude,
         ProfileScope::ClaudeDesktop,
         ProfileScope::Codex,
+        ProfileScope::Gemini,
+        ProfileScope::GrokBuild,
+        ProfileScope::OpenCode,
+        ProfileScope::OpenClaw,
+        ProfileScope::Hermes,
+        ProfileScope::Pi,
+        ProfileScope::DeepSeekHarness,
+        ProfileScope::WorkBuddy,
     ];
 
     pub fn as_str(&self) -> &'static str {
@@ -50,6 +74,14 @@ impl ProfileScope {
             ProfileScope::Claude => "claude",
             ProfileScope::ClaudeDesktop => "claude-desktop",
             ProfileScope::Codex => "codex",
+            ProfileScope::Gemini => "gemini",
+            ProfileScope::GrokBuild => "grokbuild",
+            ProfileScope::OpenCode => "opencode",
+            ProfileScope::OpenClaw => "openclaw",
+            ProfileScope::Hermes => "hermes",
+            ProfileScope::Pi => "pi",
+            ProfileScope::DeepSeekHarness => "deepseek-harness",
+            ProfileScope::WorkBuddy => "workbuddy",
         }
     }
 
@@ -58,6 +90,15 @@ impl ProfileScope {
             "claude" => Ok(ProfileScope::Claude),
             "claude-desktop" => Ok(ProfileScope::ClaudeDesktop),
             "codex" => Ok(ProfileScope::Codex),
+            "gemini" => Ok(ProfileScope::Gemini),
+            "grokbuild" => Ok(ProfileScope::GrokBuild),
+            "opencode" => Ok(ProfileScope::OpenCode),
+            "openclaw" => Ok(ProfileScope::OpenClaw),
+            "hermes" => Ok(ProfileScope::Hermes),
+            "pi" => Ok(ProfileScope::Pi),
+            "deepseek-harness" => Ok(ProfileScope::DeepSeekHarness),
+            "workbuddy" => Ok(ProfileScope::WorkBuddy),
+
             other => Err(AppError::InvalidInput(format!(
                 "Unknown profile scope: {other}"
             ))),
@@ -70,6 +111,14 @@ impl ProfileScope {
             ProfileScope::Claude => &[AppType::Claude],
             ProfileScope::ClaudeDesktop => &[AppType::ClaudeDesktop],
             ProfileScope::Codex => &[AppType::Codex],
+            ProfileScope::Gemini => &[AppType::Gemini],
+            ProfileScope::GrokBuild => &[AppType::GrokBuild],
+            ProfileScope::OpenCode => &[AppType::OpenCode],
+            ProfileScope::OpenClaw => &[AppType::OpenClaw],
+            ProfileScope::Hermes => &[AppType::Hermes],
+            ProfileScope::Pi => &[],
+            ProfileScope::DeepSeekHarness => &[],
+            ProfileScope::WorkBuddy => &[],
         }
     }
 
@@ -79,7 +128,11 @@ impl ProfileScope {
             AppType::Claude => Some(ProfileScope::Claude),
             AppType::ClaudeDesktop => Some(ProfileScope::ClaudeDesktop),
             AppType::Codex => Some(ProfileScope::Codex),
-            _ => None,
+            AppType::Gemini => Some(ProfileScope::Gemini),
+            AppType::GrokBuild => Some(ProfileScope::GrokBuild),
+            AppType::OpenCode => Some(ProfileScope::OpenCode),
+            AppType::OpenClaw => Some(ProfileScope::OpenClaw),
+            AppType::Hermes => Some(ProfileScope::Hermes),
         }
     }
 }
@@ -92,6 +145,22 @@ pub struct PerApp<T> {
     #[serde(rename = "claude-desktop")]
     pub claude_desktop: T,
     pub codex: T,
+    #[serde(rename = "gemini")]
+    pub gemini: T,
+    #[serde(rename = "grokbuild")]
+    pub grokbuild: T,
+    #[serde(rename = "opencode")]
+    pub opencode: T,
+    #[serde(rename = "openclaw")]
+    pub openclaw: T,
+    #[serde(rename = "hermes")]
+    pub hermes: T,
+    #[serde(rename = "pi")]
+    pub pi: T,
+    #[serde(rename = "deepseek-harness")]
+    pub deepseek_harness: T,
+    #[serde(rename = "workbuddy")]
+    pub workbuddy: T,
 }
 
 impl<T> PerApp<T> {
@@ -100,7 +169,11 @@ impl<T> PerApp<T> {
             AppType::Claude => Some(&self.claude),
             AppType::ClaudeDesktop => Some(&self.claude_desktop),
             AppType::Codex => Some(&self.codex),
-            _ => None,
+            AppType::Gemini => Some(&self.gemini),
+            AppType::GrokBuild => Some(&self.grokbuild),
+            AppType::OpenCode => Some(&self.opencode),
+            AppType::OpenClaw => Some(&self.openclaw),
+            AppType::Hermes => Some(&self.hermes),
         }
     }
 
@@ -109,7 +182,41 @@ impl<T> PerApp<T> {
             AppType::Claude => Some(&mut self.claude),
             AppType::ClaudeDesktop => Some(&mut self.claude_desktop),
             AppType::Codex => Some(&mut self.codex),
-            _ => None,
+            AppType::Gemini => Some(&mut self.gemini),
+            AppType::GrokBuild => Some(&mut self.grokbuild),
+            AppType::OpenCode => Some(&mut self.opencode),
+            AppType::OpenClaw => Some(&mut self.openclaw),
+            AppType::Hermes => Some(&mut self.hermes),
+        }
+    }
+    pub fn for_scope(&self, scope: ProfileScope) -> &T {
+        match scope {
+            ProfileScope::Claude => &self.claude,
+            ProfileScope::ClaudeDesktop => &self.claude_desktop,
+            ProfileScope::Codex => &self.codex,
+            ProfileScope::Gemini => &self.gemini,
+            ProfileScope::GrokBuild => &self.grokbuild,
+            ProfileScope::OpenCode => &self.opencode,
+            ProfileScope::OpenClaw => &self.openclaw,
+            ProfileScope::Hermes => &self.hermes,
+            ProfileScope::Pi => &self.pi,
+            ProfileScope::DeepSeekHarness => &self.deepseek_harness,
+            ProfileScope::WorkBuddy => &self.workbuddy,
+        }
+    }
+    pub fn for_scope_mut(&mut self, scope: ProfileScope) -> &mut T {
+        match scope {
+            ProfileScope::Claude => &mut self.claude,
+            ProfileScope::ClaudeDesktop => &mut self.claude_desktop,
+            ProfileScope::Codex => &mut self.codex,
+            ProfileScope::Gemini => &mut self.gemini,
+            ProfileScope::GrokBuild => &mut self.grokbuild,
+            ProfileScope::OpenCode => &mut self.opencode,
+            ProfileScope::OpenClaw => &mut self.openclaw,
+            ProfileScope::Hermes => &mut self.hermes,
+            ProfileScope::Pi => &mut self.pi,
+            ProfileScope::DeepSeekHarness => &mut self.deepseek_harness,
+            ProfileScope::WorkBuddy => &mut self.workbuddy,
         }
     }
 }
@@ -124,6 +231,8 @@ impl<T> PerApp<T> {
 pub struct ProfilePayload {
     /// 每 app 的当前供应商 id
     pub providers: PerApp<Option<String>>,
+    /// Additive Agents store the set of managed live providers, without touching foreign entries.
+    pub enabled_providers: PerApp<Option<Vec<String>>>,
     /// 每 app 启用的 MCP server id 集合
     pub mcp: PerApp<Option<Vec<String>>>,
     /// 每 app 启用的 Skill id 集合
@@ -137,31 +246,20 @@ impl ProfilePayload {
     /// （"以当前状态更新"只更新发起页所属分组，避免把别的应用
     /// 正处于其他项目的状态串进来）
     pub fn merge_scope_from(&mut self, other: &ProfilePayload, scope: ProfileScope) {
-        for app in scope.apps() {
-            if let (Some(dst), Some(src)) = (self.providers.get_mut(app), other.providers.get(app))
-            {
-                *dst = src.clone();
-            }
-            if let (Some(dst), Some(src)) = (self.mcp.get_mut(app), other.mcp.get(app)) {
-                *dst = src.clone();
-            }
-            if let (Some(dst), Some(src)) = (self.skills.get_mut(app), other.skills.get(app)) {
-                *dst = src.clone();
-            }
-            if let (Some(dst), Some(src)) = (self.prompts.get_mut(app), other.prompts.get(app)) {
-                *dst = src.clone();
-            }
-        }
+        *self.providers.for_scope_mut(scope) = other.providers.for_scope(scope).clone();
+        *self.enabled_providers.for_scope_mut(scope) =
+            other.enabled_providers.for_scope(scope).clone();
+        *self.mcp.for_scope_mut(scope) = other.mcp.for_scope(scope).clone();
+        *self.skills.for_scope_mut(scope) = other.skills.for_scope(scope).clone();
+        // Legacy prompts stay inert and unchanged.
     }
 
     /// 某分组是否拍过快照（任一槽位非 None 即视为拍过）
     pub fn scope_captured(&self, scope: ProfileScope) -> bool {
-        scope.apps().iter().any(|app| {
-            self.providers.get(app).is_some_and(|s| s.is_some())
-                || self.mcp.get(app).is_some_and(|s| s.is_some())
-                || self.skills.get(app).is_some_and(|s| s.is_some())
-                || self.prompts.get(app).is_some_and(|s| s.is_some())
-        })
+        self.providers.for_scope(scope).is_some()
+            || self.enabled_providers.for_scope(scope).is_some()
+            || self.mcp.for_scope(scope).is_some()
+            || self.skills.for_scope(scope).is_some()
     }
 }
 
@@ -192,6 +290,24 @@ fn plan_toggles(
 
 pub struct ProfileService;
 
+fn live_provider_ids(app: &AppType) -> Result<Vec<String>, AppError> {
+    Ok(match app {
+        AppType::OpenCode => crate::opencode_config::get_providers()?
+            .keys()
+            .cloned()
+            .collect(),
+        AppType::OpenClaw => crate::openclaw_config::get_providers()?
+            .keys()
+            .cloned()
+            .collect(),
+        AppType::Hermes => crate::hermes_config::get_providers()?
+            .keys()
+            .cloned()
+            .collect(),
+        _ => Vec::new(),
+    })
+}
+
 impl ProfileService {
     /// 抓取分组内应用的当前配置状态生成快照（组外槽位保持默认值）
     pub fn snapshot_current(
@@ -202,36 +318,63 @@ impl ProfileService {
         let mcp_servers = state.db.get_all_mcp_servers()?;
         let skills = state.db.get_all_installed_skills()?;
 
+        if scope.apps().is_empty() {
+            *payload.providers.for_scope_mut(scope) =
+                state.db.get_current_provider(scope.as_str())?;
+            let target: crate::ResourceTarget =
+                scope.as_str().parse().map_err(AppError::InvalidInput)?;
+            *payload.mcp.for_scope_mut(scope) = Some(
+                mcp_servers
+                    .values()
+                    .filter(|server| server.apps.is_enabled_for(&target))
+                    .map(|server| server.id.clone())
+                    .collect(),
+            );
+            *payload.skills.for_scope_mut(scope) = Some(
+                skills
+                    .values()
+                    .filter(|skill| skill.apps.is_enabled_for(&target))
+                    .map(|skill| skill.id.clone())
+                    .collect(),
+            );
+            return Ok(payload);
+        }
         for app in scope.apps().iter() {
+            if app.is_additive_mode() {
+                let managed = state.db.get_all_providers(app.as_str())?;
+                *payload.enabled_providers.for_scope_mut(scope) = Some(
+                    live_provider_ids(app)?
+                        .into_iter()
+                        .filter(|id| managed.contains_key(id))
+                        .collect(),
+                );
+            }
             if let Some(slot) = payload.providers.get_mut(app) {
                 *slot = crate::settings::get_effective_current_provider(&state.db, app)?;
             }
-            if let Some(slot) = payload.mcp.get_mut(app) {
-                *slot = Some(
-                    mcp_servers
-                        .values()
-                        .filter(|s| s.apps.is_enabled_for(app))
-                        .map(|s| s.id.clone())
-                        .collect(),
-                );
+            {
+                if let Some(slot) = payload.mcp.get_mut(app) {
+                    *slot = Some(
+                        mcp_servers
+                            .values()
+                            .filter(|s| s.apps.is_enabled_for(app))
+                            .map(|s| s.id.clone())
+                            .collect(),
+                    );
+                }
             }
-            if let Some(slot) = payload.skills.get_mut(app) {
-                *slot = Some(
-                    skills
-                        .values()
-                        .filter(|s| s.apps.is_enabled_for(app))
-                        .map(|s| s.id.clone())
-                        .collect(),
-                );
+            if !matches!(app, AppType::ClaudeDesktop) {
+                if let Some(slot) = payload.skills.get_mut(app) {
+                    *slot = Some(
+                        skills
+                            .values()
+                            .filter(|s| s.apps.is_enabled_for(app))
+                            .map(|s| s.id.clone())
+                            .collect(),
+                    );
+                }
             }
-            if let Some(slot) = payload.prompts.get_mut(app) {
-                *slot = state
-                    .db
-                    .get_prompts(app.as_str())?
-                    .values()
-                    .find(|p| p.enabled)
-                    .map(|p| p.id.clone());
-            }
+            // Prompt management was removed. Do not read or snapshot prompt state.
         }
         Ok(payload)
     }
@@ -359,18 +502,73 @@ impl ProfileService {
             ));
         }
 
+        if scope.apps().is_empty() {
+            if let Some(id) = payload.providers.for_scope(scope) {
+                match crate::file_provider_service::switch(state, scope.as_str(), id, None) {
+                    Ok(result) => warnings.extend(result.warnings),
+                    Err(error) => warnings.push(format!("[{}] {error}", scope.as_str())),
+                }
+            }
+        }
+        if scope.apps().is_empty() {
+            let target: crate::ResourceTarget =
+                scope.as_str().parse().map_err(AppError::InvalidInput)?;
+            if let Some(ids) = payload.mcp.for_scope(scope) {
+                let servers = state.db.get_all_mcp_servers()?;
+                let current = servers
+                    .values()
+                    .map(|s| (s.id.clone(), s.apps.is_enabled_for(&target)))
+                    .collect::<Vec<_>>();
+                let (toggles, dangling) = plan_toggles(&current, ids);
+                for id in dangling {
+                    warnings.push(format!("[{}] MCP '{id}' no longer exists", scope.as_str()));
+                }
+                for (id, enabled) in toggles {
+                    if let Err(error) = McpService::toggle_app(state, &id, target, enabled) {
+                        warnings.push(format!("[{}] {error}", scope.as_str()));
+                    }
+                }
+            }
+            if let Some(ids) = payload.skills.for_scope(scope) {
+                let skills = state.db.get_all_installed_skills()?;
+                let current = skills
+                    .values()
+                    .map(|s| (s.id.clone(), s.apps.is_enabled_for(&target)))
+                    .collect::<Vec<_>>();
+                let (toggles, dangling) = plan_toggles(&current, ids);
+                for id in dangling {
+                    warnings.push(format!(
+                        "[{}] skill '{id}' no longer exists",
+                        scope.as_str()
+                    ));
+                }
+                for (id, enabled) in toggles {
+                    if let Err(error) = SkillService::toggle_app(&state.db, &id, &target, enabled) {
+                        warnings.push(format!("[{}] {error}", scope.as_str()));
+                    }
+                }
+            }
+        }
         for app in scope.apps().iter() {
             let app_str = app.as_str();
 
             // 1. 切换项目前无条件关闭当前应用的代理接管。
             // 接管态下 live 文件属于代理；用户希望切换工作目录时总是退出当前
             // 代理环境，再按快照写入真实供应商配置。
-            if let Err(e) = state.proxy_service.disable_takeover_for_app_sync(app) {
-                warnings.push(format!(
-                    "[{app_str}] auto-disable proxy takeover before profile switch failed: {e}"
-                ));
+            if matches!(
+                app,
+                AppType::Claude
+                    | AppType::ClaudeDesktop
+                    | AppType::Codex
+                    | AppType::Gemini
+                    | AppType::GrokBuild
+            ) {
+                if let Err(e) = state.proxy_service.disable_takeover_for_app_sync(app) {
+                    warnings.push(format!(
+                        "[{app_str}] auto-disable proxy takeover before profile switch failed: {e}"
+                    ));
+                }
             }
-
             // 2. 供应商
             if let Some(Some(target_pid)) = payload.providers.get(app) {
                 let providers = state.db.get_all_providers(app_str)?;
@@ -391,6 +589,35 @@ impl ProfileService {
                 }
             }
 
+            if app.is_additive_mode() {
+                if let Some(targets) = payload.enabled_providers.for_scope(scope) {
+                    let managed = state.db.get_all_providers(app_str)?;
+                    let live = live_provider_ids(app)?;
+                    for id in targets {
+                        if managed.contains_key(id) {
+                            match ProviderService::switch(state, app.clone(), id) {
+                                Ok(result) => warnings.extend(result.warnings),
+                                Err(error) => warnings.push(format!("[{app_str}] {error}")),
+                            }
+                        } else {
+                            warnings.push(format!("[{app_str}] provider '{id}' no longer exists"));
+                        }
+                    }
+                    // Never remove working entries if adding a target failed.
+                    if warnings.is_empty() {
+                        for id in live
+                            .iter()
+                            .filter(|id| managed.contains_key(*id) && !targets.contains(*id))
+                        {
+                            if let Err(error) =
+                                ProviderService::remove_from_live_config(state, app.clone(), id)
+                            {
+                                warnings.push(format!("[{app_str}] {error}"));
+                            }
+                        }
+                    }
+                }
+            }
             // 3. MCP diff（最小 toggle：仅动目标态≠当前态的条目；None = 该侧未拍过，不动）
             if let Some(Some(target_ids)) = payload.mcp.get(app) {
                 let servers = state.db.get_all_mcp_servers()?;
@@ -403,7 +630,7 @@ impl ProfileService {
                     warnings.push(format!("[{app_str}] MCP '{id}' no longer exists, skipped"));
                 }
                 for (id, enabled) in toggles {
-                    if let Err(e) = McpService::toggle_app(state, &id, app.clone(), enabled) {
+                    if let Err(e) = McpService::toggle_app(state, &id, app, enabled) {
                         warnings.push(format!(
                             "[{app_str}] toggle MCP '{id}' -> {enabled} failed: {e}"
                         ));
@@ -433,25 +660,7 @@ impl ProfileService {
                 }
             }
 
-            // 5. Prompt（None = 不动；已激活则幂等跳过，避免无谓的文件写与备份）
-            if let Some(Some(target_prompt)) = payload.prompts.get(app) {
-                let prompts = state.db.get_prompts(app_str)?;
-                match prompts.get(target_prompt) {
-                    None => warnings.push(format!(
-                        "[{app_str}] prompt '{target_prompt}' no longer exists, skipped"
-                    )),
-                    Some(p) if p.enabled => {}
-                    Some(_) => {
-                        if let Err(e) =
-                            PromptService::enable_prompt(state, app.clone(), target_prompt)
-                        {
-                            warnings.push(format!(
-                                "[{app_str}] enable prompt '{target_prompt}' failed: {e}"
-                            ));
-                        }
-                    }
-                }
-            }
+            // Legacy payload.prompts is intentionally ignored; original files stay untouched.
         }
 
         state
@@ -480,21 +689,26 @@ mod tests {
                 claude: Some("p1".into()),
                 claude_desktop: Some("d1".into()),
                 codex: None,
+                ..Default::default()
             },
             mcp: PerApp {
                 claude: Some(ids(&["m1", "m2"])),
                 claude_desktop: Some(vec![]),
                 codex: None,
+                ..Default::default()
             },
             skills: PerApp {
                 claude: Some(vec![]),
                 claude_desktop: Some(vec![]),
                 codex: Some(ids(&["s1"])),
+                ..Default::default()
             },
+            enabled_providers: PerApp::default(),
             prompts: PerApp {
                 claude: None,
                 claude_desktop: None,
                 codex: Some("pr1".into()),
+                ..Default::default()
             },
         };
         let json = serde_json::to_string(&payload).unwrap();
@@ -504,6 +718,15 @@ mod tests {
         assert!(json.contains("\"codex\""));
         let back: ProfilePayload = serde_json::from_str(&json).unwrap();
         assert_eq!(back, payload);
+    }
+
+    #[test]
+    fn legacy_prompt_only_snapshot_is_inert() {
+        let mut payload = ProfilePayload::default();
+        payload.prompts.claude = Some("keep-user-prompt".into());
+        assert!(!payload.scope_captured(ProfileScope::Claude));
+        payload.merge_scope_from(&ProfilePayload::default(), ProfileScope::Claude);
+        assert_eq!(payload.prompts.claude.as_deref(), Some("keep-user-prompt"));
     }
 
     #[test]
@@ -533,11 +756,13 @@ mod tests {
                 claude: Some("p1".into()),
                 claude_desktop: Some("d1".into()),
                 codex: Some("c1".into()),
+                ..Default::default()
             },
             mcp: PerApp {
                 claude: Some(ids(&["m1"])),
                 claude_desktop: Some(vec![]),
                 codex: Some(ids(&["m9"])),
+                ..Default::default()
             },
             ..Default::default()
         };
@@ -547,11 +772,13 @@ mod tests {
                 claude: Some("p2".into()),
                 claude_desktop: None,
                 codex: Some("SHOULD-NOT-LEAK".into()),
+                ..Default::default()
             },
             mcp: PerApp {
                 claude: Some(ids(&["m2"])),
                 claude_desktop: Some(vec![]),
                 codex: None,
+                ..Default::default()
             },
             ..Default::default()
         };
@@ -595,7 +822,7 @@ mod tests {
         assert!(per.get(&AppType::Claude).is_some());
         assert!(per.get(&AppType::ClaudeDesktop).is_some());
         assert!(per.get(&AppType::Codex).is_some());
-        assert!(per.get(&AppType::Gemini).is_none());
+        assert!(per.get(&AppType::Gemini).is_some());
     }
 
     #[test]
@@ -608,7 +835,7 @@ mod tests {
             );
             assert_eq!(ProfileScope::parse(scope.as_str()).unwrap(), scope);
         }
-        assert!(ProfileScope::parse("gemini").is_err());
+        assert!(ProfileScope::parse("unknown-agent").is_err());
         assert!(ProfileScope::parse("").is_err());
     }
 
@@ -627,7 +854,56 @@ mod tests {
                 assert_eq!(ProfileScope::for_app(app), Some(scope));
             }
         }
-        assert_eq!(ProfileScope::for_app(&AppType::Gemini), None);
+        assert_eq!(
+            ProfileScope::for_app(&AppType::Gemini),
+            Some(ProfileScope::Gemini)
+        );
+    }
+
+    #[test]
+    fn every_agent_snapshot_merges_only_its_own_scope() {
+        for scope in ProfileScope::ALL {
+            let mut target = ProfilePayload::default();
+            let mut fresh = ProfilePayload::default();
+            for other in ProfileScope::ALL {
+                *target.providers.for_scope_mut(other) = Some(format!("old-{}", other.as_str()));
+                *target.enabled_providers.for_scope_mut(other) = Some(ids(&["old-live"]));
+                *target.prompts.for_scope_mut(other) = Some("legacy-prompt".into());
+                *fresh.providers.for_scope_mut(other) = Some(format!("new-{}", other.as_str()));
+                *fresh.enabled_providers.for_scope_mut(other) = Some(ids(&["new-live"]));
+            }
+            target.merge_scope_from(&fresh, scope);
+            for other in ProfileScope::ALL {
+                let prefix = if other == scope { "new" } else { "old" };
+                assert_eq!(
+                    target.providers.for_scope(other).as_deref(),
+                    Some(format!("{prefix}-{}", other.as_str()).as_str())
+                );
+                assert_eq!(
+                    target.enabled_providers.for_scope(other),
+                    &Some(ids(&[&format!("{prefix}-live")]))
+                );
+                assert_eq!(
+                    target.prompts.for_scope(other).as_deref(),
+                    Some("legacy-prompt")
+                );
+            }
+            let restored: ProfilePayload =
+                serde_json::from_str(&serde_json::to_string(&target).unwrap()).unwrap();
+            assert_eq!(restored, target);
+        }
+    }
+
+    #[test]
+    fn empty_additive_snapshot_is_captured_but_legacy_missing_slots_are_not() {
+        let mut payload: ProfilePayload =
+            serde_json::from_str(r#"{"providers":{"codex":"p"}}"#).unwrap();
+        for scope in ProfileScope::ALL {
+            assert_eq!(payload.scope_captured(scope), scope == ProfileScope::Codex);
+        }
+        payload.enabled_providers.openclaw = Some(vec![]);
+        assert!(payload.scope_captured(ProfileScope::OpenClaw));
+        assert!(!payload.scope_captured(ProfileScope::Hermes));
     }
 
     #[test]

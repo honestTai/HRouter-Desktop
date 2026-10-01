@@ -1,3 +1,12 @@
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from "@/components/ui/table";
 import React from "react";
 import { RefreshCw, AlertCircle, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -102,14 +111,16 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
             <AlertCircle size={12} />
             <span>{t("usage.queryFailed")}</span>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={() => refetch()}
             disabled={loading}
             className="p-1 rounded hover:bg-muted transition-colors disabled:opacity-50 flex-shrink-0"
             title={t("usage.refreshUsage")}
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          </button>
+          </Button>
         </div>
       );
     }
@@ -123,14 +134,16 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
           </div>
 
           {/* 刷新按钮 */}
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={() => refetch()}
             disabled={loading}
             className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 flex-shrink-0"
             title={t("usage.refreshUsage")}
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -158,7 +171,9 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
               ? formatRelativeTime(lastQueriedAt, now, t)
               : t("usage.never", { defaultValue: "从未更新" })}
           </span>
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={(event) => {
               event.stopPropagation();
               refetch();
@@ -168,7 +183,7 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
             title={t("usage.refreshUsage")}
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          </button>
+          </Button>
         </div>
         <div className="flex items-center gap-2 font-medium">
           <span className="text-emerald-600 dark:text-emerald-400">
@@ -220,14 +235,16 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
                 : "累计实际消费与近 30 天模型统计"}
             </p>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={() => refetch()}
             disabled={loading}
             className="p-1.5 rounded-md hover:bg-muted transition-colors disabled:opacity-50"
             title={t("usage.refreshUsage")}
           >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-          </button>
+          </Button>
         </div>
 
         <div className="grid gap-2 sm:grid-cols-3">
@@ -268,49 +285,57 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
 
         {hrouterExtra.modelStats.length > 0 ? (
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full min-w-[620px] text-xs">
-              <thead className="bg-muted/60 text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium">模型</th>
-                  <th className="px-3 py-2 text-right font-medium">请求</th>
-                  <th className="px-3 py-2 text-right font-medium">
+            <Table className="w-full min-w-[620px] text-xs">
+              <TableHeader className="bg-muted/60 text-muted-foreground">
+                <TableRow>
+                  <TableHead className="px-3 py-2 text-left font-medium">
+                    模型
+                  </TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">
+                    请求
+                  </TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">
                     输入 Token
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium">
+                  </TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">
                     输出 Token
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium">总 Token</th>
-                  <th className="px-3 py-2 text-right font-medium">实际消费</th>
-                </tr>
-              </thead>
-              <tbody>
+                  </TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">
+                    总 Token
+                  </TableHead>
+                  <TableHead className="px-3 py-2 text-right font-medium">
+                    实际消费
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {hrouterExtra.modelStats.map((stat) => (
-                  <tr key={stat.model} className="border-t">
-                    <td
+                  <TableRow key={stat.model} className="border-t">
+                    <TableCell
                       className="max-w-[220px] truncate px-3 py-2 font-mono"
                       title={stat.model}
                     >
                       {stat.model}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right tabular-nums">
                       {formatCount(stat.requests)}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right tabular-nums">
                       {formatCount(stat.input_tokens)}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right tabular-nums">
                       {formatCount(stat.output_tokens)}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right tabular-nums">
                       {formatCount(stat.total_tokens)}
-                    </td>
-                    <td className="px-3 py-2 text-right font-medium tabular-nums">
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-right font-medium tabular-nums">
                       {formatCny(stat.actual_cost)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         ) : (
           <p className="rounded-lg bg-muted/40 px-3 py-4 text-center text-xs text-muted-foreground">
@@ -333,7 +358,9 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
               ? formatRelativeTime(lastQueriedAt, now, t)
               : t("usage.never", { defaultValue: "从未更新" })}
           </span>
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={(e) => {
               e.stopPropagation();
               refetch();
@@ -343,7 +370,7 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
             title={t("usage.refreshUsage")}
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          </button>
+          </Button>
         </div>
         {/* 第二行：tier 徽章（复用官方订阅的 TierBadge） */}
         <div className="flex items-center gap-2">
@@ -386,7 +413,9 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
           </span>
 
           {/* 刷新按钮 */}
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={(e) => {
               e.stopPropagation();
               refetch();
@@ -396,7 +425,7 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
             title={t("usage.refreshUsage")}
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          </button>
+          </Button>
         </div>
 
         {/* 第二行：用量和剩余 */}
@@ -470,14 +499,16 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
               {formatRelativeTime(lastQueriedAt, now, t)}
             </span>
           )}
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={() => refetch()}
             disabled={loading}
             className="p-1 rounded hover:bg-muted transition-colors disabled:opacity-50"
             title={t("usage.refreshUsage")}
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          </button>
+          </Button>
         </div>
       </div>
 

@@ -44,6 +44,11 @@ describe("Agent access status cards", () => {
     show();
     expect(await screen.findByText("Local provider")).toBeInTheDocument();
     expect(await screen.findByText("configured-model")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Codex" })).toHaveClass(
+      "flex-col",
+      "items-stretch",
+      "whitespace-normal",
+    );
     expect(screen.getByRole("button")).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button"));
     expect(select).toHaveBeenCalledOnce();

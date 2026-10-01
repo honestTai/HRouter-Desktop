@@ -16,7 +16,7 @@ export function ThemeSettings() {
           {t("settings.themeHint")}
         </p>
       </header>
-      <div className="inline-flex gap-1 rounded-md border border-border-default bg-background p-1">
+      <div className="grid grid-cols-3 gap-1 rounded-lg border bg-muted/30 p-1">
         <ThemeButton
           active={theme === "light"}
           onClick={() => setTheme("light")}
@@ -60,6 +60,7 @@ function ThemeButton({
     <Button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       size="sm"
       variant={active ? "default" : "ghost"}
       className={cn(

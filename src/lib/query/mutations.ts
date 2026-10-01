@@ -1,3 +1,4 @@
+import { invalidateAgentContext } from "./agentContext";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -21,6 +22,8 @@ export const useAddProviderMutation = (appId: AppId) => {
   const { t } = useTranslation();
 
   return useMutation({
+    mutationKey: ["provider-add", appId],
+    onMutate: () => ({ appId }),
     mutationFn: async (
       providerInput: Omit<Provider, "id"> & {
         providerKey?: string;
@@ -98,10 +101,11 @@ export const useAddProviderMutation = (appId: AppId) => {
       await providersApi.add(newProvider, appId, addToLive);
       return newProvider;
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["providers", appId] });
+    onSuccess: async (_provider, _variables, context) => {
+      const targetApp = context?.appId ?? appId;
+      await invalidateAgentContext(queryClient, targetApp);
 
-      if (appId === "opencode") {
+      if (targetApp === "opencode") {
         await queryClient.invalidateQueries({
           queryKey: ["omo", "current-provider-id"],
         });
@@ -116,13 +120,13 @@ export const useAddProviderMutation = (appId: AppId) => {
         });
       }
 
-      if (appId === "openclaw") {
+      if (targetApp === "openclaw") {
         await queryClient.invalidateQueries({
           queryKey: openclawKeys.health,
         });
       }
 
-      if (appId === "hermes") {
+      if (targetApp === "hermes") {
         await invalidateHermesProviderCaches(queryClient);
       }
 
@@ -144,6 +148,11 @@ export const useAddProviderMutation = (appId: AppId) => {
         },
       );
     },
+    onSettled: async (_result, error, _variables, context) => {
+      // File writes can partially succeed before an error; don't keep a stale UI.
+      if (error)
+        await invalidateAgentContext(queryClient, context?.appId ?? appId);
+    },
     onError: (error: Error) => {
       const detail = extractErrorMessage(error) || t("common.unknown");
       toast.error(
@@ -161,6 +170,8 @@ export const useUpdateProviderMutation = (appId: AppId) => {
   const { t } = useTranslation();
 
   return useMutation({
+    mutationKey: ["provider-update", appId],
+    onMutate: () => ({ appId }),
     mutationFn: async ({
       provider,
       originalId,
@@ -171,22 +182,23 @@ export const useUpdateProviderMutation = (appId: AppId) => {
       await providersApi.update(provider, appId, originalId);
       return provider;
     },
-    onSuccess: async (provider, variables) => {
-      await queryClient.invalidateQueries({ queryKey: ["providers", appId] });
+    onSuccess: async (provider, variables, context) => {
+      const targetApp = context?.appId ?? appId;
+      await invalidateAgentContext(queryClient, targetApp);
       await queryClient.invalidateQueries({
-        queryKey: usageKeys.script(provider.id, appId),
+        queryKey: usageKeys.script(provider.id, targetApp),
       });
       if (variables.originalId && variables.originalId !== provider.id) {
         await queryClient.invalidateQueries({
-          queryKey: usageKeys.script(variables.originalId, appId),
+          queryKey: usageKeys.script(variables.originalId, targetApp),
         });
       }
-      if (appId === "openclaw") {
+      if (targetApp === "openclaw") {
         await queryClient.invalidateQueries({
           queryKey: openclawKeys.health,
         });
       }
-      if (appId === "hermes") {
+      if (targetApp === "hermes") {
         await invalidateHermesProviderCaches(queryClient);
       }
       toast.success(
@@ -197,6 +209,11 @@ export const useUpdateProviderMutation = (appId: AppId) => {
           closeButton: true,
         },
       );
+    },
+    onSettled: async (_result, error, _variables, context) => {
+      // File writes can partially succeed before an error; don't keep a stale UI.
+      if (error)
+        await invalidateAgentContext(queryClient, context?.appId ?? appId);
     },
     onError: (error: Error) => {
       const detail = extractErrorMessage(error) || t("common.unknown");
@@ -215,13 +232,16 @@ export const useDeleteProviderMutation = (appId: AppId) => {
   const { t } = useTranslation();
 
   return useMutation({
+    mutationKey: ["provider-delete", appId],
+    onMutate: () => ({ appId }),
     mutationFn: async (providerId: string) => {
       await providersApi.delete(providerId, appId);
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["providers", appId] });
+    onSuccess: async (_result, _variables, context) => {
+      const targetApp = context?.appId ?? appId;
+      await invalidateAgentContext(queryClient, targetApp);
 
-      if (appId === "opencode") {
+      if (targetApp === "opencode") {
         await queryClient.invalidateQueries({
           queryKey: ["omo", "current-provider-id"],
         });
@@ -236,13 +256,13 @@ export const useDeleteProviderMutation = (appId: AppId) => {
         });
       }
 
-      if (appId === "openclaw") {
+      if (targetApp === "openclaw") {
         await queryClient.invalidateQueries({
           queryKey: openclawKeys.health,
         });
       }
 
-      if (appId === "hermes") {
+      if (targetApp === "hermes") {
         await invalidateHermesProviderCaches(queryClient);
       }
 
@@ -264,6 +284,11 @@ export const useDeleteProviderMutation = (appId: AppId) => {
         },
       );
     },
+    onSettled: async (_result, error, _variables, context) => {
+      // File writes can partially succeed before an error; don't keep a stale UI.
+      if (error)
+        await invalidateAgentContext(queryClient, context?.appId ?? appId);
+    },
     onError: (error: Error) => {
       const detail = extractErrorMessage(error) || t("common.unknown");
       toast.error(
@@ -281,12 +306,15 @@ export const useSwitchProviderMutation = (appId: AppId) => {
   const { t } = useTranslation();
 
   return useMutation({
+    mutationKey: ["provider-switch", appId],
+    onMutate: () => ({ appId }),
     mutationFn: async (providerId: string): Promise<SwitchResult> => {
       return await providersApi.switch(providerId, appId);
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["providers", appId] });
-      if (appId === "claude-desktop") {
+    onSuccess: async (_result, _variables, context) => {
+      const targetApp = context?.appId ?? appId;
+      await invalidateAgentContext(queryClient, targetApp);
+      if (targetApp === "claude-desktop") {
         await queryClient.invalidateQueries({ queryKey: proxyKeys.status });
         await queryClient.invalidateQueries({
           queryKey: ["claudeDesktopStatus"],
@@ -294,7 +322,7 @@ export const useSwitchProviderMutation = (appId: AppId) => {
       }
 
       // OpenCode/OpenClaw: also invalidate live provider IDs cache to update button state
-      if (appId === "opencode") {
+      if (targetApp === "opencode") {
         await queryClient.invalidateQueries({
           queryKey: ["opencodeLiveProviderIds"],
         });
@@ -308,7 +336,7 @@ export const useSwitchProviderMutation = (appId: AppId) => {
           queryKey: ["omo-slim", "current-provider-id"],
         });
       }
-      if (appId === "openclaw") {
+      if (targetApp === "openclaw") {
         await queryClient.invalidateQueries({
           queryKey: openclawKeys.liveProviderIds,
         });
@@ -319,7 +347,7 @@ export const useSwitchProviderMutation = (appId: AppId) => {
           queryKey: openclawKeys.health,
         });
       }
-      if (appId === "hermes") {
+      if (targetApp === "hermes") {
         await invalidateHermesProviderCaches(queryClient);
       }
 
@@ -331,6 +359,11 @@ export const useSwitchProviderMutation = (appId: AppId) => {
           trayError,
         );
       }
+    },
+    onSettled: async (_result, error, _variables, context) => {
+      // File writes can partially succeed before an error; don't keep a stale UI.
+      if (error)
+        await invalidateAgentContext(queryClient, context?.appId ?? appId);
     },
     onError: (error: Error) => {
       const detail = extractErrorMessage(error) || t("common.unknown");

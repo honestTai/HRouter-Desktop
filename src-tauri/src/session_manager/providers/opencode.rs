@@ -137,6 +137,7 @@ fn scan_sessions_sqlite() -> Vec<SessionMeta> {
             Some(title)
         };
         sessions.push(SessionMeta {
+        read_only: None,
             provider_id: PROVIDER_ID.to_string(),
             session_id: session_id.clone(),
             title: display_title.clone(),
@@ -465,6 +466,7 @@ fn parse_session(storage: &Path, path: &Path) -> Option<SessionMeta> {
     };
 
     Some(SessionMeta {
+        read_only: None,
         provider_id: PROVIDER_ID.to_string(),
         session_id: session_id.clone(),
         title: display_title,

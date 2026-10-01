@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useHRouterAccess } from "@/hooks/useHRouterAccess";
 import { isTauri } from "@tauri-apps/api/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -42,17 +43,21 @@ interface AppConfig {
 type AppConfigState = Record<PricingApp, AppConfig>;
 
 export function PricingConfigPanel() {
+  const { connected } = useHRouterAccess();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const localPricingQuery = useModelPricing();
   const plazaPricingQuery = useQuery({
     queryKey: HROUTER_MODEL_PLAZA_QUERY_KEY,
     queryFn: syncHRouterModelPlazaPricing,
+    enabled: connected,
     staleTime: 10 * 60 * 1000,
     retry: 1,
   });
   const pricing =
-    plazaPricingQuery.data?.pricing ?? localPricingQuery.data ?? [];
+    (connected ? plazaPricingQuery.data?.pricing : undefined) ??
+    localPricingQuery.data ??
+    [];
   const isUsingLocalFallback =
     !plazaPricingQuery.data && (localPricingQuery.data?.length ?? 0) > 0;
 
@@ -205,7 +210,7 @@ export function PricingConfigPanel() {
     toast.error(t("usage.modelPlazaSyncFailed"));
   };
 
-  if (plazaPricingQuery.isLoading && localPricingQuery.isLoading) {
+  if (localPricingQuery.isLoading) {
     return (
       <div className="flex items-center justify-center p-4">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -213,7 +218,7 @@ export function PricingConfigPanel() {
     );
   }
 
-  if (pricing.length === 0 && plazaPricingQuery.error) {
+  if (connected && pricing.length === 0 && plazaPricingQuery.error) {
     return (
       <Alert variant="destructive">
         <AlertDescription>
@@ -258,23 +263,23 @@ export function PricingConfigPanel() {
           </div>
         ) : (
           <div className="rounded-md border border-border/50 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border/50 bg-muted/30">
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground w-24">
+            <Table className="w-full text-sm">
+              <TableHeader>
+                <TableRow className="border-b border-border/50 bg-muted/30">
+                  <TableHead className="px-3 py-2 text-left font-medium text-muted-foreground w-24">
                     {t("settings.globalProxy.pricingAppLabel")}
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+                  </TableHead>
+                  <TableHead className="px-3 py-2 text-left font-medium text-muted-foreground">
                     {t("settings.globalProxy.defaultCostMultiplierLabel")}
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+                  </TableHead>
+                  <TableHead className="px-3 py-2 text-left font-medium text-muted-foreground">
                     {t("settings.globalProxy.pricingModelSourceLabel")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {PRICING_APPS.map((app, idx) => (
-                  <tr
+                  <TableRow
                     key={app}
                     className={
                       idx < PRICING_APPS.length - 1
@@ -282,10 +287,10 @@ export function PricingConfigPanel() {
                         : ""
                     }
                   >
-                    <td className="px-3 py-1.5 font-medium">
+                    <TableCell className="px-3 py-1.5 font-medium">
                       {t(`apps.${app}`)}
-                    </td>
-                    <td className="px-3 py-1.5">
+                    </TableCell>
+                    <TableCell className="px-3 py-1.5">
                       <Input
                         type="number"
                         step="0.01"
@@ -302,8 +307,8 @@ export function PricingConfigPanel() {
                         placeholder="1"
                         className="h-7 w-24"
                       />
-                    </td>
-                    <td className="px-3 py-1.5">
+                    </TableCell>
+                    <TableCell className="px-3 py-1.5">
                       <Select
                         value={appConfigs[app].source}
                         onValueChange={(value) =>
@@ -333,11 +338,11 @@ export function PricingConfigPanel() {
                           </SelectItem>
                         </SelectContent>
                       </Select>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
@@ -347,37 +352,38 @@ export function PricingConfigPanel() {
 
       {/* 模型定价配置 */}
       <div className="space-y-4">
-        <div className="flex flex-col gap-3 rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-start gap-2.5">
-            <Database className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-            <div className="min-w-0">
-              <h4 className="text-sm font-medium">
-                {t("usage.modelPlazaPricingTitle")}
-              </h4>
-              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                {isUsingLocalFallback
-                  ? t("usage.modelPlazaPricingFallback")
-                  : t("usage.modelPlazaPricingDescription")}
-              </p>
+        {connected && (
+          <div className="flex flex-col gap-3 rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-2.5">
+              <Database className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              <div className="min-w-0">
+                <h4 className="text-sm font-medium">
+                  {t("usage.modelPlazaPricingTitle")}
+                </h4>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  {isUsingLocalFallback
+                    ? t("usage.modelPlazaPricingFallback")
+                    : t("usage.modelPlazaPricingDescription")}
+                </p>
+              </div>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5"
+              disabled={plazaPricingQuery.isFetching}
+              onClick={() => void handleRefreshPlazaPricing()}
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${
+                  plazaPricingQuery.isFetching ? "animate-spin" : ""
+                }`}
+              />
+              {t("common.refresh")}
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="shrink-0 gap-1.5"
-            disabled={plazaPricingQuery.isFetching}
-            onClick={() => void handleRefreshPlazaPricing()}
-          >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${
-                plazaPricingQuery.isFetching ? "animate-spin" : ""
-              }`}
-            />
-            {t("common.refresh")}
-          </Button>
-        </div>
-
+        )}
         <h4 className="text-sm font-medium text-muted-foreground">
           {t("usage.modelPricingDesc")} {t("usage.perMillion")}
         </h4>

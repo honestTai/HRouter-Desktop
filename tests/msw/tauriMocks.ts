@@ -45,6 +45,7 @@ export const emitTauriEvent = (event: string, payload: unknown) => {
 };
 
 vi.mock("@tauri-apps/api/event", () => ({
+  emitTo: vi.fn(async () => undefined),
   listen: async (
     event: string,
     handler: (event: { payload: unknown }) => void,

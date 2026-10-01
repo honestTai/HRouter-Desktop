@@ -1,3 +1,4 @@
+import { RequestTiming } from "@/components/usage/RequestLogTable";
 import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -80,7 +81,7 @@ export function HRouterUsagePage() {
   const [requestType, setRequestType] = useState("all");
   const [modelDraft, setModelDraft] = useState("");
   const [model, setModel] = useState("");
-  const [overviewOpen, setOverviewOpen] = useState(false);
+  const [overviewOpen, setOverviewOpen] = useState(true);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const dates = useMemo(() => rangeDates(days), [days]);
   const filters = {
@@ -366,8 +367,8 @@ export function HRouterUsagePage() {
                 </Button>
               )}
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-gutter:stable]">
-              <Table className="w-full table-fixed">
+            <div className="min-h-0 flex-1 overflow-auto overscroll-contain [scrollbar-gutter:stable]">
+              <Table className="w-full min-w-[800px] table-fixed">
                 <TableHeader className="sticky top-0 z-10 bg-background shadow-[0_1px_0_hsl(var(--border))]">
                   <TableRow className="bg-muted/40 hover:bg-muted/40">
                     <TableHead className="h-10 w-9 px-1" />
@@ -379,12 +380,12 @@ export function HRouterUsagePage() {
                         defaultValue: "密钥 / 分组",
                       })}
                     </TableHead>
-                    <TableHead className="h-10 w-[21%] px-2">
+                    <TableHead className="h-10 w-[18%] px-2">
                       {t("hrouterPlatform.typeModel", {
                         defaultValue: "类型 / 模型",
                       })}
                     </TableHead>
-                    <TableHead className="h-10 w-[12%] px-2 text-right">
+                    <TableHead className="h-10 w-[18%] px-2 text-right">
                       {t("hrouterPlatform.durationFirstToken", {
                         defaultValue: "用时 / 首字",
                       })}
@@ -458,16 +459,12 @@ export function HRouterUsagePage() {
                             </span>
                           </TableCell>
                           <TableCell className="px-2 py-3 text-right text-xs tabular-nums">
-                            <span>
-                              {item.duration_ms == null
-                                ? "-"
-                                : `${(item.duration_ms / 1000).toFixed(1)}s`}
-                            </span>
-                            <span className="block text-[11px] text-muted-foreground">
-                              {item.first_token_ms == null
-                                ? "-"
-                                : `${(item.first_token_ms / 1000).toFixed(1)}s`}
-                            </span>
+                            <RequestTiming
+                              log={{
+                                latencyMs: item.duration_ms ?? 0,
+                                firstTokenMs: item.first_token_ms ?? undefined,
+                              }}
+                            />
                           </TableCell>
                           <TableCell className="px-2 py-3 text-right text-xs tabular-nums">
                             <span className="block">

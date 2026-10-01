@@ -1,3 +1,5 @@
+import { isFileAgent } from "@/config/fileAgents";
+import { FileAgentProviderForm } from "./FileAgentProviderForm";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -245,6 +247,8 @@ export interface ProviderFormProps {
 }
 
 export function ProviderForm(props: ProviderFormProps) {
+  if (isFileAgent(props.appId))
+    return <FileAgentProviderForm {...props} appId={props.appId} />;
   if (props.appId === "claude-desktop") {
     return <ClaudeDesktopProviderForm {...props} />;
   }

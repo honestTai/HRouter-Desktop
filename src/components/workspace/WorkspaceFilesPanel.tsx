@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -99,7 +100,9 @@ const WorkspaceFilesPanel: React.FC = () => {
           const exists = fileExists[file.filename];
 
           return (
-            <button
+            <Button
+              variant="ghost"
+              size="auto"
               key={file.filename}
               onClick={() => setEditingFile(file.filename)}
               className="flex items-start gap-3 p-4 rounded-xl border border-border bg-card hover:bg-accent/50 transition-colors text-left group"
@@ -122,12 +125,14 @@ const WorkspaceFilesPanel: React.FC = () => {
                   {t(file.descKey)}
                 </p>
               </div>
-            </button>
+            </Button>
           );
         })}
 
         {/* Daily Memory — inline with workspace files */}
-        <button
+        <Button
+          variant="ghost"
+          size="auto"
           onClick={() => setShowDailyMemory(true)}
           className="flex items-start gap-3 p-4 rounded-xl border border-border bg-card hover:bg-accent/50 transition-colors text-left group"
         >
@@ -145,7 +150,7 @@ const WorkspaceFilesPanel: React.FC = () => {
           <div className="mt-0.5 text-muted-foreground group-hover:text-foreground transition-colors">
             <ChevronRight className="w-4 h-4" />
           </div>
-        </button>
+        </Button>
       </div>
 
       <WorkspaceFileEditor

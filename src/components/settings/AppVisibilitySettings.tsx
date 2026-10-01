@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 import { ProviderIcon } from "@/components/ProviderIcon";
 import type { SettingsFormState } from "@/hooks/useSettings";
 import type { VisibleApps } from "@/types";
@@ -28,6 +27,13 @@ const APP_CONFIG: Array<{
   { id: "opencode", icon: "opencode", nameKey: "apps.opencode" },
   { id: "openclaw", icon: "openclaw", nameKey: "apps.openclaw" },
   { id: "hermes", icon: "hermes", nameKey: "apps.hermes" },
+  { id: "pi", icon: "pi", nameKey: "apps.pi" },
+  {
+    id: "deepseek-harness",
+    icon: "deepseek",
+    nameKey: "apps.deepseek-harness",
+  },
+  { id: "workbuddy", icon: "workbuddy", nameKey: "apps.workbuddy" },
 ];
 
 export function AppVisibilitySettings({
@@ -48,10 +54,12 @@ export function AppVisibilitySettings({
   };
 
   // Count how many apps are currently visible
-  const visibleCount = Object.values(visibleApps).filter(Boolean).length;
+  const visibleCount = APP_CONFIG.filter(
+    (app) => visibleApps[app.id] !== false,
+  ).length;
 
   const handleToggle = (appId: AppId) => {
-    const isCurrentlyVisible = visibleApps[appId];
+    const isCurrentlyVisible = visibleApps[appId] !== false;
     // Prevent disabling the last visible app
     if (isCurrentlyVisible && visibleCount <= 1) return;
 
@@ -73,63 +81,29 @@ export function AppVisibilitySettings({
           {t("settings.appVisibility.description")}
         </p>
       </header>
-      <div className="flex flex-wrap gap-1 rounded-md border border-border-default bg-background p-1">
+      <div className="grid gap-3 pt-2 sm:grid-cols-2 lg:grid-cols-3">
         {APP_CONFIG.map((app) => {
-          const isVisible = visibleApps[app.id];
+          const isVisible = visibleApps[app.id] !== false;
           // Disable button if this is the last visible app
           const isDisabled = isVisible && visibleCount <= 1;
 
           return (
-            <AppButton
+            <label
               key={app.id}
-              active={isVisible}
-              disabled={isDisabled}
-              onClick={() => handleToggle(app.id)}
-              icon={app.icon}
-              name={t(app.nameKey)}
+              className="flex items-center gap-3 rounded-lg border bg-background p-3"
             >
-              {t(app.nameKey)}
-            </AppButton>
+              <ProviderIcon icon={app.icon} name={t(app.nameKey)} size={20} />
+              <span className="min-w-0 flex-1 text-sm">{t(app.nameKey)}</span>
+              <Switch
+                checked={isVisible}
+                disabled={isDisabled}
+                onCheckedChange={() => handleToggle(app.id)}
+                aria-label={t(app.nameKey)}
+              />
+            </label>
           );
         })}
       </div>
     </section>
-  );
-}
-
-interface AppButtonProps {
-  active: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-  icon: string;
-  name: string;
-  children: React.ReactNode;
-}
-
-function AppButton({
-  active,
-  disabled,
-  onClick,
-  icon,
-  name,
-  children,
-}: AppButtonProps) {
-  return (
-    <Button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      size="sm"
-      variant={active ? "default" : "ghost"}
-      className={cn(
-        "min-w-[90px] w-auto gap-1.5 px-3",
-        active
-          ? "shadow-sm"
-          : "text-muted-foreground hover:text-foreground hover:bg-muted",
-      )}
-    >
-      <ProviderIcon icon={icon} name={name} size={14} />
-      {children}
-    </Button>
   );
 }

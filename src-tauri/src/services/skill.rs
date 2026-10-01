@@ -15,10 +15,11 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::time::timeout;
 
-use crate::app_config::{AppType, InstalledSkill, SkillApps, UnmanagedSkill};
+use crate::app_config::{InstalledSkill, SkillApps, UnmanagedSkill};
 use crate::config::get_app_config_dir;
 use crate::database::Database;
 use crate::error::format_skill_error;
+use crate::resource_target::ResourceTarget as AppType;
 
 // ========== 数据结构 ==========
 
@@ -525,8 +526,102 @@ impl SkillService {
         Ok(dir)
     }
 
+    /// Export a portable Skill bundle for account-managed clients such as Claude Desktop.
+    /// A successful export does not imply that the client has imported/enabled the Skill.
+    pub fn export_zip(db: &Arc<Database>, id: &str, destination: &std::path::Path) -> Result<()> {
+        let skill = db
+            .get_installed_skill(id)?
+            .ok_or_else(|| anyhow!("Skill not found"))?;
+        let name = Self::require_valid_directory(&skill.directory)?;
+        let root = Self::get_ssot_dir()?;
+        let source = root.join(&name);
+        Self::validate_sync_source_dir(&source, &name)?;
+        if !destination.is_absolute()
+            || destination.extension().and_then(|s| s.to_str()) != Some("zip")
+        {
+            return Err(anyhow!("Choose an absolute .zip destination"));
+        }
+        let parent = destination
+            .parent()
+            .ok_or_else(|| anyhow!("Missing export directory"))?
+            .canonicalize()?;
+        if parent.starts_with(root.canonicalize()?) {
+            return Err(anyhow!("Cannot export into Skill storage"));
+        }
+        let bytes = Self::zip_directory(&source, &name)?;
+        crate::config::atomic_write(destination, &bytes)?;
+        Ok(())
+    }
+
+    fn zip_directory(source: &std::path::Path, name: &str) -> Result<Vec<u8>> {
+        use std::io::{Read, Write};
+        let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        let options = zip::write::SimpleFileOptions::default().unix_permissions(0o644);
+        let mut stack = vec![(source.to_path_buf(), 0)];
+        let mut count = 0;
+        let mut total = 0u64;
+        while let Some((dir, depth)) = stack.pop() {
+            if depth > 32 {
+                return Err(anyhow!("Skill directory nesting exceeds export limit"));
+            }
+            for entry in fs::read_dir(dir)? {
+                let entry = entry?;
+                count += 1;
+                if count > 10000 {
+                    return Err(anyhow!("Skill contains too many files"));
+                }
+                let kind = entry.file_type()?;
+                if kind.is_symlink() {
+                    return Err(anyhow!("Export does not follow Skill symlinks"));
+                }
+                let path = entry.path();
+                if kind.is_dir() {
+                    stack.push((path, depth + 1));
+                    continue;
+                }
+                if !kind.is_file() {
+                    return Err(anyhow!("Skill contains a non-regular file"));
+                }
+                let mut bytes = Vec::new();
+                fs::File::open(&path)?
+                    .take(128 * 1024 * 1024 + 1 - total)
+                    .read_to_end(&mut bytes)?;
+                total += bytes.len() as u64;
+                if total > 128 * 1024 * 1024 {
+                    return Err(anyhow!("Skill exceeds 128 MiB export limit"));
+                }
+                let relative = path
+                    .strip_prefix(source)?
+                    .components()
+                    .map(|part| {
+                        let std::path::Component::Normal(value) = part else {
+                            return Err(anyhow!("Invalid archive path"));
+                        };
+                        let name = value
+                            .to_str()
+                            .ok_or_else(|| anyhow!("Skill filenames must be UTF-8"))?;
+                        if name.contains(['\\', ':']) {
+                            return Err(anyhow!("Skill filename is unsafe for a portable ZIP"));
+                        }
+                        Ok(name.to_owned())
+                    })
+                    .collect::<Result<Vec<_>>>()?
+                    .join("/");
+                #[cfg(unix)]
+                let options = {
+                    use std::os::unix::fs::PermissionsExt;
+                    options.unix_permissions(fs::metadata(&path)?.permissions().mode() & 0o777)
+                };
+                writer.start_file(format!("{name}/{relative}"), options)?;
+                writer.write_all(&bytes)?;
+            }
+        }
+        Ok(writer.finish()?.into_inner())
+    }
+
     /// 获取应用的 skills 目录
-    pub fn get_app_skills_dir(app: &AppType) -> Result<PathBuf> {
+    pub fn get_app_skills_dir(app: impl Into<AppType>) -> Result<PathBuf> {
+        let app = &app.into();
         // 目录覆盖：优先使用用户在 settings.json 中配置的 override 目录
         match app {
             AppType::Claude => {
@@ -534,7 +629,8 @@ impl SkillService {
                     return Ok(custom.join("skills"));
                 }
             }
-            AppType::ClaudeDesktop => {}
+            AppType::Pi | AppType::DeepseekHarness | AppType::Workbuddy => {},
+            AppType::ClaudeDesktop => return Err(anyhow!("Claude Desktop skills must be uploaded through its account; no filesystem destination is available")),
             AppType::Codex => {
                 if let Some(custom) = crate::settings::get_codex_override_dir() {
                     return Ok(custom.join("skills"));
@@ -574,7 +670,18 @@ impl SkillService {
 
         Ok(match app {
             AppType::Claude => home.join(".claude").join("skills"),
-            AppType::ClaudeDesktop => home.join(".claude-desktop").join("skills"),
+            AppType::ClaudeDesktop => unreachable!(),
+            AppType::Pi => crate::external_agents::pi_path()
+                .map_err(anyhow::Error::msg)?
+                .parent()
+                .ok_or_else(|| anyhow!("Pi config has no parent"))?
+                .join("skills"),
+            AppType::DeepseekHarness => crate::agent_configs::home_path("deepseek-harness")
+                .map_err(anyhow::Error::msg)?
+                .parent()
+                .ok_or_else(|| anyhow!("Harness config has no parent"))?
+                .join("skills"),
+            AppType::Workbuddy => home.join(".codebuddy/skills"),
             AppType::Codex => home.join(".codex").join("skills"),
             AppType::Gemini => home.join(".gemini").join("skills"),
             AppType::GrokBuild => home.join(".grok").join("skills"),
@@ -602,8 +709,10 @@ impl SkillService {
         &self,
         db: &Arc<Database>,
         skill: &DiscoverableSkill,
-        current_app: &AppType,
+        current_app: impl Into<AppType>,
     ) -> Result<InstalledSkill> {
+        let current_app = &current_app.into();
+        Self::get_app_skills_dir(current_app)?;
         crate::access_protection::require_full_mode()?;
         let ssot_dir = Self::get_ssot_dir()?;
 
@@ -638,8 +747,8 @@ impl SkillService {
                     // 同一仓库的同名 skill，返回现有记录（可能需要更新启用状态）
                     let mut updated = existing.clone();
                     updated.apps.set_enabled_for(current_app, true);
-                    db.save_skill(&updated)?;
                     Self::sync_to_app_dir(&updated.directory, current_app)?;
+                    db.save_skill(&updated)?;
                     log::info!(
                         "Skill {} 已存在，更新 {:?} 启用状态",
                         updated.name,
@@ -789,10 +898,8 @@ impl SkillService {
         };
 
         // 保存到数据库
-        db.save_skill(&installed_skill)?;
-
-        // 同步到当前应用目录
         Self::sync_to_app_dir(&install_name, current_app)?;
+        db.save_skill(&installed_skill)?;
 
         log::info!(
             "Skill {} 安装成功，已启用 {:?}",
@@ -830,7 +937,7 @@ impl SkillService {
                     .map(|path| path.to_string_lossy().to_string());
 
                 // 从所有应用目录删除
-                for app in AppType::all() {
+                for app in AppType::skill_targets() {
                     let _ = Self::remove_from_app(&directory, &app);
                 }
 
@@ -1314,7 +1421,7 @@ impl SkillService {
         crate::settings::set_skill_storage_location(target)?;
 
         // 4. 刷新所有应用目录的 symlink（指向新 SSOT）
-        for app in AppType::all() {
+        for app in AppType::skill_targets() {
             let _ = Self::sync_to_app(db, &app);
         }
 
@@ -1384,8 +1491,10 @@ impl SkillService {
     pub fn restore_from_backup(
         db: &Arc<Database>,
         backup_id: &str,
-        current_app: &AppType,
+        current_app: impl Into<AppType>,
     ) -> Result<InstalledSkill> {
+        let current_app = &current_app.into();
+        Self::get_app_skills_dir(current_app)?;
         crate::access_protection::require_full_mode()?;
         let backup_path = Self::backup_path_for_id(backup_id)?;
         let metadata = Self::read_backup_metadata(&backup_path)?;
@@ -1461,7 +1570,13 @@ impl SkillService {
     ///
     /// 启用：复制到应用目录
     /// 禁用：从应用目录删除
-    pub fn toggle_app(db: &Arc<Database>, id: &str, app: &AppType, enabled: bool) -> Result<()> {
+    pub fn toggle_app(
+        db: &Arc<Database>,
+        id: &str,
+        app: impl Into<AppType>,
+        enabled: bool,
+    ) -> Result<()> {
+        let app = &app.into();
         crate::access_protection::require_full_mode()?;
         // 获取当前 skill
         let mut skill = db
@@ -1498,7 +1613,7 @@ impl SkillService {
 
         // 收集所有待扫描的目录及其来源标签
         let mut scan_sources: Vec<(PathBuf, String)> = Vec::new();
-        for app in AppType::all() {
+        for app in AppType::skill_targets() {
             if let Ok(d) = Self::get_app_skills_dir(&app) {
                 scan_sources.push((d, app.as_str().to_string()));
             }
@@ -1570,7 +1685,7 @@ impl SkillService {
 
         // 收集所有候选搜索目录
         let mut search_sources: Vec<(PathBuf, String)> = Vec::new();
-        for app in AppType::all() {
+        for app in AppType::skill_targets() {
             if let Ok(d) = Self::get_app_skills_dir(&app) {
                 search_sources.push((d, app.as_str().to_string()));
             }
@@ -1701,13 +1816,12 @@ impl SkillService {
     /// - Auto: 优先尝试 symlink，失败时回退到 copy
     /// - Symlink: 仅使用 symlink
     /// - Copy: 仅使用文件复制
-    pub fn sync_to_app_dir(directory: &str, app: &AppType) -> Result<()> {
+    pub fn sync_to_app_dir(directory: &str, app: impl Into<AppType>) -> Result<()> {
+        let app = &app.into();
         if crate::access_protection::lite_mode() {
             return Ok(());
         }
-        if matches!(app, AppType::ClaudeDesktop) {
-            return Ok(());
-        }
+        Self::get_app_skills_dir(app)?;
 
         // directory 可能来自被污染的 DB 行（如同步导入的远端快照），join 前必须校验。
         let directory = Self::require_valid_directory(directory)?;
@@ -1772,7 +1886,8 @@ impl SkillService {
 
     /// 复制 Skill 到应用目录（保留用于向后兼容）
     #[deprecated(note = "请使用 sync_to_app_dir() 代替")]
-    pub fn copy_to_app(directory: &str, app: &AppType) -> Result<()> {
+    pub fn copy_to_app(directory: &str, app: impl Into<AppType>) -> Result<()> {
+        let app = &app.into();
         crate::access_protection::require_full_mode()?;
         Self::sync_to_app_dir(directory, app)
     }
@@ -1880,11 +1995,10 @@ impl SkillService {
     }
 
     /// 从应用目录删除 Skill（支持 symlink 和真实目录）
-    pub fn remove_from_app(directory: &str, app: &AppType) -> Result<()> {
+    pub fn remove_from_app(directory: &str, app: impl Into<AppType>) -> Result<()> {
+        let app = &app.into();
         crate::access_protection::require_full_mode()?;
-        if matches!(app, AppType::ClaudeDesktop) {
-            return Ok(());
-        }
+        Self::get_app_skills_dir(app)?;
 
         // directory 可能来自被污染的 DB 行（如同步导入的远端快照），
         // 这里执行的是删除操作，join 前必须校验，防止任意目录删除。
@@ -1902,13 +2016,12 @@ impl SkillService {
     }
 
     /// 同步所有已启用的 Skills 到指定应用
-    pub fn sync_to_app(db: &Arc<Database>, app: &AppType) -> Result<()> {
+    pub fn sync_to_app(db: &Arc<Database>, app: impl Into<AppType>) -> Result<()> {
+        let app = &app.into();
         if crate::access_protection::lite_mode() {
             return Ok(());
         }
-        if matches!(app, AppType::ClaudeDesktop) {
-            return Ok(());
-        }
+        Self::get_app_skills_dir(app)?;
 
         let skills = db.get_all_installed_skills()?;
         let ssot_dir = Self::get_ssot_dir()?;
@@ -2834,7 +2947,7 @@ impl SkillService {
             return Ok(Some(ssot_path));
         }
 
-        for app in AppType::all() {
+        for app in AppType::skill_targets() {
             let app_dir = match Self::get_app_skills_dir(&app) {
                 Ok(dir) => dir,
                 Err(_) => continue,
@@ -3067,8 +3180,10 @@ impl SkillService {
     pub fn install_from_zip(
         db: &Arc<Database>,
         zip_path: &Path,
-        current_app: &AppType,
+        current_app: impl Into<AppType>,
     ) -> Result<Vec<InstalledSkill>> {
+        let current_app = &current_app.into();
+        Self::get_app_skills_dir(current_app)?;
         crate::access_protection::require_full_mode()?;
         // 解压到临时目录
         let temp_guard = Self::extract_local_zip(zip_path)?;
@@ -3566,7 +3681,7 @@ pub fn migrate_skills_to_ssot(db: &Arc<Database>) -> Result<usize> {
     }
 
     // 扫描各应用目录
-    for app in AppType::all() {
+    for app in AppType::skill_targets() {
         let app_dir = match SkillService::get_app_skills_dir(&app) {
             Ok(d) => d,
             Err(_) => continue,
@@ -4549,6 +4664,115 @@ mod tests {
             "skills dir must live under the overridden test home, got {}",
             dir.display()
         );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn extra_agents_materialize_toggle_and_remove_skills_in_their_own_directories() {
+        struct EnvGuard(Option<std::ffi::OsString>);
+        impl Drop for EnvGuard {
+            fn drop(&mut self) {
+                match self.0.take() {
+                    Some(v) => std::env::set_var("CC_SWITCH_TEST_HOME", v),
+                    None => std::env::remove_var("CC_SWITCH_TEST_HOME"),
+                }
+            }
+        }
+        let temp = tempdir().unwrap();
+        let _guard = EnvGuard(std::env::var_os("CC_SWITCH_TEST_HOME"));
+        std::env::set_var("CC_SWITCH_TEST_HOME", temp.path());
+        let db = Arc::new(Database::memory().unwrap());
+        let ssot = SkillService::get_ssot_dir().unwrap();
+        let source = ssot.join("adapter-test");
+        fs::create_dir_all(&source).unwrap();
+        fs::write(
+            source.join("SKILL.md"),
+            "---\nname: adapter-test\ndescription: test\n---\nDo the task.",
+        )
+        .unwrap();
+        let skill = InstalledSkill {
+            id: "adapter-test".into(),
+            name: "adapter-test".into(),
+            description: None,
+            directory: "adapter-test".into(),
+            repo_owner: None,
+            repo_name: None,
+            repo_branch: None,
+            readme_url: None,
+            apps: SkillApps::default(),
+            installed_at: 1,
+            content_hash: None,
+            updated_at: 0,
+        };
+        db.save_skill(&skill).unwrap();
+        let mut paths = std::collections::HashSet::new();
+        for target in [
+            AppType::OpenClaw,
+            AppType::Pi,
+            AppType::DeepseekHarness,
+            AppType::Workbuddy,
+        ] {
+            let path = SkillService::get_app_skills_dir(&target).unwrap();
+            assert!(
+                path.starts_with(temp.path().canonicalize().unwrap())
+                    || path.starts_with(temp.path())
+            );
+            assert!(paths.insert(path.clone()));
+            SkillService::toggle_app(&db, &skill.id, &target, true).unwrap();
+            assert!(path.join("adapter-test/SKILL.md").exists());
+            assert!(db
+                .get_installed_skill(&skill.id)
+                .unwrap()
+                .unwrap()
+                .apps
+                .is_enabled_for(&target));
+            SkillService::toggle_app(&db, &skill.id, &target, false).unwrap();
+            assert!(!path.join("adapter-test").exists());
+            assert!(!db
+                .get_installed_skill(&skill.id)
+                .unwrap()
+                .unwrap()
+                .apps
+                .is_enabled_for(&target));
+            assert!(source.join("SKILL.md").exists());
+        }
+        assert!(SkillService::toggle_app(&db, &skill.id, &AppType::ClaudeDesktop, true).is_err());
+        assert!(db
+            .get_installed_skill(&skill.id)
+            .unwrap()
+            .unwrap()
+            .apps
+            .is_empty());
+    }
+
+    #[test]
+    fn skill_zip_export_is_portable_and_includes_nested_resources() {
+        let temp = tempdir().unwrap();
+        fs::create_dir_all(temp.path().join("scripts")).unwrap();
+        fs::write(temp.path().join("SKILL.md"), "skill instructions").unwrap();
+        fs::write(temp.path().join("scripts/run.py"), "print('hello')").unwrap();
+        let bytes = SkillService::zip_directory(temp.path(), "example").unwrap();
+        let mut zip = zip::ZipArchive::new(std::io::Cursor::new(bytes)).unwrap();
+        assert_eq!(zip.len(), 2);
+        use std::io::Read;
+        let mut text = String::new();
+        zip.by_name("example/SKILL.md")
+            .unwrap()
+            .read_to_string(&mut text)
+            .unwrap();
+        assert_eq!(text, "skill instructions");
+        assert!(zip.by_name("example/scripts/run.py").is_ok());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn skill_zip_export_rejects_links_outside_the_bundle() {
+        let temp = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        fs::write(outside.path().join("secret"), "must not export").unwrap();
+        std::os::unix::fs::symlink(outside.path().join("secret"), temp.path().join("link"))
+            .unwrap();
+        assert!(SkillService::zip_directory(temp.path(), "example").is_err());
     }
 
     #[test]

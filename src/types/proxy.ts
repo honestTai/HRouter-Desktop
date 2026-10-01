@@ -42,6 +42,9 @@ export interface ProxyServerInfo {
 }
 
 export interface ProxyTakeoverStatus {
+  pi?: boolean;
+  "deepseek-harness"?: boolean;
+  workbuddy?: boolean;
   claude: boolean;
   "claude-desktop"?: boolean;
   codex: boolean;

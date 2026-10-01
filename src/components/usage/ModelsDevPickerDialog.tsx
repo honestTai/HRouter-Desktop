@@ -251,12 +251,14 @@ export function ModelsDevPickerDialog({
                 ) : (
                   <div className="divide-y divide-border/30">
                     {visible.map((entry) => (
-                      <div
+                      <Button
+                        variant="ghost"
+                        size="auto"
                         key={entry.key}
                         role="button"
                         aria-pressed={selected?.key === entry.key}
                         onClick={() => toggleEntry(entry)}
-                        className={`flex cursor-pointer items-center gap-3 px-3 py-2 ${
+                        className={`flex w-full cursor-pointer items-center justify-start gap-3 px-3 py-2 text-left ${
                           selected?.key === entry.key
                             ? "bg-accent/50"
                             : "hover:bg-muted/40"
@@ -302,7 +304,7 @@ export function ModelsDevPickerDialog({
                             </div>
                           ))}
                         </div>
-                      </div>
+                      </Button>
                     ))}
                     {filtered.length > visible.length && (
                       <div className="px-3 py-2 text-center text-xs text-muted-foreground">

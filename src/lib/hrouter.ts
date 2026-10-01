@@ -1,3 +1,4 @@
+import { isFileAgent } from "@/config/fileAgents";
 import type { AppId } from "@/lib/api";
 import type { FetchedModel } from "@/lib/api/model-fetch";
 import type {
@@ -40,6 +41,9 @@ export const HROUTER_APP_NAMES: Record<AppId, string> = {
   opencode: "OpenCode",
   openclaw: "OpenClaw",
   hermes: "Hermes",
+  pi: "Pi Agent",
+  "deepseek-harness": "DeepSeek Harness",
+  workbuddy: "WorkBuddy",
 };
 
 export interface HRouterModelMapping {
@@ -350,6 +354,16 @@ export function buildHRouterSettingsConfig(
   ].filter(Boolean);
 
   switch (appId) {
+    case "pi":
+    case "deepseek-harness":
+    case "workbuddy":
+      return {
+        baseUrl: `${HROUTER_ORIGIN}/v1`,
+        model: mapping.primary,
+        api: "openai-completions",
+        credentialMode: "literal",
+        credential: key,
+      };
     case "claude":
     case "claude-desktop":
       return {
@@ -627,6 +641,12 @@ export function extractHRouterProviderState(
   let codexContextConfig = resolveHRouterCodexContextConfig();
 
   switch (appId) {
+    case "pi":
+    case "deepseek-harness":
+    case "workbuddy":
+      apiKey = asString(config.credential);
+      primary = asString(config.model);
+      break;
     case "claude":
     case "claude-desktop":
       apiKey = firstNonEmpty(env.ANTHROPIC_AUTH_TOKEN, env.ANTHROPIC_API_KEY);
@@ -702,13 +722,17 @@ export function buildHRouterProviderMeta(
 ): ProviderMeta {
   const meta: ProviderMeta = {
     providerType: "hrouter",
-    usage_script: buildHRouterUsageScript(apiKey),
+    usage_script: isFileAgent(appId)
+      ? undefined
+      : buildHRouterUsageScript(apiKey),
     apiFormat:
       appId === "claude" || appId === "claude-desktop"
         ? "anthropic"
         : appId === "codex" || appId === "grokbuild"
           ? "openai_responses"
-          : undefined,
+          : isFileAgent(appId)
+            ? "openai_chat"
+            : undefined,
   };
 
   if (appId === "claude-desktop") {

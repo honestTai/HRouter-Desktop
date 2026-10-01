@@ -1,3 +1,5 @@
+import { AgentResourceContext } from "@/components/common/AgentResourceContext";
+import { SKILLS_APP_IDS } from "@/config/appConfig";
 import {
   useState,
   useMemo,
@@ -46,6 +48,7 @@ export type SkillsPageSource = "repos" | "skillssh";
 
 interface SkillsPageProps {
   initialApp?: AppId;
+  onAppChange?: (app: AppId) => void;
   onSourceChange?: (source: SkillsPageSource) => void;
 }
 
@@ -91,7 +94,7 @@ const SKILLSSH_PAGE_SIZE = 20;
  * 用于浏览和安装来自仓库或 skills.sh 的 Skills
  */
 export const SkillsPage = forwardRef<SkillsPageHandle, SkillsPageProps>(
-  ({ initialApp = "claude", onSourceChange }, ref) => {
+  ({ initialApp = "claude", onAppChange, onSourceChange }, ref) => {
     const { t } = useTranslation();
     const [repoManagerOpen, setRepoManagerOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -234,6 +237,10 @@ export const SkillsPage = forwardRef<SkillsPageHandle, SkillsPageProps>(
     });
 
     const handleInstall = async (key: string) => {
+      if (!SKILLS_APP_IDS.some((id) => id === currentApp)) {
+        toast.error(t("agentContext.unsupported"));
+        return;
+      }
       let skill: DiscoverableSkill | undefined;
 
       if (searchSource === "skillssh") {
@@ -371,6 +378,12 @@ export const SkillsPage = forwardRef<SkillsPageHandle, SkillsPageProps>(
         {/* 技能网格（可滚动详情区域） */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden animate-fade-in">
           <div className="py-4">
+            <AgentResourceContext
+              app={currentApp}
+              supported={SKILLS_APP_IDS}
+              onAppChange={onAppChange}
+              disabled={installMutation.isPending}
+            />
             {/* 搜索来源切换 + 搜索框 */}
             <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center">
               {/* 来源切换 */}

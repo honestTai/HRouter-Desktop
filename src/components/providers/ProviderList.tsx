@@ -1,3 +1,4 @@
+import { invalidateAgentContext } from "@/lib/query/agentContext";
 import { CSS } from "@dnd-kit/utilities";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import {
@@ -229,7 +230,7 @@ export function ProviderList({
     },
     onSuccess: (imported) => {
       if (imported) {
-        queryClient.invalidateQueries({ queryKey: ["providers", appId] });
+        void invalidateAgentContext(queryClient, appId);
         if (appId === "claude-desktop") {
           queryClient.invalidateQueries({ queryKey: ["claudeDesktopStatus"] });
         }
@@ -264,6 +265,7 @@ export function ProviderList({
 
       if (key === "escape") {
         setIsSearchOpen(false);
+        setSearchTerm("");
       }
     };
 
@@ -452,7 +454,12 @@ export function ProviderList({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setIsSearchOpen(true)}
+          onClick={() => {
+            if (isSearchOpen) setSearchTerm("");
+            setIsSearchOpen((open) => !open);
+          }}
+          aria-expanded={isSearchOpen}
+          aria-controls="provider-search-panel"
         >
           <Search className="h-3.5 w-3.5" />
           {t("provider.searchAriaLabel", { defaultValue: "Search providers" })}
@@ -477,13 +484,14 @@ export function ProviderList({
         {isSearchOpen && (
           <motion.div
             key="provider-search"
+            id="provider-search-panel"
             initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="fixed left-1/2 top-[6.5rem] z-40 w-[min(90vw,26rem)] -translate-x-1/2 sm:right-6 sm:left-auto sm:translate-x-0"
+            className="w-full"
           >
-            <div className="p-4 space-y-3 border shadow-md rounded-2xl border-border bg-card shadow-lg">
+            <div className="space-y-3 rounded-xl border border-border bg-card p-4">
               <div className="relative flex items-center gap-2">
                 <Search className="absolute w-4 h-4 -translate-y-1/2 pointer-events-none left-3 top-1/2 text-muted-foreground" />
                 <Input
@@ -512,7 +520,10 @@ export function ProviderList({
                   variant="ghost"
                   size="icon"
                   className="ml-auto"
-                  onClick={() => setIsSearchOpen(false)}
+                  onClick={() => {
+                    setIsSearchOpen(false);
+                    setSearchTerm("");
+                  }}
                   aria-label={t("provider.searchCloseAriaLabel", {
                     defaultValue: "Close provider search",
                   })}

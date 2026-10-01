@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { APP_IDS, APP_ICON_MAP } from "@/config/appConfig";
+import { AgentPicker } from "@/components/common/AgentPicker";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { AppId } from "@/lib/api";
@@ -24,18 +26,26 @@ type Action = {
   profile: Profile;
   scope: ProfileScope;
 };
-const SCOPES: ProfileScope[] = ["claude", "claude-desktop", "codex"];
-const LABELS = {
-  claude: "Claude Code",
-  "claude-desktop": "Claude Desktop",
-  codex: "Codex",
-};
+const SCOPES = APP_IDS;
+const LABELS = Object.fromEntries(
+  APP_IDS.map((id) => [id, APP_ICON_MAP[id].label]),
+) as Record<AppId, string>;
 
-export function ProfilesPage({ activeApp }: { activeApp: AppId }) {
+export function ProfilesPage({
+  activeApp,
+  onAppChange,
+}: {
+  activeApp: AppId;
+  onAppChange?: (app: AppId) => void;
+}) {
   const { t } = useTranslation();
-  const [scope, setScope] = useState<ProfileScope>(
+  const [localScope, setScope] = useState<ProfileScope>(
     APP_PROFILE_SCOPE[activeApp] ?? "claude",
   );
+  const scope = onAppChange ? activeApp : localScope;
+  useEffect(() => {
+    setScope(activeApp);
+  }, [activeApp]);
   const [name, setName] = useState("");
   const [search, setSearch] = useState("");
   const [action, setAction] = useState<Action | null>(null);
@@ -67,7 +77,11 @@ export function ProfilesPage({ activeApp }: { activeApp: AppId }) {
   const profiles = list.data?.profiles ?? [];
   const currentId =
     list.data?.currentIds?.[
-      scope === "claude-desktop" ? "claudeDesktop" : scope
+      scope === "claude-desktop"
+        ? "claudeDesktop"
+        : scope === "deepseek-harness"
+          ? "deepseekHarness"
+          : scope
     ];
   const label = (id: string | null | undefined) =>
     id ? (live.data?.providers[id]?.name ?? id) : t("accessPlans.unchanged");
@@ -114,10 +128,9 @@ export function ProfilesPage({ activeApp }: { activeApp: AppId }) {
         }),
         ...(action.kind === "apply"
           ? [
-              `${t("accessPlans.provider")}: ${label(live.data?.current)} → ${label(action.profile.payload.providers[action.scope])}`,
-              `MCP: ${action.profile.payload.mcp[action.scope]?.join(", ") || (action.profile.payload.mcp[action.scope] === null ? t("accessPlans.unchanged") : t("accessPlans.empty"))}`,
-              `Skills: ${action.profile.payload.skills[action.scope]?.join(", ") || (action.profile.payload.skills[action.scope] === null ? t("accessPlans.unchanged") : t("accessPlans.empty"))}`,
-              `${t("accessPlans.prompt")}: ${action.profile.payload.prompts[action.scope] || t("accessPlans.unchanged")}`,
+              `${t("accessPlans.provider")}: ${label(live.data?.current)} → ${action.profile.payload.enabled_providers?.[action.scope]?.map(label).join(", ") ?? label(action.profile.payload.providers[action.scope])}`,
+              `MCP: ${action.profile.payload.mcp[action.scope]?.join(", ") || (action.profile.payload.mcp[action.scope] == null ? t("accessPlans.unchanged") : t("accessPlans.empty"))}`,
+              `Skills: ${action.profile.payload.skills[action.scope]?.join(", ") || (action.profile.payload.skills[action.scope] == null ? t("accessPlans.unchanged") : t("accessPlans.empty"))}`,
             ]
           : []),
       ].join("\n")
@@ -140,29 +153,15 @@ export function ProfilesPage({ activeApp }: { activeApp: AppId }) {
             {t("accessPlans.supported")}
           </p>
         )}
-        <div className="grid gap-2 sm:grid-cols-3">
-          {SCOPES.map((id) => (
-            <button
-              key={id}
-              type="button"
-              disabled={busy || !!action}
-              aria-pressed={scope === id}
-              onClick={() => {
-                setScope(id);
-                setFailure("");
-                setWarnings([]);
-              }}
-              className={cn(
-                "rounded-lg border p-4 text-left text-sm font-medium disabled:opacity-50",
-                scope === id
-                  ? "border-primary bg-primary/5"
-                  : "border-border bg-card",
-              )}
-            >
-              {LABELS[id]}
-            </button>
-          ))}
-        </div>
+        <AgentPicker
+          value={scope}
+          supported={SCOPES}
+          disabled={busy}
+          onChange={(app) => {
+            setScope(app);
+            onAppChange?.(app);
+          }}
+        />
         {list.isError && (
           <div
             role="alert"
@@ -259,7 +258,7 @@ export function ProfilesPage({ activeApp }: { activeApp: AppId }) {
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {hasScopeSnapshot(profile, scope)
-                    ? `${t("accessPlans.provider")}: ${label(profile.payload.providers[scope])}`
+                    ? `${t("accessPlans.provider")}: ${profile.payload.enabled_providers?.[scope]?.map(label).join(", ") ?? label(profile.payload.providers[scope])}`
                     : t("accessPlans.noSnapshot")}
                 </p>
                 <p className="text-xs text-muted-foreground">

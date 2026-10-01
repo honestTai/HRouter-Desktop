@@ -299,12 +299,20 @@ impl Database {
         )
         .map_err(|e| AppError::Database(e.to_string()))?;
 
-        tx.execute(
-            "UPDATE providers SET is_current = 1 WHERE id = ?1 AND app_type = ?2",
-            params![id, app_type],
-        )
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        let changed = tx
+            .execute(
+                "UPDATE providers SET is_current = 1 WHERE id = ?1 AND app_type = ?2",
+                params![id, app_type],
+            )
+            .map_err(|e| AppError::Database(e.to_string()))?;
 
+        // Empty id is the explicit clear marker used by configuration rollback.
+        // A foreign/missing provider must not silently clear this Agent's current provider.
+        if !id.is_empty() && changed != 1 {
+            return Err(AppError::InvalidInput(format!(
+                "Provider '{id}' does not exist for Agent '{app_type}'"
+            )));
+        }
         tx.commit().map_err(|e| AppError::Database(e.to_string()))?;
         Ok(())
     }
@@ -824,5 +832,53 @@ mod ensure_official_seed_tests {
         let result =
             db.ensure_official_seed_by_id(CLAUDE_DESKTOP_OFFICIAL_PROVIDER_ID, AppType::Claude);
         assert!(result.is_err(), "(id, app_type) mismatch should be Err");
+    }
+}
+
+#[cfg(test)]
+mod agent_scope_tests {
+    use super::*;
+    #[test]
+    fn same_provider_ids_and_invalid_switches_cannot_cross_agent_boundaries() -> Result<(), AppError>
+    {
+        let db = Database::memory()?;
+        let apps = [
+            "claude",
+            "claude-desktop",
+            "codex",
+            "gemini",
+            "grokbuild",
+            "opencode",
+            "openclaw",
+            "hermes",
+            "pi",
+            "deepseek-harness",
+            "workbuddy",
+        ];
+        {
+            let conn = lock_conn!(db.conn);
+            for app in apps {
+                conn.execute("INSERT INTO providers (id,app_type,name,settings_config) VALUES ('shared',?1,?1,'{}')",[app])?;
+            }
+            conn.execute("INSERT INTO providers (id,app_type,name,settings_config) VALUES ('codex-only','codex','Codex private','{}')",[])?;
+        }
+        for app in apps {
+            db.set_current_provider(app, "shared")?;
+            assert_eq!(db.get_all_providers(app)?["shared"].name, app);
+        }
+        assert!(db.set_current_provider("pi", "codex-only").is_err());
+        assert!(db.set_current_provider("gemini", "missing").is_err());
+        for app in apps {
+            assert_eq!(db.get_current_provider(app)?.as_deref(), Some("shared"));
+        }
+        db.set_current_provider("pi", "")?;
+        assert_eq!(db.get_current_provider("pi")?, None);
+        assert_eq!(db.get_current_provider("codex")?.as_deref(), Some("shared"));
+        db.delete_provider("pi", "shared")?;
+        assert!(db.get_all_providers("pi")?.is_empty());
+        for app in apps.into_iter().filter(|app| *app != "pi") {
+            assert!(db.get_all_providers(app)?.contains_key("shared"));
+        }
+        Ok(())
     }
 }

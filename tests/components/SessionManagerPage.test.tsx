@@ -150,6 +150,19 @@ const expandDirectoryGroup = (provider: string, directory: string) => {
 };
 
 describe("SessionManagerPage", () => {
+  it("keeps the workspace full width with shrinkable detail columns", async () => {
+    renderPage();
+    expect(screen.getByTestId("session-workspace")).toHaveClass(
+      "w-full",
+      "min-h-0",
+      "flex-1",
+    );
+    expect(await screen.findByText("Alpha Session")).toBeVisible();
+    expect(
+      screen.getByRole("combobox", { name: "供应商筛选" }),
+    ).toHaveTextContent("codex");
+  });
+
   beforeEach(() => {
     toastSuccessMock.mockReset();
     toastErrorMock.mockReset();
@@ -247,6 +260,33 @@ describe("SessionManagerPage", () => {
     expect(screen.queryByText("Alpha Session")).not.toBeInTheDocument();
     expect(toastErrorMock).not.toHaveBeenCalled();
     expect(toastSuccessMock).toHaveBeenCalled();
+  });
+
+  it("keeps read-only history viewable but excludes it from destructive actions", async () => {
+    setSessionFixtures(
+      [
+        {
+          providerId: "deepseek-harness",
+          sessionId: "harness-readonly",
+          title: "Harness history",
+          sourcePath: "/mock/dsh/2026/session.jsonl",
+          readOnly: true,
+        },
+      ],
+      {},
+    );
+    renderPage("deepseek-harness");
+    expect(
+      await screen.findByRole("heading", { name: "Harness history" }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: /删除会话/i })).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: /批量管理/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /批量删除/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("confirm-dialog")).not.toBeInTheDocument();
   });
 
   it("removes a deleted session from filtered search results", async () => {

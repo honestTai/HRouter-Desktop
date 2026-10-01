@@ -1,3 +1,5 @@
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import React, { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -40,7 +42,7 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
         {label} {required && "*"}
       </label>
       <div className="relative">
-        <input
+        <Input
           type={showKey ? "text" : "password"}
           id={id}
           value={value}
@@ -52,14 +54,16 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
           className={inputClass}
         />
         {!disabled && value && (
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             type="button"
             onClick={toggleShowKey}
             className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground transition-colors"
             aria-label={showKey ? t("apiKeyInput.hide") : t("apiKeyInput.show")}
           >
             {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
+          </Button>
         )}
       </div>
     </div>

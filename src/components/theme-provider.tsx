@@ -44,6 +44,22 @@ export function ThemeProvider({
 
   const [theme, setThemeState] = useState<Theme>(getInitialTheme);
 
+  // The usage widget is a separate WebView; preferences must stay in sync.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== storageKey) return;
+      if (
+        event.newValue === "light" ||
+        event.newValue === "dark" ||
+        event.newValue === "system"
+      ) {
+        setThemeState(event.newValue);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [storageKey]);
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;

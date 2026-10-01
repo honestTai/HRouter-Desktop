@@ -154,7 +154,9 @@ function ModelCombobox({
   return (
     <Popover modal open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
+        <Button
+          variant="ghost"
+          size="auto"
           type="button"
           role="combobox"
           aria-expanded={open}
@@ -175,7 +177,7 @@ function ModelCombobox({
             )}
             <ChevronsUpDown className="h-3.5 w-3.5 opacity-50" />
           </span>
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent
         side="bottom"
@@ -1067,28 +1069,35 @@ export function OmoFormFields({
     badge?: React.ReactNode | string;
     action?: React.ReactNode;
   }) => (
-    <button
-      type="button"
-      className="flex items-center justify-between w-full py-2 px-3 text-left"
-      onClick={onToggle}
-    >
-      <div className="flex items-center gap-2">
-        {isOpen ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        )}
-        <Label className="text-sm font-semibold cursor-pointer">{title}</Label>
-        {typeof badge === "string" ? (
-          <Badge variant="outline" className="text-[10px] h-5">
-            {badge}
-          </Badge>
-        ) : (
-          badge
-        )}
-      </div>
-      {action && <div onClick={(e) => e.stopPropagation()}>{action}</div>}
-    </button>
+    <div className="flex items-center justify-between gap-2 px-3 py-2">
+      <Button
+        variant="ghost"
+        size="auto"
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className="min-w-0 flex-1 justify-start text-left"
+      >
+        <div className="flex items-center gap-2">
+          {isOpen ? (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          )}
+          <Label className="text-sm font-semibold cursor-pointer">
+            {title}
+          </Label>
+          {typeof badge === "string" ? (
+            <Badge variant="outline" className="text-[10px] h-5">
+              {badge}
+            </Badge>
+          ) : (
+            badge
+          )}
+        </div>
+      </Button>
+      {action}
+    </div>
   );
 
   const renderModelSection = ({

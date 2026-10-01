@@ -1,3 +1,4 @@
+import { APP_IDS } from "@/config/appConfig";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -74,16 +75,7 @@ import {
 import { useAddProviderMutation } from "@/lib/query";
 import { extractErrorMessage } from "@/utils/errorUtils";
 
-const importApps: AppId[] = [
-  "codex",
-  "claude",
-  "claude-desktop",
-  "gemini",
-  "grokbuild",
-  "opencode",
-  "openclaw",
-  "hermes",
-];
+const importApps = APP_IDS;
 
 const emptyMapping: HRouterModelMapping = {
   primary: "",

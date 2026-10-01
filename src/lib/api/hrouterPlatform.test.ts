@@ -62,6 +62,47 @@ describe("HRouter platform API", () => {
     );
   });
 
+  it("keeps a TOTP challenge unauthenticated until the six-digit verification completes", async () => {
+    tauriMocks.invoke.mockResolvedValueOnce({
+      status: 200,
+      data: {
+        code: 0,
+        data: { requires_2fa: true, temp_token: "temporary-only" },
+      },
+    });
+    expect(
+      await hrouterAuthApi.login("user@example.com", "password123"),
+    ).toEqual({ requires2FA: true, tempToken: "temporary-only" });
+    expect(getHRouterSession()).toBeNull();
+    expect(localStorage.getItem("hrouter-account-session")).toBeNull();
+    tauriMocks.invoke.mockResolvedValueOnce({
+      status: 200,
+      data: { code: 0, data: { access_token: "verified", user: { id: 7 } } },
+    });
+    await hrouterAuthApi.login2FA("temporary-only", "123456");
+    expect(tauriMocks.invoke).toHaveBeenLastCalledWith(
+      "hrouter_platform_request",
+      expect.objectContaining({
+        request: expect.objectContaining({
+          path: "/auth/login/2fa",
+          body: { temp_token: "temporary-only", totp_code: "123456" },
+        }),
+      }),
+    );
+    expect(getHRouterSession()?.accessToken).toBe("verified");
+  });
+
+  it("rejects malformed successful login payloads instead of saving a false session", async () => {
+    tauriMocks.invoke.mockResolvedValueOnce({
+      status: 200,
+      data: { code: 0, data: { user: { id: 7 } } },
+    });
+    await expect(
+      hrouterAuthApi.login("user@example.com", "pw"),
+    ).rejects.toThrow("Invalid authentication response");
+    expect(getHRouterSession()).toBeNull();
+  });
+
   it("refreshes an expired account token before loading usage", async () => {
     saveHRouterSession({
       accessToken: "expired-access",

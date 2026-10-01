@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import React from "react";
 import { RefreshCw, AlertCircle, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -135,14 +136,16 @@ export const SubscriptionQuotaView: React.FC<SubscriptionQuotaViewProps> = ({
             <AlertCircle size={12} />
             <span>{t("subscription.expired")}</span>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={() => refetch()}
             disabled={loading}
             className="p-1 rounded hover:bg-muted transition-colors disabled:opacity-50 flex-shrink-0"
             title={t("subscription.refresh")}
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          </button>
+          </Button>
         </div>
       );
     }
@@ -158,14 +161,16 @@ export const SubscriptionQuotaView: React.FC<SubscriptionQuotaViewProps> = ({
               </span>
             </div>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={() => refetch()}
             disabled={loading}
             className="p-1 rounded hover:bg-amber-100 dark:hover:bg-amber-800/30 transition-colors disabled:opacity-50 flex-shrink-0"
             title={t("subscription.refresh")}
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -180,14 +185,16 @@ export const SubscriptionQuotaView: React.FC<SubscriptionQuotaViewProps> = ({
             <AlertCircle size={12} />
             <span>{t("subscription.queryFailed")}</span>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={() => refetch()}
             disabled={loading}
             className="p-1 rounded hover:bg-muted transition-colors disabled:opacity-50 flex-shrink-0"
             title={t("subscription.refresh")}
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          </button>
+          </Button>
         </div>
       );
     }
@@ -198,14 +205,16 @@ export const SubscriptionQuotaView: React.FC<SubscriptionQuotaViewProps> = ({
             <AlertCircle size={14} />
             <span>{quota.error || t("subscription.queryFailed")}</span>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={() => refetch()}
             disabled={loading}
             className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 flex-shrink-0"
             title={t("subscription.refresh")}
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -229,7 +238,9 @@ export const SubscriptionQuotaView: React.FC<SubscriptionQuotaViewProps> = ({
               ? formatRelativeTime(quota.queriedAt, now, t)
               : t("usage.never", { defaultValue: "从未更新" })}
           </span>
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={(e) => {
               e.stopPropagation();
               refetch();
@@ -239,7 +250,7 @@ export const SubscriptionQuotaView: React.FC<SubscriptionQuotaViewProps> = ({
             title={t("subscription.refresh")}
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          </button>
+          </Button>
         </div>
 
         {/* 第二行：各 tier 使用百分比 */}
@@ -268,14 +279,16 @@ export const SubscriptionQuotaView: React.FC<SubscriptionQuotaViewProps> = ({
               {formatRelativeTime(quota.queriedAt, now, t)}
             </span>
           )}
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={() => refetch()}
             disabled={loading}
             className="p-1 rounded hover:bg-muted transition-colors disabled:opacity-50"
             title={t("subscription.refresh")}
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          </button>
+          </Button>
         </div>
       </div>
 

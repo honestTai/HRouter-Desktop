@@ -1,3 +1,5 @@
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -251,50 +253,27 @@ const McpWizardModal: React.FC<McpWizardModalProps> = ({
               <label className="mb-2 block text-sm font-medium text-foreground">
                 {t("mcp.wizard.type")} <span className="text-red-500">*</span>
               </label>
-              <div className="flex gap-4">
-                <label className="inline-flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="stdio"
-                    checked={wizardType === "stdio"}
-                    onChange={(e) =>
-                      setWizardType(e.target.value as "stdio" | "http" | "sse")
-                    }
-                    className="w-4 h-4 accent-blue-500"
-                  />
-                  <span className="text-sm text-foreground">
+              <Tabs
+                value={wizardType}
+                onValueChange={(value) =>
+                  setWizardType(value as "stdio" | "http" | "sse")
+                }
+              >
+                <TabsList
+                  className="grid w-full grid-cols-3"
+                  aria-label={t("mcp.wizard.type")}
+                >
+                  <TabsTrigger value="stdio">
                     {t("mcp.wizard.typeStdio")}
-                  </span>
-                </label>
-                <label className="inline-flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="http"
-                    checked={wizardType === "http"}
-                    onChange={(e) =>
-                      setWizardType(e.target.value as "stdio" | "http" | "sse")
-                    }
-                    className="w-4 h-4 accent-blue-500"
-                  />
-                  <span className="text-sm text-foreground">
+                  </TabsTrigger>
+                  <TabsTrigger value="http">
                     {t("mcp.wizard.typeHttp")}
-                  </span>
-                </label>
-                <label className="inline-flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="sse"
-                    checked={wizardType === "sse"}
-                    onChange={(e) =>
-                      setWizardType(e.target.value as "stdio" | "http" | "sse")
-                    }
-                    className="w-4 h-4 accent-blue-500"
-                  />
-                  <span className="text-sm text-foreground">
+                  </TabsTrigger>
+                  <TabsTrigger value="sse">
                     {t("mcp.wizard.typeSse")}
-                  </span>
-                </label>
-              </div>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
 
             {/* Title */}
@@ -336,7 +315,7 @@ const McpWizardModal: React.FC<McpWizardModalProps> = ({
                   <label className="mb-1 block text-sm font-medium text-foreground">
                     {t("mcp.wizard.args")}
                   </label>
-                  <textarea
+                  <Textarea
                     value={wizardArgs}
                     onChange={(e) => setWizardArgs(e.target.value)}
                     placeholder={t("mcp.wizard.argsPlaceholder")}
@@ -350,7 +329,7 @@ const McpWizardModal: React.FC<McpWizardModalProps> = ({
                   <label className="mb-1 block text-sm font-medium text-foreground">
                     {t("mcp.wizard.env")}
                   </label>
-                  <textarea
+                  <Textarea
                     value={wizardEnv}
                     onChange={(e) => setWizardEnv(e.target.value)}
                     placeholder={t("mcp.wizard.envPlaceholder")}
@@ -385,7 +364,7 @@ const McpWizardModal: React.FC<McpWizardModalProps> = ({
                   <label className="mb-1 block text-sm font-medium text-foreground">
                     {t("mcp.wizard.headers")}
                   </label>
-                  <textarea
+                  <Textarea
                     value={wizardHeaders}
                     onChange={(e) => setWizardHeaders(e.target.value)}
                     placeholder={t("mcp.wizard.headersPlaceholder")}

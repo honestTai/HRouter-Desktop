@@ -38,6 +38,7 @@ fn is_allowed_request(method: &Method, path: &str) -> bool {
     match (method, path) {
         (&Method::GET, "/settings/public")
         | (&Method::POST, "/auth/login")
+        | (&Method::POST, "/auth/login/2fa")
         | (&Method::POST, "/auth/register")
         | (&Method::POST, "/auth/send-verify-code")
         | (&Method::POST, "/auth/refresh")
@@ -68,6 +69,7 @@ fn is_allowed_request(method: &Method, path: &str) -> bool {
             true
         }
         (&Method::POST, path) if is_numeric_path(path, "/payment/orders/", "/cancel") => true,
+        (&Method::GET, path) if is_numeric_path(path, "/payment/orders/", "") => true,
         (&Method::POST, path) if is_numeric_path(path, "/announcements/", "/read") => true,
         _ => false,
     }
@@ -78,6 +80,7 @@ fn is_public_request(method: &Method, path: &str) -> bool {
         (method, path),
         (&Method::GET, "/settings/public")
             | (&Method::POST, "/auth/login")
+            | (&Method::POST, "/auth/login/2fa")
             | (&Method::POST, "/auth/register")
             | (&Method::POST, "/auth/send-verify-code")
             | (&Method::POST, "/auth/refresh")
@@ -191,6 +194,14 @@ mod tests {
         assert!(is_allowed_request(
             &Method::POST,
             "/payment/orders/18/cancel"
+        ));
+        assert!(is_allowed_request(&Method::POST, "/auth/login/2fa"));
+        assert!(is_public_request(&Method::POST, "/auth/login/2fa"));
+        assert!(is_allowed_request(&Method::GET, "/payment/orders/18"));
+        assert!(!is_public_request(&Method::GET, "/payment/orders/18"));
+        assert!(!is_allowed_request(
+            &Method::GET,
+            "/payment/orders/../admin"
         ));
         assert!(!is_allowed_request(&Method::GET, "/admin/users"));
         assert!(!is_allowed_request(&Method::DELETE, "/keys/all"));

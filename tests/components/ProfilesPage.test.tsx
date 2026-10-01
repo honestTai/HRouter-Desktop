@@ -101,7 +101,7 @@ describe("Access profiles using real query/mutation hooks", () => {
     fireEvent.click(button);
     const dialog = screen.getByRole("dialog");
     expect(
-      within(dialog).getByText(/关闭此 Agent 的本地接管/),
+      within(dialog).getByText(/关闭该 Agent 已启用的本地接管/),
     ).toBeInTheDocument();
     expect(apply).not.toHaveBeenCalled();
     fireEvent.click(within(dialog).getByRole("button", { name: "确定" }));

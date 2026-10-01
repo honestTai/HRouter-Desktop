@@ -1,7 +1,8 @@
+use crate::ResourceTarget as AppType;
 use indexmap::IndexMap;
 use std::collections::HashMap;
 
-use crate::app_config::{AppType, McpServer};
+use crate::app_config::McpServer;
 use crate::error::AppError;
 use crate::mcp;
 use crate::store::AppState;
@@ -26,8 +27,22 @@ impl McpService {
             .map(|s| s.apps.clone())
             .unwrap_or_default();
 
-        state.db.save_mcp_server(&server)?;
-
+        // Validate all newly integrated native targets before mutating any destination.
+        for app in [
+            AppType::ClaudeDesktop,
+            AppType::OpenClaw,
+            AppType::Pi,
+            AppType::DeepseekHarness,
+            AppType::Workbuddy,
+        ] {
+            if prev_apps.is_enabled_for(&app) || server.apps.is_enabled_for(&app) {
+                crate::mcp::extra::preflight(
+                    app.as_str(),
+                    &server.id,
+                    server.apps.is_enabled_for(&app).then_some(&server.server),
+                )?;
+            }
+        }
         // 处理禁用：若旧版本启用但新版本取消，则需要从该应用的 live 配置移除
         if prev_apps.claude && !server.apps.claude {
             Self::remove_server_from_app(state, &server.id, &AppType::Claude)?;
@@ -48,8 +63,21 @@ impl McpService {
             Self::remove_server_from_app(state, &server.id, &AppType::Hermes)?;
         }
 
+        for app in [
+            AppType::ClaudeDesktop,
+            AppType::OpenClaw,
+            AppType::Workbuddy,
+            AppType::DeepseekHarness,
+            AppType::Pi,
+        ] {
+            if prev_apps.is_enabled_for(&app) && !server.apps.is_enabled_for(&app) {
+                Self::remove_server_from_app(state, &server.id, &app)?;
+            }
+        }
+
         // 同步到各个启用的应用
         Self::sync_server_to_apps(state, &server)?;
+        state.db.save_mcp_server(&server)?;
 
         Ok(())
     }
@@ -60,10 +88,9 @@ impl McpService {
         let server = state.db.get_all_mcp_servers()?.shift_remove(id);
 
         if let Some(server) = server {
-            state.db.delete_mcp_server(id)?;
-
-            // 从所有应用的 live 配置中移除
+            // Retain the managed record when a native removal fails, so users can retry.
             Self::remove_server_from_all_apps(state, id, &server)?;
+            state.db.delete_mcp_server(id)?;
             Ok(true)
         } else {
             Ok(false)
@@ -74,21 +101,24 @@ impl McpService {
     pub fn toggle_app(
         state: &AppState,
         server_id: &str,
-        app: AppType,
+        app: impl Into<AppType>,
         enabled: bool,
     ) -> Result<(), AppError> {
+        let app = app.into();
         crate::access_protection::require_full_mode()?;
-        if let Some(server) = state
+        let server = state
             .db
-            .update_mcp_server_app_enabled(server_id, &app, enabled)?
-        {
-            // 同步到对应应用
-            if enabled {
-                Self::sync_server_to_app(state, &server, &app)?;
-            } else {
-                Self::remove_server_from_app(state, server_id, &app)?;
-            }
+            .get_all_mcp_servers()?
+            .shift_remove(server_id)
+            .ok_or_else(|| AppError::InvalidInput("MCP server no longer exists".into()))?;
+        if enabled {
+            Self::sync_server_to_app(state, &server, &app)?;
+        } else {
+            Self::remove_server_from_app(state, server_id, &app)?;
         }
+        state
+            .db
+            .update_mcp_server_app_enabled(server_id, &app, enabled)?;
 
         Ok(())
     }
@@ -119,8 +149,12 @@ impl McpService {
             AppType::Claude => {
                 mcp::sync_single_server_to_claude(&Default::default(), &server.id, &server.server)?;
             }
-            AppType::ClaudeDesktop => {
-                log::debug!("Claude Desktop 3P profiles do not use HRouter MCP sync, skipping");
+            AppType::Pi
+            | AppType::ClaudeDesktop
+            | AppType::OpenClaw
+            | AppType::Workbuddy
+            | AppType::DeepseekHarness => {
+                crate::mcp::extra::write_server(app.as_str(), &server.id, Some(&server.server))?
             }
             AppType::Codex => {
                 // Codex uses TOML format, must use the correct function
@@ -142,11 +176,6 @@ impl McpService {
                     &server.id,
                     &server.server,
                 )?;
-            }
-            AppType::OpenClaw => {
-                // OpenClaw MCP support is still in development (Issue #4834)
-                // Skip for now
-                log::debug!("OpenClaw MCP support is still in development, skipping sync");
             }
             AppType::Hermes => {
                 mcp::sync_single_server_to_hermes(&Default::default(), &server.id, &server.server)?;
@@ -174,18 +203,16 @@ impl McpService {
         }
         match app {
             AppType::Claude => mcp::remove_server_from_claude(id)?,
-            AppType::ClaudeDesktop => {
-                log::debug!("Claude Desktop 3P profiles do not use HRouter MCP sync, skipping");
-            }
+            AppType::Pi
+            | AppType::ClaudeDesktop
+            | AppType::OpenClaw
+            | AppType::Workbuddy
+            | AppType::DeepseekHarness => crate::mcp::extra::write_server(app.as_str(), id, None)?,
             AppType::Codex => mcp::remove_server_from_codex(id)?,
             AppType::Gemini => mcp::remove_server_from_gemini(id)?,
             AppType::GrokBuild => mcp::remove_server_from_grokbuild(id)?,
             AppType::OpenCode => {
                 mcp::remove_server_from_opencode(id)?;
-            }
-            AppType::OpenClaw => {
-                // OpenClaw MCP support is still in development
-                log::debug!("OpenClaw MCP support is still in development, skipping remove");
             }
             AppType::Hermes => {
                 mcp::remove_server_from_hermes(id)?;
@@ -207,7 +234,7 @@ impl McpService {
         let servers = Self::get_all_servers(state)?;
 
         let mut failures: Vec<String> = Vec::new();
-        for app in AppType::all() {
+        for app in AppType::mcp_targets() {
             if let Err(err) = Self::project_servers_to_app(state, &servers, &app) {
                 log::warn!("同步 MCP 到 {app:?} 失败: {err}");
                 failures.push(format!("{}: {err}", app.as_str()));
@@ -227,7 +254,8 @@ impl McpService {
     /// 只把启用状态投影到单个应用。某个应用的 live 被整体重写后用它做
     /// 定向重投影，避免把无关应用的失败面（如 ~/.claude.json 坏 JSON）
     /// 牵连进目标应用的关键路径。
-    pub fn sync_enabled_for_app(state: &AppState, app: &AppType) -> Result<(), AppError> {
+    pub fn sync_enabled_for_app(state: &AppState, app: impl Into<AppType>) -> Result<(), AppError> {
+        let app = &app.into();
         let servers = Self::get_all_servers(state)?;
         Self::project_servers_to_app(state, &servers, app)
     }
@@ -237,14 +265,19 @@ impl McpService {
         servers: &IndexMap<String, McpServer>,
         app: &AppType,
     ) -> Result<(), AppError> {
-        if matches!(app, AppType::OpenClaw | AppType::ClaudeDesktop) {
-            return Ok(());
-        }
-
         for server in servers.values() {
             if server.apps.is_enabled_for(app) {
                 Self::sync_server_to_app(state, server, app)?;
-            } else {
+            } else if !matches!(
+                app,
+                AppType::ClaudeDesktop
+                    | AppType::OpenClaw
+                    | AppType::Pi
+                    | AppType::DeepseekHarness
+                    | AppType::Workbuddy
+            ) {
+                // Newly integrated clients may already have a same-named native server that
+                // HRouter never owned. Only explicit disable/delete removes their entries.
                 Self::remove_server_from_app(state, &server.id, app)?;
             }
         }
@@ -260,8 +293,9 @@ impl McpService {
     #[deprecated(since = "3.7.0", note = "Use get_all_servers instead")]
     pub fn get_servers(
         state: &AppState,
-        app: AppType,
+        app: impl Into<AppType>,
     ) -> Result<HashMap<String, serde_json::Value>, AppError> {
+        let app = app.into();
         let all_servers = Self::get_all_servers(state)?;
         let mut result = HashMap::new();
 
@@ -278,17 +312,19 @@ impl McpService {
     #[deprecated(since = "3.7.0", note = "Use toggle_app instead")]
     pub fn set_enabled(
         state: &AppState,
-        app: AppType,
+        app: impl Into<AppType>,
         id: &str,
         enabled: bool,
     ) -> Result<bool, AppError> {
+        let app = app.into();
         Self::toggle_app(state, id, app, enabled)?;
         Ok(true)
     }
 
     /// [已废弃] 同步启用的 MCP 到指定应用（兼容旧 API）
     #[deprecated(since = "3.7.0", note = "Use sync_all_enabled instead")]
-    pub fn sync_enabled(state: &AppState, app: AppType) -> Result<(), AppError> {
+    pub fn sync_enabled(state: &AppState, app: impl Into<AppType>) -> Result<(), AppError> {
+        let app = app.into();
         let servers = Self::get_all_servers(state)?;
 
         for server in servers.values() {
@@ -534,6 +570,80 @@ impl McpService {
         Ok(new_count)
     }
 
+    pub fn import_extra(state: &AppState, app: impl Into<AppType>) -> Result<usize, AppError> {
+        let app = app.into();
+        let mut count = 0;
+        for (id, mut spec) in crate::mcp::extra::read_servers(app.as_str())? {
+            let enabled = spec
+                .get("enabled")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(true);
+            let object = spec
+                .as_object_mut()
+                .ok_or_else(|| AppError::McpValidation("Invalid MCP object".into()))?;
+            object.remove("enabled");
+            object.remove("serverName");
+            if let Some(transport) = object.remove("transport") {
+                object.insert(
+                    "type".into(),
+                    if transport == "streamable-http" {
+                        serde_json::json!("http")
+                    } else {
+                        transport
+                    },
+                );
+            }
+            if object.get("type").and_then(serde_json::Value::as_str) == Some("streamable-http") {
+                object.insert("type".into(), serde_json::json!("http"));
+            }
+            if !object.contains_key("type") {
+                object.insert(
+                    "type".into(),
+                    serde_json::json!(if object.contains_key("url") {
+                        "http"
+                    } else {
+                        "stdio"
+                    }),
+                );
+            }
+            let existing = state.db.get_all_mcp_servers()?;
+            if let Some(previous) = existing.get(&id) {
+                let mut canonical = previous.server.clone();
+                if let Some(obj) = canonical.as_object_mut() {
+                    if !obj.contains_key("type") {
+                        obj.insert(
+                            "type".into(),
+                            serde_json::json!(if obj.contains_key("url") {
+                                "http"
+                            } else {
+                                "stdio"
+                            }),
+                        );
+                    }
+                }
+                if canonical != spec {
+                    return Err(AppError::Config(format!("{} has a different MCP definition named '{id}'; rename it before importing",app.as_str())));
+                }
+                state.db.update_mcp_server_app_enabled(&id, &app, enabled)?;
+            } else {
+                let mut apps = crate::McpApps::default();
+                apps.set_enabled_for(&app, enabled);
+                state.db.save_mcp_server(&McpServer {
+                    id: id.clone(),
+                    name: id,
+                    server: spec,
+                    apps,
+                    description: None,
+                    homepage: None,
+                    docs: None,
+                    tags: vec![],
+                })?;
+                count += 1;
+            }
+        }
+        Ok(count)
+    }
+
     /// 从所有支持 MCP 的应用导入服务器，返回新导入的数量。
     ///
     /// Best-effort：单个应用导入失败（如坏 config.toml）不阻断其余应用；
@@ -545,13 +655,28 @@ impl McpService {
         let mut total = 0;
         let mut failures: Vec<String> = Vec::new();
 
-        let results: [(&str, Result<usize, AppError>); 6] = [
+        let results: [(&str, Result<usize, AppError>); 11] = [
             ("claude", Self::import_from_claude(state)),
             ("codex", Self::import_from_codex(state)),
             ("gemini", Self::import_from_gemini(state)),
             ("grokbuild", Self::import_from_grokbuild(state)),
             ("opencode", Self::import_from_opencode(state)),
             ("hermes", Self::import_from_hermes(state)),
+            (
+                "claude-desktop",
+                if cfg!(any(target_os = "macos", windows)) {
+                    Self::import_extra(state, AppType::ClaudeDesktop)
+                } else {
+                    Ok(0)
+                },
+            ),
+            ("openclaw", Self::import_extra(state, AppType::OpenClaw)),
+            ("pi", Self::import_extra(state, AppType::Pi)),
+            (
+                "deepseek-harness",
+                Self::import_extra(state, AppType::DeepseekHarness),
+            ),
+            ("workbuddy", Self::import_extra(state, AppType::Workbuddy)),
         ];
         for (app, result) in results {
             match result {

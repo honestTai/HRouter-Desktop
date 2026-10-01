@@ -1,3 +1,4 @@
+import { invalidateAllAgentContexts } from "@/lib/query/agentContext";
 import { SearchSelect } from "@/components/ui/search-select";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
@@ -232,9 +233,7 @@ export function EnvironmentTargets() {
                   ),
                 );
                 setPreview(null);
-                await queryClient.invalidateQueries({
-                  queryKey: ["providers"],
-                });
+                await invalidateAllAgentContexts(queryClient);
                 await providersApi.updateTrayMenu();
               })
             }

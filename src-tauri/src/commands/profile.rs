@@ -46,6 +46,14 @@ pub struct CurrentProfileIds {
     pub claude: Option<String>,
     pub claude_desktop: Option<String>,
     pub codex: Option<String>,
+    pub gemini: Option<String>,
+    pub grokbuild: Option<String>,
+    pub opencode: Option<String>,
+    pub openclaw: Option<String>,
+    pub hermes: Option<String>,
+    pub pi: Option<String>,
+    pub deepseek_harness: Option<String>,
+    pub workbuddy: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -83,6 +91,12 @@ pub fn emit_profile_apply_events(
             log::error!("发射 provider-switched 事件失败: {e}");
         }
     }
+    if scope.apps().is_empty() {
+        let _ = app.emit("provider-switched", serde_json::json!({
+            "appType": scope.as_str(), "proxyEnabled": false, "autoFailoverEnabled": false,
+            "providerId": state.db.get_current_provider(scope.as_str()).ok().flatten().unwrap_or_default()
+        }));
+    }
     if let Err(e) = app.emit(
         "profile-applied",
         serde_json::json!({ "profileId": profile_id, "scope": scope.as_str() }),
@@ -107,6 +121,38 @@ pub fn list_profiles(state: State<'_, AppState>) -> Result<ProfilesResponse, Str
         codex: state
             .db
             .get_current_profile_id(ProfileScope::Codex.as_str())
+            .map_err(|e| e.to_string())?,
+        gemini: state
+            .db
+            .get_current_profile_id("gemini")
+            .map_err(|e| e.to_string())?,
+        grokbuild: state
+            .db
+            .get_current_profile_id("grokbuild")
+            .map_err(|e| e.to_string())?,
+        opencode: state
+            .db
+            .get_current_profile_id("opencode")
+            .map_err(|e| e.to_string())?,
+        openclaw: state
+            .db
+            .get_current_profile_id("openclaw")
+            .map_err(|e| e.to_string())?,
+        hermes: state
+            .db
+            .get_current_profile_id("hermes")
+            .map_err(|e| e.to_string())?,
+        pi: state
+            .db
+            .get_current_profile_id("pi")
+            .map_err(|e| e.to_string())?,
+        deepseek_harness: state
+            .db
+            .get_current_profile_id("deepseek-harness")
+            .map_err(|e| e.to_string())?,
+        workbuddy: state
+            .db
+            .get_current_profile_id("workbuddy")
             .map_err(|e| e.to_string())?,
     };
     Ok(ProfilesResponse {

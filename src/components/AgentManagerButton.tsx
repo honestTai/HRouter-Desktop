@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   Download,
   Loader2,
-  Monitor,
   RefreshCw,
   Terminal,
   X,
@@ -26,10 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { settingsApi } from "@/lib/api";
-import type {
-  CodexGuiStatus,
-  ToolInstallationReport,
-} from "@/lib/api/settings";
+import type { ToolInstallationReport } from "@/lib/api/settings";
 import { isUpdateAvailable } from "@/lib/version";
 import { extractErrorMessage } from "@/utils/errorUtils";
 import { cn } from "@/lib/utils";
@@ -42,6 +38,9 @@ const AGENT_TOOLS = [
   { name: "opencode", label: "OpenCode", icon: "opencode" },
   { name: "openclaw", label: "OpenClaw", icon: "openclaw" },
   { name: "hermes", label: "Hermes", icon: "hermes" },
+  { name: "pi", label: "Pi Agent", icon: "pi" },
+  { name: "dsh", label: "DeepSeek Harness CLI", icon: "deepseek" },
+  { name: "codebuddy", label: "CodeBuddy CLI", icon: "workbuddy" },
 ] as const;
 
 type AgentToolName = (typeof AGENT_TOOLS)[number]["name"];
@@ -56,21 +55,6 @@ interface AgentToolVersion {
   env_type: "windows" | "wsl" | "macos" | "linux" | "unknown";
   wsl_distro: string | null;
 }
-
-const EMPTY_GUI_STATUS: CodexGuiStatus = {
-  platform: "unknown",
-  arch: "unknown",
-  supported: false,
-  installed: false,
-  version: null,
-};
-
-const GUI_PLATFORM_LABEL: Record<CodexGuiStatus["platform"], string> = {
-  windows: "Windows",
-  macos: "macOS",
-  linux: "Linux",
-  unknown: "Desktop",
-};
 
 function toolDisplayName(name: string): string {
   return AGENT_TOOLS.find((tool) => tool.name === name)?.label ?? name;
@@ -88,14 +72,12 @@ export function AgentManagerButton({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [toolVersions, setToolVersions] = useState<AgentToolVersion[]>([]);
-  const [guiStatus, setGuiStatus] = useState<CodexGuiStatus>(EMPTY_GUI_STATUS);
   const [isLoading, setIsLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [loadErrors, setLoadErrors] = useState<Record<string, string>>({});
   const [runningTools, setRunningTools] = useState<
     Partial<Record<AgentToolName, ToolLifecycleAction>>
   >({});
-  const [isLaunchingGui, setIsLaunchingGui] = useState(false);
-  const [isWatchingGuiInstall, setIsWatchingGuiInstall] = useState(false);
   const [pendingUpgrade, setPendingUpgrade] = useState<{
     toolName: AgentToolName;
     plans: ToolInstallationReport[];
@@ -117,24 +99,20 @@ export function AgentManagerButton({
   const loadStatuses = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [toolResults, nextGuiStatus] = await Promise.all([
-        Promise.all(
-          AGENT_TOOLS.map(async ({ name }) => {
-            try {
-              return await settingsApi.getToolVersions([name]);
-            } catch (error) {
-              console.error(`[AgentManager] Failed to load ${name}`, error);
-              return [];
-            }
-          }),
-        ),
-        settingsApi.getCodexGuiStatus().catch((error) => {
-          console.error("[AgentManager] Failed to load Codex GUI", error);
-          return EMPTY_GUI_STATUS;
+      const failures: Record<string, string> = {};
+      const toolResults = await Promise.all(
+        AGENT_TOOLS.map(async ({ name }) => {
+          try {
+            return await settingsApi.getToolVersions([name]);
+          } catch (error) {
+            console.error(`[AgentManager] Failed to load ${name}`, error);
+            failures[name] = extractErrorMessage(error);
+            return [];
+          }
         }),
-      ]);
+      );
       setToolVersions(toolResults.flat());
-      setGuiStatus(nextGuiStatus);
+      setLoadErrors(failures);
     } catch (error) {
       console.error("[AgentManager] Failed to load statuses", error);
       toast.error(t("settings.agentStatusLoadFailed"));
@@ -149,37 +127,6 @@ export function AgentManagerButton({
       void loadStatuses();
     }
   }, [hasLoaded, isLoading, loadStatuses, open]);
-
-  useEffect(() => {
-    if (!open || !isWatchingGuiInstall) return;
-
-    let active = true;
-    const refreshGuiStatus = async () => {
-      try {
-        const nextStatus = await settingsApi.getCodexGuiStatus();
-        if (!active) return;
-        setGuiStatus(nextStatus);
-        if (nextStatus.installed) {
-          setIsWatchingGuiInstall(false);
-        }
-      } catch (error) {
-        console.error(
-          "[AgentManager] Failed to refresh Codex GUI status",
-          error,
-        );
-      }
-    };
-
-    void refreshGuiStatus();
-    const interval = window.setInterval(() => {
-      void refreshGuiStatus();
-    }, 3000);
-
-    return () => {
-      active = false;
-      window.clearInterval(interval);
-    };
-  }, [isWatchingGuiInstall, open]);
 
   const replaceToolVersion = (tool: AgentToolVersion) => {
     setToolVersions((previous) => {
@@ -274,36 +221,7 @@ export function AgentManagerButton({
     await executeToolAction(toolName, action);
   };
 
-  const handleGuiInstaller = async () => {
-    const wasInstalled = guiStatus.installed;
-    setIsLaunchingGui(true);
-    try {
-      await settingsApi.launchCodexGuiInstaller();
-      toast.success(t("settings.codexGuiInstallerOpened"), {
-        closeButton: true,
-      });
-      if (wasInstalled) {
-        const nextStatus = await settingsApi.getCodexGuiStatus();
-        setGuiStatus(nextStatus);
-      } else {
-        setIsWatchingGuiInstall(true);
-      }
-    } catch (error) {
-      console.error(
-        "[AgentManager] Failed to launch Codex GUI installer",
-        error,
-      );
-      toast.error(t("settings.codexGuiInstallerFailed"), {
-        description: extractErrorMessage(error) || undefined,
-        closeButton: true,
-      });
-    } finally {
-      setIsLaunchingGui(false);
-    }
-  };
-
-  const isAnyActionRunning =
-    Object.keys(runningTools).length > 0 || isLaunchingGui;
+  const isAnyActionRunning = Object.keys(runningTools).length > 0;
 
   return (
     <>
@@ -311,7 +229,6 @@ export function AgentManagerButton({
         open={open}
         onOpenChange={(nextOpen) => {
           setOpen(nextOpen);
-          if (!nextOpen) setIsWatchingGuiInstall(false);
         }}
       >
         <Button
@@ -427,7 +344,9 @@ export function AgentManagerButton({
                     <span className="truncate font-mono text-xs">
                       {isLoading && !tool
                         ? t("common.loading")
-                        : tool?.version || t("common.notInstalled")}
+                        : loadErrors[agent.name]
+                          ? t("common.unknown")
+                          : tool?.version || t("common.notInstalled")}
                     </span>
                     <span className="truncate font-mono text-xs text-muted-foreground">
                       {isLoading && !tool
@@ -437,6 +356,14 @@ export function AgentManagerButton({
                     <div className="flex justify-end">
                       {isLoading && !tool ? (
                         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : loadErrors[agent.name] ? (
+                        <span
+                          role="alert"
+                          title={loadErrors[agent.name]}
+                          className="text-xs text-destructive"
+                        >
+                          {t("settings.agentStatusLoadFailed")}
+                        </span>
                       ) : action ? (
                         <Button
                           type="button"
@@ -467,69 +394,6 @@ export function AgentManagerButton({
                   </div>
                 );
               })}
-            </div>
-
-            <div className="mb-3 mt-6 flex items-center gap-2">
-              <Monitor className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-sm font-semibold">
-                {t("settings.desktopAgents")}
-              </h3>
-            </div>
-
-            <div className="flex min-h-20 items-center gap-4 rounded-md border border-blue-500/25 bg-blue-500/5 px-4 py-3">
-              <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-blue-500/20 bg-background">
-                <ProviderIcon icon="openai" name="Codex GUI" size={22} />
-                <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-[4px] border border-border-default bg-background">
-                  <Monitor className="h-2.5 w-2.5" />
-                </span>
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold">Codex GUI</span>
-                  <Badge
-                    variant="outline"
-                    className="h-5 border-blue-500/25 bg-blue-500/5 px-1.5 py-0 text-[10px] text-blue-600 dark:text-blue-400"
-                  >
-                    {GUI_PLATFORM_LABEL[guiStatus.platform]}
-                  </Badge>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {guiStatus.supported
-                    ? guiStatus.installed
-                      ? t("settings.codexGuiInstalled", {
-                          version: guiStatus.version || t("common.unknown"),
-                        })
-                      : t("settings.codexGuiNotInstalled")
-                    : guiStatus.platform === "macos" && guiStatus.arch === "x64"
-                      ? t("settings.codexGuiMacIntelUnsupported")
-                      : t("settings.codexGuiUnsupported")}
-                </p>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  {t("settings.codexGuiInstallerHint", {
-                    platform: GUI_PLATFORM_LABEL[guiStatus.platform],
-                  })}
-                </p>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleGuiInstaller}
-                disabled={
-                  !guiStatus.supported || isAnyActionRunning || isLoading
-                }
-                className="h-8 min-w-24 gap-1.5 text-xs"
-              >
-                {isLaunchingGui ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : guiStatus.installed ? (
-                  <ArrowUpCircle className="h-3.5 w-3.5" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )}
-                {guiStatus.installed
-                  ? t("settings.toolUpdate")
-                  : t("settings.codexGuiDownload")}
-              </Button>
             </div>
           </div>
 

@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PricingConfigPanel } from "@/components/usage/PricingConfigPanel";
 
-const { syncHRouterModelPlazaPricing } = vi.hoisted(() => ({
+const { syncHRouterModelPlazaPricing, access } = vi.hoisted(() => ({
+  access: { connected: true },
   syncHRouterModelPlazaPricing: vi.fn(),
 }));
 
@@ -31,7 +32,26 @@ vi.mock("@/lib/api/proxy", () => ({
   },
 }));
 
+vi.mock("@/hooks/useHRouterAccess", () => ({ useHRouterAccess: () => access }));
+
 describe("PricingConfigPanel Model Plaza source", () => {
+  beforeEach(() => {
+    access.connected = true;
+    syncHRouterModelPlazaPricing.mockClear();
+  });
+  it("does not fetch or display HRouter pricing without a configured key", () => {
+    access.connected = false;
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <PricingConfigPanel />
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByText("usage.modelPlazaPricingTitle")).toBeNull();
+    expect(syncHRouterModelPlazaPricing).not.toHaveBeenCalled();
+  });
   it("renders synchronized Model Plaza prices in Chinese yuan", async () => {
     syncHRouterModelPlazaPricing.mockResolvedValue({
       displayCurrency: "CNY",

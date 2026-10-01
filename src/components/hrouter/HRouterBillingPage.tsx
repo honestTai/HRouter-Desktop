@@ -1,3 +1,11 @@
+import {
+  isPaymentPending,
+  validRecharge,
+  safePaymentUrl,
+  rechargeRebateRate,
+  rechargePreview,
+  visiblePaymentMethods,
+} from "@/lib/hrouterPayment";
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -31,19 +39,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import { useHRouterSession } from "@/hooks/useHRouterSession";
 import { settingsApi } from "@/lib/api";
 import {
   hrouterAccountApi,
-  type HRouterCheckoutInfo,
-  type HRouterModelPlazaEntry,
   type HRouterOrderResult,
 } from "@/lib/api/hrouterPlatform";
 import { extractErrorMessage } from "@/utils/errorUtils";
@@ -59,7 +59,6 @@ const methodNames: Record<string, string> = {
 };
 
 const quickAmounts = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
-const CACHE_SHARE = 0.96;
 
 async function copyText(value: string) {
   try {
@@ -69,82 +68,13 @@ async function copyText(value: string) {
   }
 }
 
-function finitePositive(value: unknown) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-}
-
-function rebateRateForAmount(checkout: HRouterCheckoutInfo, amount: number) {
-  if (!checkout.recharge_rebate_enabled) return 0;
-  const tier = [...(checkout.recharge_rebate_tiers ?? [])]
-    .sort((left, right) => right.min_amount - left.min_amount)
-    .find(
-      (item) =>
-        amount >= item.min_amount &&
-        (item.max_amount == null || amount <= item.max_amount),
-    );
-  const rate = tier?.rate ?? checkout.recharge_rebate_rate ?? 0;
-  return Math.min(0.05, Math.max(0, Number(rate) || 0));
-}
-
-function creditedMultiplier(checkout: HRouterCheckoutInfo, amount: number) {
-  return (
-    Math.max(1, Number(checkout.balance_recharge_multiplier || 1)) +
-    rebateRateForAmount(checkout, amount)
-  );
-}
-
-function effectiveCachedCost(model: HRouterModelPlazaEntry, official = false) {
-  const pricing = official ? model.official_pricing : model.pricing;
-  if (!pricing || (pricing.billing_mode && pricing.billing_mode !== "token")) {
-    return 0;
-  }
-  const input = finitePositive(pricing.input_price);
-  const cache = finitePositive(pricing.cache_read_price) || input;
-  if (!input && !cache) return 0;
-  return input * (1 - CACHE_SHARE) + cache * CACHE_SHARE;
-}
-
-function estimateRecharge(
-  amount: number,
-  checkout: HRouterCheckoutInfo | undefined,
-  model: HRouterModelPlazaEntry | undefined,
-) {
-  if (!checkout || !model || !Number.isFinite(amount) || amount <= 0) {
-    return null;
-  }
-  const unitCost = effectiveCachedCost(model);
-  const groupMultiplier =
-    finitePositive(model.user_rate_multiplier) ||
-    finitePositive(model.rate_multiplier) ||
-    1;
-  if (!unitCost) return null;
-  const tokens =
-    (amount * creditedMultiplier(checkout, amount)) /
-    (unitCost * groupMultiplier);
-  const officialCost = effectiveCachedCost(model, true);
-  return {
-    tokens,
-    officialValue: officialCost ? tokens * officialCost : 0,
-  };
-}
-
-function compactValue(value: number) {
-  if (!Number.isFinite(value)) return "-";
-  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-  return value.toFixed(0);
-}
-
 export function HRouterBillingPage() {
   const { t } = useTranslation();
   const session = useHRouterSession();
   const queryClient = useQueryClient();
-  const [amount, setAmount] = useState("0");
+  const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("");
   const [showAllAmounts, setShowAllAmounts] = useState(false);
-  const [referenceModel, setReferenceModel] = useState("");
   const [redeemCode, setRedeemCode] = useState("");
   const [payment, setPayment] = useState<HRouterOrderResult | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState("");
@@ -170,55 +100,30 @@ export function HRouterBillingPage() {
     queryFn: () => hrouterAccountApi.usageStats(),
     enabled: Boolean(session),
   });
-  const modelStats = useQuery({
-    queryKey: ["hrouter-account", session?.user.id, "model-stats", "all"],
-    queryFn: () => hrouterAccountApi.modelStats(),
-    enabled: Boolean(session),
-  });
-  const modelPlaza = useQuery({
-    queryKey: ["hrouter-account", session?.user.id, "model-plaza"],
-    queryFn: hrouterAccountApi.modelPlaza,
-    enabled: Boolean(session),
-  });
-
   const availableMethods = useMemo(
     () =>
-      Object.entries(checkout.data?.methods ?? {}).filter(
+      Object.entries(
+        visiblePaymentMethods(checkout.data?.methods ?? {}),
+      ).filter(
         ([, value]) => value.available !== false && value.enabled !== false,
       ),
     [checkout.data],
   );
-  const estimateModels = useMemo(
-    () =>
-      (modelPlaza.data ?? []).filter(
-        (model) =>
-          model.plaza_status !== "hidden" && effectiveCachedCost(model) > 0,
-      ),
-    [modelPlaza.data],
-  );
-
   useEffect(() => {
-    if (!method && availableMethods.length > 0) {
-      setMethod(availableMethods[0][0]);
+    if (!availableMethods.some(([key]) => key === method)) {
+      setMethod(availableMethods[0]?.[0] ?? "");
+      return;
     }
-  }, [availableMethods, method]);
-
-  useEffect(() => {
-    if (referenceModel || estimateModels.length === 0) return;
-    const usageOrder = new Map(
-      (modelStats.data?.models ?? []).map((model, index) => [
-        model.model,
-        index,
-      ]),
-    );
-    const recommended = [...estimateModels].sort((left, right) => {
-      const leftRank = usageOrder.get(left.name) ?? Number.MAX_SAFE_INTEGER;
-      const rightRank = usageOrder.get(right.name) ?? Number.MAX_SAFE_INTEGER;
-      if (leftRank !== rightRank) return leftRank - rightRank;
-      return effectiveCachedCost(left) - effectiveCachedCost(right);
-    })[0];
-    setReferenceModel(`${recommended.group_id}:${recommended.name}`);
-  }, [estimateModels, modelStats.data, referenceModel]);
+    if (
+      Number(amount) > 0 &&
+      !validRecharge(Number(amount), method, checkout.data)
+    ) {
+      const next = availableMethods.find(([key]) =>
+        validRecharge(Number(amount), key, checkout.data),
+      );
+      if (next) setMethod(next[0]);
+    }
+  }, [availableMethods, method, amount, checkout.data]);
 
   useEffect(() => {
     if (!payment?.qr_code) {
@@ -235,27 +140,86 @@ export function HRouterBillingPage() {
   }, [payment]);
 
   const numericAmount = Number(amount);
-  const selectedLimit = checkout.data?.methods?.[method];
-  const amountValid =
-    Number.isFinite(numericAmount) &&
-    numericAmount >=
-      (selectedLimit?.single_min || checkout.data?.global_min || 0) &&
-    (!selectedLimit?.single_max || numericAmount <= selectedLimit.single_max);
-  const selectedModel = estimateModels.find(
-    (model) => `${model.group_id}:${model.name}` === referenceModel,
+  const selectedLimit = visiblePaymentMethods(checkout.data?.methods ?? {})[
+    method
+  ];
+  const preview = rechargePreview(numericAmount, checkout.data);
+  const paymentCurrency =
+    selectedLimit?.currency?.trim().toUpperCase() || "CNY";
+  const formatPayment = (value: number) => {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: paymentCurrency,
+      }).format(value);
+    } catch {
+      return `${value.toFixed(2)} ${paymentCurrency}`;
+    }
+  };
+  const presetAmounts = quickAmounts.filter((value) =>
+    availableMethods.some(([key]) => validRecharge(value, key, checkout.data)),
   );
+  const amountValid = validRecharge(numericAmount, method, checkout.data);
   const inviteLink = affiliate.data?.aff_code
     ? `https://hrouter.net/register?aff=${affiliate.data.aff_code}`
     : "";
 
   const createOrder = useMutation({
-    mutationFn: () => hrouterAccountApi.createOrder(numericAmount, method),
+    mutationFn: () => {
+      if (!amountValid) throw new Error(t("hrouterWorkspace.invalidAmount"));
+      return hrouterAccountApi.createOrder(numericAmount, method);
+    },
     onSuccess: async (result) => {
       setPayment(result);
       void queryClient.invalidateQueries({
         queryKey: ["hrouter-account", session?.user.id, "orders"],
       });
-      if (result.pay_url) await settingsApi.openExternal(result.pay_url);
+      if (result.pay_url) {
+        const url = safePaymentUrl(result.pay_url);
+        if (url) {
+          try {
+            await settingsApi.openExternal(url);
+          } catch {
+            toast.error(t("hrouterWorkspace.openPaymentError"));
+          }
+        } else toast.error(t("hrouterWorkspace.unsafePayment"));
+      }
+      if (!result.pay_url && !result.qr_code)
+        toast.error(t("hrouterWorkspace.paymentUnsupported"));
+    },
+    onError: (error) => toast.error(extractErrorMessage(error)),
+  });
+  const order = useQuery({
+    queryKey: ["hrouter-account", session?.user.id, "order", payment?.order_id],
+    queryFn: () => hrouterAccountApi.order(payment!.order_id),
+    enabled: !!session && !!payment?.order_id,
+    refetchInterval: (query) =>
+      isPaymentPending(query.state.data?.status) &&
+      (!payment?.expires_at || Date.parse(payment.expires_at) > Date.now())
+        ? 4000
+        : false,
+    retry: false,
+  });
+  useEffect(() => {
+    if (order.data?.status === "COMPLETED") {
+      void queryClient.invalidateQueries({
+        queryKey: ["hrouter-account", session?.user.id, "profile"],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["hrouter-account", session?.user.id, "orders"],
+      });
+    }
+  }, [order.data?.status, queryClient, session?.user.id]);
+  const verify = useMutation({
+    mutationFn: () =>
+      payment?.out_trade_no
+        ? hrouterAccountApi.verifyOrder(payment.out_trade_no)
+        : hrouterAccountApi.order(payment!.order_id),
+    onSuccess: (result) => {
+      queryClient.setQueryData(
+        ["hrouter-account", session?.user.id, "order", payment?.order_id],
+        result,
+      );
     },
     onError: (error) => toast.error(extractErrorMessage(error)),
   });
@@ -293,8 +257,6 @@ export function HRouterBillingPage() {
       checkout.refetch(),
       affiliate.refetch(),
       usageStats.refetch(),
-      modelStats.refetch(),
-      modelPlaza.refetch(),
     ]);
 
   const handleCopy = async () => {
@@ -312,12 +274,11 @@ export function HRouterBillingPage() {
           profile.isFetching ||
           checkout.isFetching ||
           affiliate.isFetching ||
-          usageStats.isFetching ||
-          modelPlaza.isFetching
+          usageStats.isFetching
         }
       >
-        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(320px,0.95fr)]">
-          <section className="min-w-0 rounded-md border border-border-default bg-background p-5">
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,0.95fr)]">
+          <section className="min-w-0 rounded-xl border border-border-default bg-card p-5 sm:p-6">
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-md bg-orange-500/10 text-orange-600 dark:text-orange-400">
                 <WalletCards className="h-5 w-5" />
@@ -342,7 +303,9 @@ export function HRouterBillingPage() {
                   {t("hrouterPlatform.currentBalance")}
                 </p>
                 <p className="mt-1 text-xl font-semibold tabular-nums">
-                  ¥{Number(profile.data?.balance || 0).toFixed(2)}
+                  {profile.isError || profile.data?.balance == null
+                    ? "—"
+                    : `¥${Number(profile.data.balance).toFixed(2)}`}
                 </p>
               </div>
               <div>
@@ -352,7 +315,10 @@ export function HRouterBillingPage() {
                   })}
                 </p>
                 <p className="mt-1 text-xl font-semibold tabular-nums">
-                  ¥{Number(usageStats.data?.total_actual_cost || 0).toFixed(2)}
+                  {usageStats.isError ||
+                  usageStats.data?.total_actual_cost == null
+                    ? "—"
+                    : `¥${Number(usageStats.data.total_actual_cost).toFixed(2)}`}
                 </p>
               </div>
               <div>
@@ -380,217 +346,202 @@ export function HRouterBillingPage() {
               </p>
             ) : (
               <div className="mt-5 space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="recharge-amount">
-                      {t("hrouterPlatform.customAmount", {
-                        defaultValue: "自定义金额",
-                      })}
-                    </Label>
-                    <div className="relative mt-2">
-                      <span className="absolute left-3 top-2 text-sm text-muted-foreground">
-                        ¥
-                      </span>
-                      <Input
-                        id="recharge-amount"
-                        type="number"
-                        min={
-                          selectedLimit?.single_min ||
-                          checkout.data?.global_min ||
-                          1
-                        }
-                        max={
-                          selectedLimit?.single_max ||
-                          checkout.data?.global_max ||
-                          undefined
-                        }
-                        value={amount}
-                        onChange={(event) => setAmount(event.target.value)}
-                        className="pl-7"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>{t("hrouterPlatform.paymentMethod")}</Label>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      {availableMethods.map(([key, value]) => (
-                        <Button
-                          key={key}
-                          type="button"
-                          variant={method === key ? "default" : "outline"}
-                          className="h-9"
-                          onClick={() => setMethod(key)}
-                        >
-                          {methodNames[key] || value.display_name || key}
-                        </Button>
-                      ))}
-                    </div>
-                    {availableMethods.length === 0 && (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {t("hrouterPlatform.noPaymentMethods")}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {checkout.data?.recharge_rebate_enabled && (
-                  <div className="rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-                    {t("hrouterPlatform.rechargeRebateNotice", {
-                      defaultValue:
-                        "当前充值返利 {{rate}}%：充值 ¥{{amount}} 到账 ¥{{credited}}，返利余额仅用于平台消费。",
-                      rate: (
-                        rebateRateForAmount(
-                          checkout.data,
-                          numericAmount || 100,
-                        ) * 100
-                      ).toFixed(0),
-                      amount: (numericAmount || 100).toFixed(0),
-                      credited: (
-                        (numericAmount || 100) *
-                        creditedMultiplier(checkout.data, numericAmount || 100)
-                      ).toFixed(2),
-                    })}
-                  </div>
-                )}
-
-                <div className="grid items-center gap-3 rounded-md border border-border-default bg-muted/25 p-3 md:grid-cols-[minmax(160px,0.55fr)_minmax(0,1fr)]">
-                  <div>
-                    <Label>
-                      {t("hrouterPlatform.referenceModel", {
-                        defaultValue: "参考模型",
-                      })}
-                    </Label>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {t("hrouterPlatform.referenceModelHint", {
-                        defaultValue: "查看每档充值金额预计可用的 Token",
-                      })}
-                    </p>
-                  </div>
-                  <Select
-                    value={referenceModel}
-                    onValueChange={setReferenceModel}
-                  >
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={t("hrouterPlatform.selectReferenceModel", {
-                          defaultValue: "选择参考模型",
-                        })}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {estimateModels.map((model) => (
-                        <SelectItem
-                          key={`${model.group_id}:${model.name}`}
-                          value={`${model.group_id}:${model.name}`}
-                        >
-                          {model.name} · {model.group_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>
-                    {t("hrouterPlatform.selectRechargeAmount", {
-                      defaultValue: "选择充值额度",
-                    })}
-                  </Label>
-                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {quickAmounts
-                      .slice(0, showAllAmounts ? quickAmounts.length : 8)
-                      .map((value) => {
-                        const estimate = estimateRecharge(
-                          value,
-                          checkout.data,
-                          selectedModel,
-                        );
-                        const credited = checkout.data
-                          ? value * creditedMultiplier(checkout.data, value)
-                          : value;
-                        return (
-                          <button
-                            key={value}
-                            type="button"
-                            className={`min-h-[84px] rounded-md border px-2 py-2 text-center transition-colors ${
-                              numericAmount === value
-                                ? "border-primary bg-primary/5 ring-1 ring-primary"
-                                : "border-border-default hover:border-primary/50 hover:bg-muted/30"
-                            }`}
-                            onClick={() => setAmount(String(value))}
-                          >
-                            <span className="block text-sm font-semibold">
-                              ¥{value}
-                            </span>
-                            <span className="mt-0.5 block text-[10px] text-emerald-600 dark:text-emerald-400">
-                              {t("hrouterPlatform.creditedShort", {
-                                defaultValue: "到账 ¥{{amount}}",
-                                amount: credited.toFixed(2),
-                              })}
-                            </span>
-                            <span className="mt-1 block text-xs font-semibold text-orange-600 dark:text-orange-400">
-                              {estimate
-                                ? t("hrouterPlatform.tokenEstimate", {
-                                    defaultValue: "约 {{tokens}} Token",
-                                    tokens: compactValue(estimate.tokens),
-                                  })
-                                : t("hrouterPlatform.estimateUnavailable", {
-                                    defaultValue: "暂无估算",
-                                  })}
-                            </span>
-                            {estimate && estimate.officialValue > 0 && (
-                              <span className="block text-[10px] text-muted-foreground">
-                                {t("hrouterPlatform.officialValueEstimate", {
-                                  defaultValue: "约合官方 ${{value}}",
-                                  value: compactValue(estimate.officialValue),
-                                })}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="mx-auto mt-2 flex h-7 text-xs text-muted-foreground"
-                    onClick={() => setShowAllAmounts((current) => !current)}
-                  >
-                    {showAllAmounts
-                      ? t("hrouterPlatform.collapseAmounts", {
-                          defaultValue: "收起更多额度",
-                        })
-                      : t("hrouterPlatform.expandAmounts", {
-                          defaultValue: "展开更多额度（+1）",
-                        })}
-                    <ChevronDown
-                      className={`h-3.5 w-3.5 transition-transform ${showAllAmounts ? "rotate-180" : ""}`}
-                    />
-                  </Button>
-                  <p className="text-[10px] text-muted-foreground">
-                    {t("hrouterPlatform.estimateDisclaimer", {
-                      defaultValue:
-                        "预估结果仅供参考，实际可用量会随请求内容和模型使用方式变化。",
-                    })}
+                {checkout.data?.balance_disabled ? (
+                  <p className="py-4 text-sm text-muted-foreground">
+                    {t("hrouterWallet.unavailable")}
                   </p>
-                </div>
+                ) : (
+                  <>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <Label htmlFor="recharge-amount">
+                          {t("hrouterPlatform.customAmount", {
+                            defaultValue: "自定义金额",
+                          })}
+                        </Label>
+                        <div className="relative mt-2">
+                          <span className="absolute left-3 top-2 text-sm text-muted-foreground">
+                            ¥
+                          </span>
+                          <Input
+                            id="recharge-amount"
+                            type="number"
+                            step="0.01"
+                            min={
+                              selectedLimit?.single_min ||
+                              checkout.data?.global_min ||
+                              1
+                            }
+                            max={
+                              selectedLimit?.single_max ||
+                              checkout.data?.global_max ||
+                              undefined
+                            }
+                            value={amount}
+                            onChange={(event) => setAmount(event.target.value)}
+                            className="pl-7"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label>{t("hrouterPlatform.paymentMethod")}</Label>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          {availableMethods.map(([key, value]) => (
+                            <Button
+                              key={key}
+                              type="button"
+                              variant={method === key ? "default" : "outline"}
+                              className="h-9"
+                              onClick={() => setMethod(key)}
+                            >
+                              {methodNames[key] || value.display_name || key}
+                            </Button>
+                          ))}
+                        </div>
+                        {availableMethods.length === 0 && (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {t("hrouterPlatform.noPaymentMethods")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
 
-                <Button
-                  className="w-full"
-                  disabled={!amountValid || !method || createOrder.isPending}
-                  onClick={() => createOrder.mutate()}
-                >
-                  {createOrder.isPending && (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  )}
-                  {t("hrouterPlatform.confirmPayment", {
-                    defaultValue: "确认支付 ¥{{amount}}",
-                    amount: Number.isFinite(numericAmount)
-                      ? numericAmount.toFixed(2)
-                      : "0.00",
-                  })}
-                </Button>
+                    {checkout.data?.recharge_rebate_enabled && (
+                      <div className="rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                        {t("hrouterPlatform.rechargeRebateNotice", {
+                          defaultValue:
+                            "当前充值返利 {{rate}}%：充值 ¥{{amount}} 到账 ¥{{credited}}，返利余额仅用于平台消费。",
+                          rate: rechargeRebateRate(
+                            checkout.data,
+                            numericAmount || 100,
+                          ).toFixed(0),
+                          amount: (numericAmount || 100).toFixed(0),
+                          credited: rechargePreview(
+                            numericAmount || 100,
+                            checkout.data,
+                          ).credited.toFixed(2),
+                        })}
+                      </div>
+                    )}
+
+                    <div>
+                      <Label>
+                        {t("hrouterPlatform.selectRechargeAmount", {
+                          defaultValue: "选择充值额度",
+                        })}
+                      </Label>
+                      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-4">
+                        {presetAmounts
+                          .slice(0, showAllAmounts ? presetAmounts.length : 8)
+                          .map((value) => {
+                            const option = rechargePreview(
+                              value,
+                              checkout.data,
+                            );
+                            return (
+                              <Button
+                                variant="ghost"
+                                size="auto"
+                                key={value}
+                                type="button"
+                                aria-pressed={numericAmount === value}
+                                className={`min-h-[88px] min-w-0 flex-col gap-1 whitespace-normal rounded-xl border px-3 py-4 text-center transition-colors ${
+                                  numericAmount === value
+                                    ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                    : "border-border-default hover:border-primary/50 hover:bg-muted/30"
+                                }`}
+                                onClick={() => setAmount(String(value))}
+                              >
+                                <span className="block text-sm font-semibold">
+                                  ¥{value}
+                                </span>
+                                <span className="mt-0.5 block text-[10px] text-emerald-600 dark:text-emerald-400">
+                                  {t("hrouterPlatform.creditedShort", {
+                                    defaultValue: "到账 ¥{{amount}}",
+                                    amount: option.credited.toFixed(2),
+                                  })}
+                                </span>
+                                {option.feeRate > 0 && (
+                                  <span className="text-[11px] text-muted-foreground">
+                                    {t("hrouterWallet.actualPay")}:{" "}
+                                    {formatPayment(option.total)}
+                                  </span>
+                                )}
+                              </Button>
+                            );
+                          })}
+                      </div>
+                      {presetAmounts.length > 8 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="mx-auto mt-2 flex h-7 text-xs text-muted-foreground"
+                          onClick={() =>
+                            setShowAllAmounts((current) => !current)
+                          }
+                        >
+                          {showAllAmounts
+                            ? t("hrouterPlatform.collapseAmounts", {
+                                defaultValue: "收起更多额度",
+                              })
+                            : t("hrouterWallet.moreAmounts", {
+                                count: presetAmounts.length - 8,
+                              })}
+                          <ChevronDown
+                            className={`h-3.5 w-3.5 transition-transform ${showAllAmounts ? "rotate-180" : ""}`}
+                          />
+                        </Button>
+                      )}
+                    </div>
+
+                    {numericAmount > 0 && Number.isFinite(numericAmount) && (
+                      <section
+                        className="space-y-3 rounded-xl border bg-muted/25 p-4 text-sm"
+                        aria-label={t("hrouterWallet.summary")}
+                      >
+                        <div className="flex justify-between gap-3">
+                          <span>{t("hrouterWallet.rechargeAmount")}</span>
+                          <strong>{formatPayment(numericAmount)}</strong>
+                        </div>
+                        {preview.feeRate > 0 && (
+                          <div className="flex justify-between gap-3">
+                            <span>
+                              {t("hrouterWallet.fee")} ({preview.feeRate}%)
+                            </span>
+                            <span>{formatPayment(preview.fee)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between gap-3 border-t pt-3">
+                          <span>{t("hrouterWallet.actualPay")}</span>
+                          <strong>{formatPayment(preview.total)}</strong>
+                        </div>
+                        <div className="flex justify-between gap-3 text-emerald-600 dark:text-emerald-400">
+                          <span>{t("hrouterWallet.credited")}</span>
+                          <strong>¥{preview.credited.toFixed(2)}</strong>
+                        </div>
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          {t("hrouterWallet.finalAmountHint")}
+                        </p>
+                      </section>
+                    )}
+
+                    <Button
+                      className="w-full"
+                      disabled={
+                        !amountValid || !method || createOrder.isPending
+                      }
+                      onClick={() => createOrder.mutate()}
+                    >
+                      {createOrder.isPending && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
+                      {t("hrouterWallet.pay", {
+                        amount: formatPayment(preview.total),
+                      })}
+                    </Button>
+                  </>
+                )}
 
                 <div className="flex items-center gap-3 pt-1 text-[11px] text-muted-foreground before:h-px before:flex-1 before:bg-border-default after:h-px after:flex-1 after:bg-border-default">
                   {t("hrouterPlatform.redeemSection", {
@@ -630,7 +581,7 @@ export function HRouterBillingPage() {
             )}
           </section>
 
-          <section className="min-w-0 rounded-md border border-border-default bg-background p-5">
+          <section className="min-w-0 rounded-xl border border-border-default bg-card p-5 sm:p-6">
             <div className="flex items-center gap-3 border-b border-border-default pb-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-md bg-teal-500/10 text-teal-600 dark:text-teal-400">
                 <Gift className="h-5 w-5" />
@@ -820,28 +771,59 @@ export function HRouterBillingPage() {
                 <QrCode className="h-16 w-16 text-muted-foreground" />
               )}
               <p className="mt-4 text-lg font-semibold">
-                ¥
-                {Number(payment?.pay_amount || payment?.amount || 0).toFixed(2)}
+                {payment?.currency ?? "CNY"}{" "}
+                {Number(payment?.pay_amount ?? payment?.amount ?? 0).toFixed(2)}
               </p>
               <p className="mt-1 max-w-full truncate font-mono text-xs text-muted-foreground">
                 {payment?.out_trade_no}
               </p>
+            </div>
+            <div className="px-6 pb-4 text-sm" role="status">
+              {order.data
+                ? t(`hrouterWorkspace.orderStatus.${order.data.status}`, {
+                    defaultValue: order.data.status,
+                  })
+                : t("hrouterWorkspace.checkingPayment")}
+              {order.isError && (
+                <p className="text-destructive">
+                  {t("hrouterWorkspace.paymentQueryError")}
+                </p>
+              )}
             </div>
             <DialogFooter>
               {payment?.pay_url && (
                 <Button
                   variant="outline"
                   onClick={() =>
-                    void settingsApi.openExternal(payment.pay_url || "")
+                    void (async () => {
+                      const url = safePaymentUrl(payment.pay_url || "");
+                      if (!url) {
+                        toast.error(t("hrouterWorkspace.unsafePayment"));
+                        return;
+                      }
+                      try {
+                        await settingsApi.openExternal(url);
+                      } catch {
+                        toast.error(t("hrouterWorkspace.openPaymentError"));
+                      }
+                    })()
                   }
                 >
                   <CircleDollarSign className="h-4 w-4" />
                   {t("hrouterPlatform.openPayment")}
                 </Button>
               )}
-              <Button onClick={() => setPayment(null)}>
+              <Button
+                onClick={() => verify.mutate()}
+                disabled={
+                  verify.isPending || !isPaymentPending(order.data?.status)
+                }
+              >
                 <ReceiptText className="h-4 w-4" />
-                {t("hrouterPlatform.paymentDone")}
+                {t("hrouterWorkspace.verifyPayment")}
+              </Button>
+              <Button variant="outline" onClick={() => setPayment(null)}>
+                {t("common.close")}
               </Button>
             </DialogFooter>
           </DialogContent>

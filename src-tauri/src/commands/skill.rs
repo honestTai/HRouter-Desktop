@@ -4,8 +4,9 @@
 //! - 支持三应用开关（Claude/Codex/Gemini）
 //! - SSOT 存储在 ~/.hrouter/skills/
 
-use crate::app_config::{AppType, InstalledSkill, UnmanagedSkill};
+use crate::app_config::{InstalledSkill, UnmanagedSkill};
 use crate::error::format_skill_error;
+use crate::resource_target::ResourceTarget as AppType;
 use crate::services::skill::{
     DiscoverableSkill, ImportSkillSelection, MigrationResult, Skill, SkillBackupEntry, SkillRepo,
     SkillService, SkillStorageLocation, SkillUninstallResult, SkillUpdateInfo,
@@ -337,4 +338,15 @@ pub fn install_skills_from_zip(
     let path = std::path::Path::new(&file_path);
 
     SkillService::install_from_zip(&app_state.db, path, &app_type).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn export_skill_zip(
+    id: String,
+    path: String,
+    app_state: State<'_, AppState>,
+) -> Result<bool, String> {
+    SkillService::export_zip(&app_state.db, &id, std::path::Path::new(&path))
+        .map_err(|e| e.to_string())?;
+    Ok(true)
 }

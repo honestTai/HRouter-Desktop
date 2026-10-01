@@ -40,8 +40,6 @@ describe("AppCountBar", () => {
     });
     expect(mixed).toHaveAttribute("aria-checked", "mixed");
     expect(mixed).toHaveAttribute("data-selection-state", "partial");
-    expect(mixed.querySelectorAll("span")).toHaveLength(2);
-    expect(mixed.querySelector("svg")).not.toBeInTheDocument();
     fireEvent.click(mixed);
     expect(onToggleAll).toHaveBeenCalledWith("claude", true);
 
@@ -60,8 +58,6 @@ describe("AppCountBar", () => {
     });
     expect(all).toHaveAttribute("aria-checked", "true");
     expect(all).toHaveAttribute("data-selection-state", "all");
-    expect(all.querySelectorAll("span")).toHaveLength(2);
-    expect(all.querySelector("svg")).not.toBeInTheDocument();
     fireEvent.click(all);
     expect(onToggleAll).toHaveBeenLastCalledWith("claude", false);
   });
@@ -83,8 +79,6 @@ describe("AppCountBar", () => {
     });
     expect(none).toHaveAttribute("aria-checked", "false");
     expect(none).toHaveAttribute("data-selection-state", "none");
-    expect(none.querySelectorAll("span")).toHaveLength(2);
-    expect(none.querySelector("svg")).not.toBeInTheDocument();
 
     fireEvent.click(none);
     expect(onToggleAll).toHaveBeenCalledWith("claude", true);
@@ -117,15 +111,13 @@ describe("AppCountBar", () => {
 
     for (const control of screen.getAllByRole("checkbox")) {
       expect(control).toBeDisabled();
-      expect(control.className).not.toContain("disabled:opacity-");
+      expect(control.closest("label")).not.toHaveClass("opacity-50");
     }
 
     const pendingControl = screen.getByRole("checkbox", {
       name: "common.enableAllForApp:Claude",
     });
     expect(pendingControl).toHaveAttribute("aria-busy", "true");
-    expect(pendingControl.querySelectorAll("span")).toHaveLength(2);
-    expect(pendingControl.querySelector("svg")).not.toBeInTheDocument();
   });
 
   it("supports disabling bulk controls during another management write", () => {
@@ -143,7 +135,7 @@ describe("AppCountBar", () => {
     expect(screen.getByRole("checkbox")).toBeDisabled();
   });
 
-  it("keeps the total and app badges in the legacy inline layout", () => {
+  it("uses a responsive card grid instead of an overflowing inline strip", () => {
     render(
       <AppCountBar
         totalLabel="2 items"
@@ -154,9 +146,10 @@ describe("AppCountBar", () => {
       />,
     );
 
-    const bar = screen.getByText("2 items").closest(".glass");
-    expect(bar).toHaveClass("items-center");
-    expect(bar).not.toHaveClass("flex-col");
+    expect(
+      screen.getByRole("checkbox").closest("label")?.parentElement,
+    ).toHaveClass("grid", "grid-cols-2");
+    expect(screen.getByText("2 items")).toBeVisible();
   });
 
   it("hides pointer focus rings while preserving keyboard focus styling", () => {
@@ -171,8 +164,6 @@ describe("AppCountBar", () => {
     );
 
     expect(screen.getByRole("checkbox")).toHaveClass(
-      "select-none",
-      "focus:ring-0",
       "focus-visible:outline-none",
       "focus-visible:ring-2",
     );

@@ -135,6 +135,7 @@ fn sqlite_row_to_session_meta(row: &Value, db_source: &str) -> Option<SessionMet
     let source_path = format!("{}#{}", db_source, session_id);
 
     Some(SessionMeta {
+        read_only: None,
         provider_id: PROVIDER_ID.to_string(),
         session_id,
         title,
@@ -416,6 +417,7 @@ fn parse_jsonl_session(path: &Path) -> Option<SessionMeta> {
     let source_path = path.to_string_lossy().to_string();
 
     Some(SessionMeta {
+        read_only: None,
         provider_id: PROVIDER_ID.to_string(),
         session_id,
         title: title.or_else(|| first_user_msg.clone()),

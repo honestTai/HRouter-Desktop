@@ -240,6 +240,7 @@ fn parse_session(path: &Path) -> Option<SessionMeta> {
     let summary = summary.map(|text| truncate_summary(&text, 160));
 
     Some(SessionMeta {
+        read_only: None,
         provider_id: PROVIDER_ID.to_string(),
         session_id: session_id.clone(),
         title,

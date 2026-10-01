@@ -1,3 +1,5 @@
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 // NOTE: Codex 1M 上下文 UI 已暂时隐藏（详见下方 CodexConfigSection 内 JSX 注释）。
 // 如需恢复，请同时：
 //   - 取消下面 `@/utils/providerConfigUtils` import 的注释
@@ -281,10 +283,9 @@ export const CodexConfigSection: React.FC<CodexConfigSectionProps> = ({
 
         <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
           <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={goalModeEnabled}
-              onChange={(e) => handleGoalModeToggle(e.target.checked)}
+              onCheckedChange={(e) => handleGoalModeToggle(e === true)}
               className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
             />
             {t("codexConfig.enableGoalMode")}
@@ -301,15 +302,11 @@ export const CodexConfigSection: React.FC<CodexConfigSectionProps> = ({
                 },
               )}
             >
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={isCodexModelDiscoveryEnabled(localValue)}
-                onChange={(e) =>
+                onCheckedChange={(e) =>
                   handleLocalChange(
-                    setCodexModelDiscovery(
-                      localValueRef.current,
-                      e.target.checked,
-                    ),
+                    setCodexModelDiscovery(localValueRef.current, e === true),
                   )
                 }
               />
@@ -323,10 +320,11 @@ export const CodexConfigSection: React.FC<CodexConfigSectionProps> = ({
               className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground"
               title={t("codexConfig.remoteCompactionHint")}
             >
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={remoteCompactionEnabled}
-                onChange={(e) => handleRemoteCompactionToggle(e.target.checked)}
+                onCheckedChange={(e) =>
+                  handleRemoteCompactionToggle(e === true)
+                }
                 className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
               />
               {t("codexConfig.enableRemoteCompaction")}
@@ -334,10 +332,9 @@ export const CodexConfigSection: React.FC<CodexConfigSectionProps> = ({
           )}
 
           <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={useCommonConfig}
-              onChange={(e) => onCommonConfigToggle(e.target.checked)}
+              onCheckedChange={(e) => onCommonConfigToggle(e === true)}
               className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
             />
             {t("codexConfig.writeCommonConfig")}
@@ -346,13 +343,15 @@ export const CodexConfigSection: React.FC<CodexConfigSectionProps> = ({
       </div>
 
       <div className="flex items-center justify-end">
-        <button
+        <Button
+          variant="ghost"
+          size="auto"
           type="button"
           onClick={onEditCommonConfig}
           className="text-xs text-blue-500 dark:text-blue-400 hover:underline"
         >
           {t("codexConfig.editCommonConfig")}
-        </button>
+        </Button>
       </div>
 
       {commonConfigError && (

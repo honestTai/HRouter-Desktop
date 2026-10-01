@@ -1,3 +1,5 @@
+import { CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { providersApi, type AppId } from "@/lib/api";
@@ -41,20 +43,67 @@ export function AgentAccessCard({
         : provider?.name || t("workspace.noSelection");
   const models = configuredModels(provider?.settingsConfig);
   return (
-    <button
+    <AgentCard
+      name={name}
+      icon={icon}
+      selected={selected}
+      onSelect={onSelect}
+      subtitle={subtitle}
+      models={models}
+    />
+  );
+}
+
+export function AgentCard({
+  name,
+  icon,
+  mark,
+  selected,
+  onSelect,
+  subtitle,
+  models,
+}: {
+  name: string;
+  icon?: string;
+  mark?: string;
+  selected: boolean;
+  onSelect: () => void;
+  subtitle: string;
+  models: string[];
+}) {
+  return (
+    <Button
+      variant="ghost"
+      size="auto"
       type="button"
+      aria-label={name}
       aria-pressed={selected}
       onClick={onSelect}
       className={cn(
-        "min-w-0 rounded-lg border p-4 text-left transition-colors",
+        "relative flex-col items-stretch justify-start gap-0 whitespace-normal min-h-[120px] min-w-0 rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
         selected
-          ? "border-primary bg-primary/5"
-          : "border-border bg-card hover:bg-muted/50",
+          ? "border-primary bg-primary/10 ring-1 ring-primary text-foreground"
+          : "border-border bg-card text-foreground hover:bg-muted/50",
       )}
     >
-      <span className="flex items-center gap-2">
-        <ProviderIcon icon={icon} name={name} size={22} />
-        <span className="truncate text-sm font-medium">{name}</span>
+      <span className="flex min-w-0 items-center gap-2 pr-5">
+        {icon ? (
+          <ProviderIcon icon={icon} name={name} size={22} />
+        ) : (
+          <span
+            aria-hidden="true"
+            className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded bg-primary/10 text-[11px] font-semibold text-primary"
+          >
+            {mark}
+          </span>
+        )}
+        <span className="min-w-0 text-sm font-semibold leading-5">{name}</span>
+        {selected && (
+          <CheckCircle2
+            aria-hidden="true"
+            className="absolute right-3 top-3 h-4 w-4 text-primary"
+          />
+        )}
       </span>
       <span
         className="mt-3 block truncate text-xs text-muted-foreground"
@@ -70,6 +119,6 @@ export function AgentAccessCard({
           {models.join(" · ")}
         </span>
       )}
-    </button>
+    </Button>
   );
 }

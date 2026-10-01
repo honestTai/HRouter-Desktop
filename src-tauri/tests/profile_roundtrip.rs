@@ -185,7 +185,10 @@ fn profile_snapshot_apply_roundtrip_restores_configuration() {
         payload.skills.claude,
         Some(vec!["local:test-skill".to_string()])
     );
-    assert_eq!(payload.prompts.claude.as_deref(), Some("pr1"));
+    assert_eq!(
+        payload.prompts.claude, None,
+        "prompt state is no longer captured"
+    );
     assert_eq!(
         payload.providers.codex, None,
         "codex side not captured when creating from the claude group"
@@ -249,14 +252,20 @@ fn profile_snapshot_apply_roundtrip_restores_configuration() {
         .db
         .get_prompts(AppType::Claude.as_str())
         .expect("get prompts");
-    assert!(prompts.get("pr1").expect("pr1").enabled, "pr1 re-enabled");
-    assert!(!prompts.get("pr2").expect("pr2").enabled, "pr2 disabled");
+    assert!(
+        !prompts.get("pr1").expect("pr1").enabled,
+        "manual prompt state is preserved"
+    );
+    assert!(
+        prompts.get("pr2").expect("pr2").enabled,
+        "manual prompt state is preserved"
+    );
 
     let live_prompt = fs::read_to_string(claude_dir.join("CLAUDE.md")).expect("read CLAUDE.md");
     assert_eq!(
         live_prompt,
-        prompt("pr1", true).content,
-        "live memory file restored"
+        prompt("pr2", true).content,
+        "profile application must not overwrite the current prompt file"
     );
 
     assert_eq!(
@@ -426,8 +435,8 @@ fn profile_apply_reports_dangling_references_and_continues() {
         .expect("apply succeeds");
     assert_eq!(
         warnings.len(),
-        4,
-        "each dangling reference yields one warning: {warnings:?}"
+        3,
+        "only provider/MCP/Skill dangling references yield warnings; legacy prompts stay inert: {warnings:?}"
     );
 
     // 有效条目照常生效：m1 被启用
@@ -586,7 +595,10 @@ fn switching_profile_autosaves_previous_profile_state() {
         serde_json::from_str(&saved_a.payload).expect("parse project A payload");
     assert_eq!(payload_a.providers.claude.as_deref(), Some("p2"));
     assert_eq!(payload_a.mcp.claude, Some(vec!["m2".to_string()]));
-    assert_eq!(payload_a.prompts.claude.as_deref(), Some("pr2"));
+    assert_eq!(
+        payload_a.prompts.claude, None,
+        "auto-save does not capture prompts"
+    );
 
     // ---- 在 B 下改回状态 X，再切换回 A ----
     ProviderService::switch(&state, AppType::Claude, "p1").expect("switch to p1");
@@ -622,12 +634,12 @@ fn switching_profile_autosaves_previous_profile_state() {
         .get_prompts(AppType::Claude.as_str())
         .expect("get prompts");
     assert!(
-        !prompts.get("pr1").expect("pr1").enabled,
-        "pr1 stays disabled"
+        prompts.get("pr1").expect("pr1").enabled,
+        "manually enabled pr1 stays enabled"
     );
     assert!(
-        prompts.get("pr2").expect("pr2").enabled,
-        "pr2 stays enabled"
+        !prompts.get("pr2").expect("pr2").enabled,
+        "manually disabled pr2 stays disabled"
     );
 
     // Project B 被自动保存为离开时的状态 X
@@ -640,7 +652,10 @@ fn switching_profile_autosaves_previous_profile_state() {
         serde_json::from_str(&saved_b.payload).expect("parse project B payload");
     assert_eq!(payload_b.providers.claude.as_deref(), Some("p1"));
     assert_eq!(payload_b.mcp.claude, Some(vec!["m1".to_string()]));
-    assert_eq!(payload_b.prompts.claude.as_deref(), Some("pr1"));
+    assert_eq!(
+        payload_b.prompts.claude, None,
+        "auto-save does not capture prompts"
+    );
 }
 
 #[test]
@@ -811,4 +826,68 @@ fn claude_desktop_profile_scope_is_independent() {
         Some(project.id.as_str()),
         "desktop scope marker set"
     );
+}
+
+#[test]
+fn resource_snapshots_apply_to_new_agent_adapters_without_cross_agent_writes() {
+    let _guard = test_mutex().lock().unwrap();
+    ensure_test_home();
+    reset_test_fs();
+    let state = create_test_state().unwrap();
+    let root = SkillService::get_ssot_dir().unwrap();
+    fs::create_dir_all(root.join("resource-snapshot")).unwrap();
+    fs::write(
+        root.join("resource-snapshot/SKILL.md"),
+        "---\nname: resource-snapshot\ndescription: test\n---\nInstructions",
+    )
+    .unwrap();
+    let skill: InstalledSkill = serde_json::from_value(json!({"id":"resource-snapshot","name":"resource-snapshot","directory":"resource-snapshot","apps":{},"installedAt":1})).unwrap();
+    state.db.save_skill(&skill).unwrap();
+    McpService::upsert_server(&state, mcp_server("resource-snapshot", false)).unwrap();
+    for (scope, target) in [
+        (ProfileScope::Pi, cc_switch_lib::ResourceTarget::Pi),
+        (
+            ProfileScope::DeepSeekHarness,
+            cc_switch_lib::ResourceTarget::DeepseekHarness,
+        ),
+        (
+            ProfileScope::WorkBuddy,
+            cc_switch_lib::ResourceTarget::Workbuddy,
+        ),
+        (
+            ProfileScope::OpenClaw,
+            cc_switch_lib::ResourceTarget::OpenClaw,
+        ),
+    ] {
+        McpService::toggle_app(&state, "resource-snapshot", target, true).unwrap();
+        SkillService::toggle_app(&state.db, &skill.id, &target, true).unwrap();
+        let profile = ProfileService::create(&state, target.as_str(), scope).unwrap();
+        let payload: ProfilePayload = serde_json::from_str(&profile.payload).unwrap();
+        assert_eq!(
+            payload.skills.for_scope(scope).as_ref().unwrap(),
+            &vec![skill.id.clone()]
+        );
+        assert_eq!(
+            payload.mcp.for_scope(scope).as_ref().unwrap(),
+            &vec!["resource-snapshot".to_string()]
+        );
+        McpService::toggle_app(&state, "resource-snapshot", target, false).unwrap();
+        SkillService::toggle_app(&state.db, &skill.id, &target, false).unwrap();
+        let result = ProfileService::apply(&state, &profile.id, scope).unwrap();
+        assert!(result.0.is_empty(), "{:?}", result.0);
+        assert!(state.db.get_all_mcp_servers().unwrap()["resource-snapshot"]
+            .apps
+            .is_enabled_for(&target));
+        assert!(state
+            .db
+            .get_installed_skill(&skill.id)
+            .unwrap()
+            .unwrap()
+            .apps
+            .is_enabled_for(&target));
+        assert!(SkillService::get_app_skills_dir(&target)
+            .unwrap()
+            .join("resource-snapshot/SKILL.md")
+            .exists());
+    }
 }

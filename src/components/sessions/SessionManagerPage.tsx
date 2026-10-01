@@ -1,3 +1,5 @@
+import { APP_IDS, APP_ICON_MAP, SESSION_APP_IDS } from "@/config/appConfig";
+import type { AppId } from "@/lib/api";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSessionSearch } from "@/hooks/useSessionSearch";
 import { useTranslation } from "react-i18next";
@@ -80,15 +82,7 @@ const SESSION_LIST_VIEW_MODE_STORAGE_KEY =
 const SESSION_GROUP_EXPANSION_STORAGE_KEY =
   "cc-switch.sessionManager.groupExpansionState";
 
-type ProviderFilter =
-  | "all"
-  | "codex"
-  | "grokbuild"
-  | "claude"
-  | "opencode"
-  | "openclaw"
-  | "gemini"
-  | "hermes";
+type ProviderFilter = "all" | AppId;
 
 type SessionListViewMode = "flat" | "grouped";
 
@@ -189,7 +183,7 @@ const filterSetToAllowedValues = (
 export function SessionManagerPage({ appId }: { appId: string }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { data, isLoading, refetch } = useSessionsQuery();
+  const { data, isLoading, isError, isFetching, refetch } = useSessionsQuery();
   const sessions = data ?? [];
   const detailRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -320,11 +314,14 @@ export function SessionManagerPage({ appId }: { appId: string }) {
           defaultValue: "列表",
         });
 
-  const { data: messages = [], isLoading: isLoadingMessages } =
-    useSessionMessagesQuery(
-      selectedSession?.providerId,
-      selectedSession?.sourcePath,
-    );
+  const {
+    data: messages = [],
+    isLoading: isLoadingMessages,
+    isError: messagesError,
+  } = useSessionMessagesQuery(
+    selectedSession?.providerId,
+    selectedSession?.sourcePath,
+  );
   const deleteSessionMutation = useDeleteSessionMutation();
   const isDeleting = deleteSessionMutation.isPending || isBatchDeleting;
 
@@ -444,7 +441,9 @@ export function SessionManagerPage({ appId }: { appId: string }) {
       return;
     }
 
-    const targets = deleteTargets.filter((session) => session.sourcePath);
+    const targets = deleteTargets.filter(
+      (session) => session.sourcePath && !session.readOnly,
+    );
     setDeleteTargets(null);
 
     if (targets.length === 0) {
@@ -545,7 +544,10 @@ export function SessionManagerPage({ appId }: { appId: string }) {
   };
 
   const deletableFilteredSessions = useMemo(
-    () => filteredSessions.filter((session) => Boolean(session.sourcePath)),
+    () =>
+      filteredSessions.filter(
+        (session) => Boolean(session.sourcePath) && !session.readOnly,
+      ),
     [filteredSessions],
   );
 
@@ -558,7 +560,10 @@ export function SessionManagerPage({ appId }: { appId: string }) {
   );
 
   const selectedDeletableSessions = useMemo(
-    () => selectedSessions.filter((session) => Boolean(session.sourcePath)),
+    () =>
+      selectedSessions.filter(
+        (session) => Boolean(session.sourcePath) && !session.readOnly,
+      ),
     [selectedSessions],
   );
 
@@ -594,8 +599,8 @@ export function SessionManagerPage({ appId }: { appId: string }) {
   const getGroupSelectionState = (
     groupSessions: SessionMeta[],
   ): GroupSelectionState => {
-    const selectableSessions = groupSessions.filter((session) =>
-      Boolean(session.sourcePath),
+    const selectableSessions = groupSessions.filter(
+      (session) => Boolean(session.sourcePath) && !session.readOnly,
     );
     const selectedCount = selectableSessions.filter((session) =>
       selectedSessionKeys.has(getSessionKey(session)),
@@ -614,7 +619,7 @@ export function SessionManagerPage({ appId }: { appId: string }) {
   };
 
   const toggleSessionChecked = (session: SessionMeta, checked: boolean) => {
-    if (!session.sourcePath) return;
+    if (!session.sourcePath || session.readOnly) return;
     const key = getSessionKey(session);
     setSelectedSessionKeys((current) => {
       const next = new Set(current);
@@ -631,8 +636,8 @@ export function SessionManagerPage({ appId }: { appId: string }) {
     groupSessions: SessionMeta[],
     checked: boolean,
   ) => {
-    const selectableSessions = groupSessions.filter((session) =>
-      Boolean(session.sourcePath),
+    const selectableSessions = groupSessions.filter(
+      (session) => Boolean(session.sourcePath) && !session.readOnly,
     );
     if (selectableSessions.length === 0) return;
 
@@ -691,7 +696,7 @@ export function SessionManagerPage({ appId }: { appId: string }) {
         selectionMode={selectionMode}
         searchQuery={search}
         isChecked={selectedSessionKeys.has(sessionKey)}
-        isCheckDisabled={!session.sourcePath}
+        isCheckDisabled={!session.sourcePath || session.readOnly}
         onSelect={setSelectedKey}
         onToggleChecked={(checked) => toggleSessionChecked(session, checked)}
       />
@@ -790,15 +795,21 @@ export function SessionManagerPage({ appId }: { appId: string }) {
   return (
     <TooltipProvider>
       <div
-        className="mx-auto px-4 sm:px-6 flex flex-col h-full min-h-0"
+        className="mx-auto flex h-full min-h-0 w-full flex-1 flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8"
+        data-testid="session-workspace"
         onWheel={(e) => e.stopPropagation()}
       >
-        <div className="flex-1 overflow-hidden flex flex-col gap-4">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-muted-foreground">
+            {t("sessionWorkspace.description")}
+          </p>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
           {/* 主内容区域 - 左右分栏 */}
-          <div className="flex-1 overflow-hidden grid gap-4 md:grid-cols-[320px_1fr]">
+          <div className="grid min-h-0 w-full flex-1 grid-rows-[minmax(200px,2fr)_minmax(240px,3fr)] gap-4 overflow-hidden md:grid-cols-[360px_minmax(0,1fr)] md:grid-rows-1 xl:grid-cols-[400px_minmax(0,1fr)]">
             {/* 左侧会话列表 */}
-            <Card className="flex flex-col flex-1 min-h-0 overflow-hidden">
-              <CardHeader className="py-2 px-3 border-b">
+            <Card className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl shadow-none">
+              <CardHeader className="shrink-0 border-b bg-muted/20 p-4">
                 {isSearchOpen ? (
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
@@ -862,8 +873,8 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex min-w-0 items-center justify-between gap-2">
                         <CardTitle className="text-sm font-medium whitespace-nowrap">
                           {t("sessionManager.sessionList")}
                         </CardTitle>
@@ -871,7 +882,7 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                           {filteredSessions.length}
                         </Badge>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex shrink-0 flex-wrap items-center gap-2">
                         {(selectionMode ||
                           deletableFilteredSessions.length > 0) && (
                           <Tooltip>
@@ -924,7 +935,7 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <SelectTrigger
-                                className="size-7 p-0 justify-center border-0 bg-transparent hover:bg-muted"
+                                className="h-8 w-auto min-w-[100px] gap-2 bg-background px-2.5 text-xs"
                                 aria-label={t(
                                   "sessionManager.viewModeTooltip",
                                   {
@@ -942,6 +953,15 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                                 ) : (
                                   <List className="size-3.5" />
                                 )}
+                                <span>
+                                  {listViewMode === "grouped"
+                                    ? t("sessionManager.viewModeGrouped", {
+                                        defaultValue: "分类",
+                                      })
+                                    : t("sessionManager.viewModeFlat", {
+                                        defaultValue: "列表",
+                                      })}
+                                </span>
                               </SelectTrigger>
                             </TooltipTrigger>
                             <TooltipContent>{listViewModeLabel}</TooltipContent>
@@ -1000,6 +1020,7 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                               variant="ghost"
                               size="icon"
                               className="size-7"
+                              aria-label={t("sessionManager.searchSessions")}
                               onClick={() => {
                                 setIsSearchOpen(true);
                                 setTimeout(
@@ -1025,7 +1046,7 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <SelectTrigger
-                                className="size-7 p-0 justify-center border-0 bg-transparent hover:bg-muted"
+                                className="h-8 w-auto min-w-[100px] gap-2 bg-background px-2.5 text-xs"
                                 aria-label={t(
                                   "sessionManager.providerFilterTooltip",
                                   {
@@ -1047,6 +1068,11 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                                   name={providerFilter}
                                   size={14}
                                 />
+                                <span>
+                                  {providerFilter === "all"
+                                    ? t("sessionWorkspace.allAgents")
+                                    : getProviderLabel(providerFilter, t)}
+                                </span>
                               </SelectTrigger>
                             </TooltipTrigger>
                             <TooltipContent>
@@ -1068,66 +1094,23 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                                 </span>
                               </div>
                             </SelectItem>
-                            <SelectItem value="codex">
-                              <div className="flex items-center gap-2">
-                                <ProviderIcon
-                                  icon="openai"
-                                  name="codex"
-                                  size={14}
-                                />
-                                <span>Codex</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="grokbuild">
-                              <div className="flex items-center gap-2">
-                                <ProviderIcon
-                                  icon="grok"
-                                  name="grokbuild"
-                                  size={14}
-                                />
-                                <span>Grok Build</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="claude">
-                              <div className="flex items-center gap-2">
-                                <ProviderIcon
-                                  icon="claude"
-                                  name="claude"
-                                  size={14}
-                                />
-                                <span>Claude Code</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="opencode">
-                              <div className="flex items-center gap-2">
-                                <ProviderIcon
-                                  icon="opencode"
-                                  name="opencode"
-                                  size={14}
-                                />
-                                <span>OpenCode</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="openclaw">
-                              <div className="flex items-center gap-2">
-                                <ProviderIcon
-                                  icon="openclaw"
-                                  name="openclaw"
-                                  size={14}
-                                />
-                                <span>OpenClaw</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="gemini">
-                              <div className="flex items-center gap-2">
-                                <ProviderIcon
-                                  icon="gemini"
-                                  name="gemini"
-                                  size={14}
-                                />
-                                <span>Gemini CLI</span>
-                              </div>
-                            </SelectItem>
+                            {APP_IDS.map((app) => (
+                              <SelectItem key={app} value={app}>
+                                <span className="flex items-center gap-2">
+                                  {APP_ICON_MAP[app].icon}
+                                  <span>
+                                    {app === "claude"
+                                      ? "Claude Code"
+                                      : APP_ICON_MAP[app].label}
+                                  </span>
+                                  {!SESSION_APP_IDS.includes(app) && (
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {t("workspaceUi.notAdapted")}
+                                    </span>
+                                  )}
+                                </span>
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
 
@@ -1137,6 +1120,8 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                               variant="ghost"
                               size="icon"
                               className="size-7"
+                              aria-label={t("common.refresh")}
+                              disabled={isFetching}
                               onClick={() => void refetch()}
                             >
                               <RefreshCw className="size-3.5" />
@@ -1224,12 +1209,49 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                       <div className="flex items-center justify-center py-12">
                         <RefreshCw className="size-5 animate-spin text-muted-foreground" />
                       </div>
+                    ) : isError ? (
+                      <div
+                        role="alert"
+                        className="space-y-3 p-6 text-center text-sm"
+                      >
+                        <p className="text-destructive">
+                          {t("sessionWorkspace.loadFailed")}
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void refetch()}
+                        >
+                          {t("common.retry", { defaultValue: "重试" })}
+                        </Button>
+                      </div>
                     ) : filteredSessions.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 text-center">
                         <MessageSquare className="size-8 text-muted-foreground/50 mb-2" />
                         <p className="text-sm text-muted-foreground">
                           {t("sessionManager.noSessions")}
                         </p>
+                        <p className="mt-2 max-w-64 text-xs leading-5 text-muted-foreground">
+                          {t(
+                            providerFilter !== "all" &&
+                              !SESSION_APP_IDS.includes(providerFilter)
+                              ? "workspaceUi.sessionNotAdapted"
+                              : "sessionWorkspace.emptyHint",
+                          )}
+                        </p>
+                        {(search || providerFilter !== "all") && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-4"
+                            onClick={() => {
+                              setSearch("");
+                              setProviderFilter("all");
+                            }}
+                          >
+                            {t("sessionWorkspace.clearFilters")}
+                          </Button>
+                        )}
                       </div>
                     ) : listViewMode === "grouped" ? (
                       <div className="space-y-2">
@@ -1260,9 +1282,10 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                                   providerSelectionState,
                                 )}
                                 <CollapsibleTrigger asChild>
-                                  <button
+                                  <Button
+                                    variant="ghost"
                                     type="button"
-                                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                                    className="h-auto justify-start p-0 text-foreground flex min-w-0 flex-1 items-center gap-2 text-left"
                                     aria-label={t(
                                       "sessionManager.toggleProviderGroup",
                                       {
@@ -1292,7 +1315,7 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                                       providerGroup.sessions.length,
                                       "secondary",
                                     )}
-                                  </button>
+                                  </Button>
                                 </CollapsibleTrigger>
                               </div>
                               <CollapsibleContent className="mt-1 space-y-1 pl-2">
@@ -1323,9 +1346,10 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                                             directorySelectionState,
                                           )}
                                           <CollapsibleTrigger asChild>
-                                            <button
+                                            <Button
+                                              variant="ghost"
                                               type="button"
-                                              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                                              className="h-auto justify-start p-0 text-foreground flex min-w-0 flex-1 items-center gap-2 text-left"
                                               aria-label={t(
                                                 "sessionManager.toggleDirectoryGroup",
                                                 {
@@ -1369,7 +1393,7 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                                                 directoryGroup.sessions.length,
                                                 "outline",
                                               )}
-                                            </button>
+                                            </Button>
                                           </CollapsibleTrigger>
                                         </div>
                                         <CollapsibleContent className="mt-1 space-y-1 pl-3">
@@ -1401,13 +1425,20 @@ export function SessionManagerPage({ appId }: { appId: string }) {
 
             {/* 右侧会话详情 */}
             <Card
-              className="flex flex-col overflow-hidden min-h-0"
+              className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl shadow-none"
               ref={detailRef}
             >
               {!selectedSession ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8">
-                  <MessageSquare className="size-12 mb-3 opacity-30" />
-                  <p className="text-sm">{t("sessionManager.selectSession")}</p>
+                  <div className="mb-4 rounded-2xl bg-muted p-5">
+                    <MessageSquare className="size-9 text-muted-foreground/60" />
+                  </div>
+                  <p className="text-base font-medium text-foreground">
+                    {t("sessionManager.selectSession")}
+                  </p>
+                  <p className="mt-2 max-w-md text-center text-sm leading-6">
+                    {t("sessionWorkspace.detailHint")}
+                  </p>
                 </div>
               ) : (
                 <>
@@ -1452,7 +1483,8 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                           {selectedSession.projectDir && (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <button
+                                <Button
+                                  variant="ghost"
                                   type="button"
                                   onClick={() =>
                                     void handleCopy(
@@ -1460,13 +1492,13 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                                       t("sessionManager.projectDirCopied"),
                                     )
                                   }
-                                  className="flex items-center gap-1 hover:text-foreground transition-colors"
+                                  className="h-auto justify-start p-0 text-xs font-normal flex items-center gap-1 hover:text-foreground transition-colors"
                                 >
                                   <FolderOpen className="size-3" />
                                   <span className="truncate max-w-[200px]">
                                     {getBaseName(selectedSession.projectDir)}
                                   </span>
-                                </button>
+                                </Button>
                               </TooltipTrigger>
                               <TooltipContent
                                 side="bottom"
@@ -1484,7 +1516,8 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                           {selectedSession.sourcePath && (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <button
+                                <Button
+                                  variant="ghost"
                                   type="button"
                                   onClick={() =>
                                     void handleCopy(
@@ -1492,13 +1525,13 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                                       t("sessionManager.sourcePathCopied"),
                                     )
                                   }
-                                  className="flex items-center gap-1 hover:text-foreground transition-colors"
+                                  className="h-auto justify-start p-0 text-xs font-normal flex items-center gap-1 hover:text-foreground transition-colors"
                                 >
                                   <FileText className="size-3 shrink-0" />
                                   <span className="font-mono truncate max-w-[200px]">
                                     {getBaseName(selectedSession.sourcePath)}
                                   </span>
-                                </button>
+                                </Button>
                               </TooltipTrigger>
                               <TooltipContent
                                 side="bottom"
@@ -1556,7 +1589,9 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                                 setDeleteTargets([selectedSession])
                               }
                               disabled={
-                                !selectedSession.sourcePath || isDeleting
+                                !selectedSession.sourcePath ||
+                                selectedSession.readOnly ||
+                                isDeleting
                               }
                             >
                               <Trash2 className="size-3.5" />
@@ -1572,9 +1607,9 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            {t("sessionManager.deleteTooltip", {
-                              defaultValue: "永久删除此本地会话记录",
-                            })}
+                            {selectedSession.readOnly
+                              ? t("sessionWorkspace.clientDelete")
+                              : t("sessionManager.deleteTooltip")}
                           </TooltipContent>
                         </Tooltip>
                       </div>
@@ -1638,6 +1673,13 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                             <div className="flex items-center justify-center py-12">
                               <RefreshCw className="size-5 animate-spin text-muted-foreground" />
                             </div>
+                          ) : messagesError ? (
+                            <p
+                              role="alert"
+                              className="p-6 text-sm text-destructive"
+                            >
+                              {t("sessionWorkspace.messagesFailed")}
+                            </p>
                           ) : messages.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-12 text-center">
                               <MessageSquare className="size-8 text-muted-foreground/50 mb-2" />
@@ -1718,13 +1760,13 @@ export function SessionManagerPage({ appId }: { appId: string }) {
           deleteTargets && deleteTargets.length > 1
             ? t("sessionManager.batchDeleteConfirmMessage", {
                 defaultValue:
-                  "将永久删除已选中的 {{count}} 个本地会话记录。\n\n此操作不可恢复。",
+                  "将永久删除已选中的 {{count}} 个会话记录。\n\n此操作不可恢复。",
                 count: deleteTargets.length,
               })
             : deleteTargets?.[0]
               ? t("sessionManager.deleteConfirmMessage", {
                   defaultValue:
-                    "将永久删除本地会话“{{title}}”\nSession ID: {{sessionId}}\n\n此操作不可恢复。",
+                    "将永久删除会话“{{title}}”\nSession ID: {{sessionId}}\n\n此操作不可恢复。",
                   title: formatSessionTitle(deleteTargets[0]),
                   sessionId: deleteTargets[0].sessionId,
                 })

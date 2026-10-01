@@ -2,14 +2,15 @@
 //!
 //! 提供 MCP 服务器的 CRUD 操作。
 
-use crate::app_config::{AppType, McpApps, McpServer};
+use crate::app_config::{McpApps, McpServer};
 use crate::database::{lock_conn, Database};
 use crate::error::AppError;
+use crate::ResourceTarget as AppType;
 use indexmap::IndexMap;
 use rusqlite::{params, OptionalExtension, Row};
 
 const MCP_SERVER_SELECT: &str =
-    "SELECT id, name, server_config, description, homepage, docs, tags, enabled_claude, enabled_codex, enabled_gemini, enabled_grokbuild, enabled_opencode, enabled_hermes FROM mcp_servers";
+    "SELECT id, name, server_config, description, homepage, docs, tags, enabled_claude, enabled_codex, enabled_gemini, enabled_grokbuild, enabled_opencode, enabled_hermes, enabled_claude_desktop, enabled_openclaw, enabled_deepseek_harness, enabled_workbuddy, enabled_pi FROM mcp_servers";
 
 fn row_to_mcp_server(row: &Row<'_>) -> rusqlite::Result<(String, McpServer)> {
     let id: String = row.get(0)?;
@@ -42,6 +43,12 @@ fn row_to_mcp_server(row: &Row<'_>) -> rusqlite::Result<(String, McpServer)> {
                 grokbuild: enabled_grokbuild,
                 opencode: enabled_opencode,
                 hermes: enabled_hermes,
+                claude_desktop: row.get(13)?,
+                openclaw: row.get(14)?,
+                deepseek_harness: row.get(15)?,
+                workbuddy: row.get(16)?,
+                pi: row.get(17)?,
+                ..Default::default()
             },
             description,
             homepage,
@@ -79,9 +86,10 @@ impl Database {
     pub fn update_mcp_server_app_enabled(
         &self,
         id: &str,
-        app: &AppType,
+        app: impl Into<AppType>,
         enabled: bool,
     ) -> Result<Option<McpServer>, AppError> {
+        let app = &app.into();
         let conn = lock_conn!(self.conn);
         let column = match app {
             AppType::Claude => Some("enabled_claude"),
@@ -91,7 +99,11 @@ impl Database {
             AppType::OpenCode => Some("enabled_opencode"),
             AppType::Hermes => Some("enabled_hermes"),
             // These applications intentionally have no MCP flag in the SSOT.
-            AppType::ClaudeDesktop | AppType::OpenClaw => None,
+            AppType::ClaudeDesktop => Some("enabled_claude_desktop"),
+            AppType::OpenClaw => Some("enabled_openclaw"),
+            AppType::DeepseekHarness => Some("enabled_deepseek_harness"),
+            AppType::Workbuddy => Some("enabled_workbuddy"),
+            AppType::Pi => Some("enabled_pi"),
         };
 
         if let Some(column) = column {
@@ -120,8 +132,8 @@ impl Database {
         conn.execute(
             "INSERT OR REPLACE INTO mcp_servers (
                 id, name, server_config, description, homepage, docs, tags,
-                enabled_claude, enabled_codex, enabled_gemini, enabled_grokbuild, enabled_opencode, enabled_hermes
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                enabled_claude, enabled_codex, enabled_gemini, enabled_grokbuild, enabled_opencode, enabled_hermes, enabled_claude_desktop, enabled_openclaw, enabled_deepseek_harness, enabled_workbuddy, enabled_pi
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
             params![
                 server.id,
                 server.name,
@@ -139,6 +151,7 @@ impl Database {
                 server.apps.grokbuild,
                 server.apps.opencode,
                 server.apps.hermes,
+                server.apps.claude_desktop, server.apps.openclaw, server.apps.deepseek_harness, server.apps.workbuddy, server.apps.pi,
             ],
         )
         .map_err(|e| AppError::Database(e.to_string()))?;
@@ -252,17 +265,31 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_mcp_apps_keep_the_existing_noop_semantics() {
-        let db = Database::memory().expect("create memory db");
-        let original = test_server();
-        db.save_mcp_server(&original).expect("seed server");
-
-        for app in [AppType::ClaudeDesktop, AppType::OpenClaw] {
-            let returned = db
-                .update_mcp_server_app_enabled("shared-server", &app, true)
-                .expect("toggle unsupported app")
-                .expect("server exists");
-            assert_eq!(returned.apps, original.apps);
+    fn every_mcp_agent_roundtrips_flags_independently() {
+        let db = Database::memory().unwrap();
+        let server = test_server();
+        db.save_mcp_server(&server).unwrap();
+        for app in AppType::mcp_targets() {
+            let before = db.get_all_mcp_servers().unwrap()[&server.id].apps.clone();
+            let after = db
+                .update_mcp_server_app_enabled(&server.id, &app, true)
+                .unwrap()
+                .unwrap();
+            assert!(after.apps.is_enabled_for(&app));
+            for other in AppType::mcp_targets()
+                .into_iter()
+                .filter(|other| *other != app)
+            {
+                assert_eq!(
+                    after.apps.is_enabled_for(&other),
+                    before.is_enabled_for(&other)
+                );
+            }
+            db.update_mcp_server_app_enabled(&server.id, &app, false)
+                .unwrap();
+            assert!(!db.get_all_mcp_servers().unwrap()[&server.id]
+                .apps
+                .is_enabled_for(&app));
         }
     }
 }

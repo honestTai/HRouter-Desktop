@@ -1,3 +1,4 @@
+import { invalidateAgentContext } from "./agentContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -119,18 +120,11 @@ export const useApplyProfileMutation = () => {
   return useMutation({
     mutationFn: ({ id, scope }: { id: string; scope: ProfileScope }) =>
       profilesApi.apply(id, scope),
-    onSuccess: async (warnings) => {
+    onSuccess: async (warnings, { scope }) => {
       await queryClient.invalidateQueries({ queryKey: ["profiles"] });
-      await queryClient.invalidateQueries({
-        queryKey: ["providers", "claude"],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["providers", "claude-desktop"],
-      });
-      await queryClient.invalidateQueries({ queryKey: ["providers", "codex"] });
+      await invalidateAgentContext(queryClient, scope);
       await queryClient.invalidateQueries({ queryKey: ["mcp", "all"] });
       await queryClient.invalidateQueries({ queryKey: ["skills"] });
-      await queryClient.invalidateQueries({ queryKey: ["prompts"] });
       await queryClient.invalidateQueries({ queryKey: ["proxy"] });
       await queryClient.invalidateQueries({
         queryKey: ["access-route-status"],
@@ -149,6 +143,17 @@ export const useApplyProfileMutation = () => {
         );
       } else {
         toast.success(t("profiles.applySuccess"), { closeButton: true });
+      }
+    },
+    onSettled: async (_warnings, error, { scope }) => {
+      if (error) {
+        await Promise.all([
+          invalidateAgentContext(queryClient, scope),
+          queryClient.invalidateQueries({ queryKey: ["profiles"] }),
+          queryClient.invalidateQueries({ queryKey: ["proxy"] }),
+          queryClient.invalidateQueries({ queryKey: ["mcp", "all"] }),
+          queryClient.invalidateQueries({ queryKey: ["skills"] }),
+        ]);
       }
     },
     onError: (error: Error) => {

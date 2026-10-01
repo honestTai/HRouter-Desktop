@@ -679,6 +679,20 @@ pub fn set_provider(id: &str, provider_config: Value) -> Result<OpenClawWriteOut
     write_root_section("models", &models_value)
 }
 
+/// Edit only the MCP section using the existing lossless JSON5/CAS/backup writer.
+pub(crate) fn set_mcp_server(id: &str, spec: Option<&Value>) -> Result<(), AppError> {
+    let mut doc = OpenClawConfigDocument::load()?;
+    let parsed: Value = json5::from_str(&doc.text.to_string()).map_err(|e|AppError::Config(format!("Invalid OpenClaw config: {e}")))?;
+    let mut section = parsed.get("mcp").cloned().unwrap_or_else(||json!({}));
+    let root = section.as_object_mut().ok_or_else(||AppError::Config("OpenClaw mcp must be an object".into()))?;
+    let servers = root.entry("servers").or_insert_with(||json!({})).as_object_mut().ok_or_else(||AppError::Config("OpenClaw mcp.servers must be an object".into()))?;
+    if let Some(spec) = spec { servers.insert(id.into(),spec.clone()); }
+    else if servers.remove(id).is_none() { return Ok(()); }
+    doc.set_root_section("mcp", &section)?;
+    doc.save()?;
+    Ok(())
+}
+
 /// 删除供应商配置
 pub fn remove_provider(id: &str) -> Result<OpenClawWriteOutcome, AppError> {
     let mut config = read_openclaw_config()?;

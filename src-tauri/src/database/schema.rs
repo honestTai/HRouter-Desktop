@@ -67,7 +67,12 @@ impl Database {
             enabled_claude BOOLEAN NOT NULL DEFAULT 0, enabled_codex BOOLEAN NOT NULL DEFAULT 0,
             enabled_gemini BOOLEAN NOT NULL DEFAULT 0, enabled_grokbuild BOOLEAN NOT NULL DEFAULT 0,
             enabled_opencode BOOLEAN NOT NULL DEFAULT 0,
-            enabled_hermes BOOLEAN NOT NULL DEFAULT 0
+            enabled_hermes BOOLEAN NOT NULL DEFAULT 0,
+            enabled_claude_desktop BOOLEAN NOT NULL DEFAULT 0,
+            enabled_openclaw BOOLEAN NOT NULL DEFAULT 0,
+            enabled_deepseek_harness BOOLEAN NOT NULL DEFAULT 0,
+            enabled_workbuddy BOOLEAN NOT NULL DEFAULT 0,
+            enabled_pi BOOLEAN NOT NULL DEFAULT 0
         )",
             [],
         )
@@ -97,6 +102,10 @@ impl Database {
             enabled_grokbuild BOOLEAN NOT NULL DEFAULT 0,
             enabled_opencode BOOLEAN NOT NULL DEFAULT 0,
             enabled_hermes BOOLEAN NOT NULL DEFAULT 0,
+            enabled_openclaw BOOLEAN NOT NULL DEFAULT 0,
+            enabled_pi BOOLEAN NOT NULL DEFAULT 0,
+            enabled_deepseek_harness BOOLEAN NOT NULL DEFAULT 0,
+            enabled_workbuddy BOOLEAN NOT NULL DEFAULT 0,
             installed_at INTEGER NOT NULL DEFAULT 0,
             content_hash TEXT,
             updated_at INTEGER NOT NULL DEFAULT 0
@@ -230,6 +239,15 @@ impl Database {
         )
         .map_err(|e| AppError::Database(e.to_string()))?;
         Self::create_request_logs_usage_indexes_if_supported(conn)?;
+
+        // Session summaries may represent several upstream API calls. Older rows are one request.
+        Self::add_column_if_missing(
+            conn,
+            "proxy_request_logs",
+            "request_count",
+            "INTEGER NOT NULL DEFAULT 1",
+        )?;
+        conn.execute("CREATE TABLE IF NOT EXISTS agent_usage_checkpoints (source_key TEXT PRIMARY KEY, input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL, cache_read_tokens INTEGER NOT NULL, cache_creation_tokens INTEGER NOT NULL, request_count INTEGER NOT NULL)", [])?;
 
         // 11. Model Pricing 表
         conn.execute(
@@ -530,6 +548,10 @@ impl Database {
                         log::info!("迁移数据库从 v15 到 v16（重建 Codex 会话用量）");
                         Self::migrate_v15_to_v16(conn)?;
                         Self::set_user_version(conn, 16)?;
+                    }
+                    16 => {
+                        Self::migrate_v16_to_v17(conn)?;
+                        Self::set_user_version(conn, 17)?;
                     }
                     _ => {
                         return Err(AppError::Database(format!(
@@ -1289,6 +1311,38 @@ impl Database {
             .map_err(|e| AppError::Database(format!("清空模型定价失败: {e}")))?;
         Self::seed_model_pricing(conn)?;
         log::info!("v8 -> v9 迁移完成：已刷新全部模型定价数据");
+        Ok(())
+    }
+
+    fn migrate_v16_to_v17(conn: &Connection) -> Result<(), AppError> {
+        // Very old databases can omit resource tables; fresh table creation
+        // supplies the complete schema when they are absent.
+        if Self::table_exists(conn, "skills")? {
+            for name in [
+                "enabled_openclaw",
+                "enabled_pi",
+                "enabled_deepseek_harness",
+                "enabled_workbuddy",
+            ] {
+                Self::add_column_if_missing(conn, "skills", name, "BOOLEAN NOT NULL DEFAULT 0")?;
+            }
+        }
+        if Self::table_exists(conn, "mcp_servers")? {
+            for name in [
+                "enabled_claude_desktop",
+                "enabled_openclaw",
+                "enabled_deepseek_harness",
+                "enabled_workbuddy",
+                "enabled_pi",
+            ] {
+                Self::add_column_if_missing(
+                    conn,
+                    "mcp_servers",
+                    name,
+                    "BOOLEAN NOT NULL DEFAULT 0",
+                )?;
+            }
+        }
         Ok(())
     }
 
@@ -3170,6 +3224,19 @@ mod tests {
     }
 
     #[test]
+    fn resource_flag_migration_preserves_existing_rows_and_is_idempotent() -> Result<(), AppError> {
+        let conn = Connection::open_in_memory()?;
+        conn.execute_batch("CREATE TABLE skills (id TEXT PRIMARY KEY,enabled_codex BOOLEAN NOT NULL DEFAULT 0); CREATE TABLE mcp_servers (id TEXT PRIMARY KEY,enabled_codex BOOLEAN NOT NULL DEFAULT 0); INSERT INTO skills VALUES ('s',1); INSERT INTO mcp_servers VALUES ('m',1);")?;
+        Database::migrate_v16_to_v17(&conn)?;
+        Database::migrate_v16_to_v17(&conn)?;
+        for table in ["skills", "mcp_servers"] {
+            let row:(bool,bool,bool,bool,bool)=conn.query_row(&format!("SELECT enabled_codex,enabled_openclaw,enabled_pi,enabled_deepseek_harness,enabled_workbuddy FROM {table}"),[],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?)))?;
+            assert_eq!(row, (true, false, false, false, false));
+        }
+        Ok(())
+    }
+
+    #[test]
     fn migrate_v14_to_v15_adds_grokbuild_skill_and_mcp_flags() -> Result<(), AppError> {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch(
@@ -3243,7 +3310,7 @@ mod tests {
 
         Database::apply_schema_migrations_on_conn(&conn)?;
 
-        assert_eq!(Database::get_user_version(&conn)?, 16);
+        assert_eq!(Database::get_user_version(&conn)?, SCHEMA_VERSION);
         let counts: (i64, i64, i64, i64) = conn.query_row(
             "SELECT
                 (SELECT COUNT(*) FROM proxy_request_logs WHERE data_source = 'codex_session'),

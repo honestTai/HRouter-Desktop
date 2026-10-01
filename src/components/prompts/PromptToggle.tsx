@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import React from "react";
 
 interface PromptToggleProps {
@@ -16,7 +17,9 @@ const PromptToggle: React.FC<PromptToggleProps> = ({
   disabled = false,
 }) => {
   return (
-    <button
+    <Button
+      variant="ghost"
+      size="auto"
       type="button"
       role="switch"
       aria-checked={enabled}
@@ -34,7 +37,7 @@ const PromptToggle: React.FC<PromptToggleProps> = ({
           ${enabled ? "translate-x-6" : "translate-x-1"}
         `}
       />
-    </button>
+    </Button>
   );
 };
 

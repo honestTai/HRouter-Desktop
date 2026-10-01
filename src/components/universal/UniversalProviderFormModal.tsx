@@ -365,7 +365,9 @@ requires_openai_auth = true`;
             </Label>
             <div className="flex flex-wrap gap-2">
               {universalProviderPresets.map((preset) => (
-                <button
+                <Button
+                  variant="ghost"
+                  size="auto"
                   key={preset.providerType}
                   type="button"
                   onClick={() => handlePresetSelect(preset)}
@@ -381,7 +383,7 @@ requires_openai_auth = true`;
                     size={16}
                   />
                   {preset.name}
-                </button>
+                </Button>
               ))}
             </div>
             {selectedPreset?.description && (

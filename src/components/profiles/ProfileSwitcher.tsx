@@ -52,6 +52,14 @@ const CURRENT_ID_KEY: Record<ProfileScope, keyof CurrentProfileIds> = {
   claude: "claude",
   "claude-desktop": "claudeDesktop",
   codex: "codex",
+  gemini: "gemini",
+  grokbuild: "grokbuild",
+  opencode: "opencode",
+  openclaw: "openclaw",
+  hermes: "hermes",
+  pi: "pi",
+  "deepseek-harness": "deepseekHarness",
+  workbuddy: "workbuddy",
 };
 
 interface ProfileSwitcherProps {
@@ -135,7 +143,9 @@ export function ProfileSwitcher({ activeApp }: ProfileSwitcherProps) {
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             type="button"
             role="combobox"
             aria-expanded={open}
@@ -151,7 +161,7 @@ export function ProfileSwitcher({ activeApp }: ProfileSwitcherProps) {
               {currentProfile?.name ?? t("profiles.none")}
             </span>
             <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
-          </button>
+          </Button>
         </PopoverTrigger>
         <PopoverContent
           side="bottom"

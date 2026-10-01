@@ -1,3 +1,4 @@
+import { TemporalInput } from "@/components/ui/date-time-field";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -8,7 +9,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
@@ -273,16 +273,16 @@ export function UsageDateRangePicker({
           {label}
         </div>
         <div className="flex items-center gap-1.5">
-          <Input
-            type="date"
+          <TemporalInput
+            kind="date"
             className={cn(
               "h-7 flex-1 border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0",
               isEndLive && "pointer-events-none",
             )}
             value={fmtDate(ts)}
-            onChange={(e) => {
+            onValueChange={(value) => {
               if (isEndLive) return;
-              const next = parseDateInput(ts, e.target.value);
+              const next = parseDateInput(ts, value);
               setTs(next);
               const d = fromTs(next);
               setDisplayMonth(new Date(d.getFullYear(), d.getMonth(), 1));
@@ -293,17 +293,17 @@ export function UsageDateRangePicker({
             }}
             readOnly={isEndLive}
           />
-          <Input
-            type="time"
+          <TemporalInput
+            kind="time"
             step={60}
             className={cn(
               "h-7 w-[90px] flex-none border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0",
               isEndLive && "pointer-events-none",
             )}
             value={fmtTime(ts)}
-            onChange={(e) => {
+            onValueChange={(value) => {
               if (isEndLive) return;
-              setTs(parseTimeInput(ts, e.target.value));
+              setTs(parseTimeInput(ts, value));
               setError(null);
             }}
             onFocus={() => {
@@ -423,7 +423,9 @@ export function UsageDateRangePicker({
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
-              <button
+              <Button
+                variant="ghost"
+                size="auto"
                 type="button"
                 className="text-sm font-medium hover:text-primary transition-colors"
                 onClick={goToToday}
@@ -433,7 +435,7 @@ export function UsageDateRangePicker({
                   year: "numeric",
                   month: "long",
                 })}
-              </button>
+              </Button>
               <Button
                 type="button"
                 size="icon"
@@ -477,7 +479,9 @@ export function UsageDateRangePicker({
                 const isEndpoint = isStart || isEnd;
 
                 return (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="auto"
                     key={day.toISOString()}
                     type="button"
                     aria-label={day.toLocaleDateString(locale)}
@@ -495,7 +499,7 @@ export function UsageDateRangePicker({
                     onClick={() => handleDatePick(day)}
                   >
                     {day.getDate()}
-                  </button>
+                  </Button>
                 );
               })}
             </div>

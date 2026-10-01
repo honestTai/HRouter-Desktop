@@ -4,7 +4,6 @@ import {
   CircleDollarSign,
   ExternalLink,
   KeyRound,
-  LayoutDashboard,
   LayoutGrid,
   LogIn,
   ReceiptText,
@@ -24,7 +23,6 @@ import { cn } from "@/lib/utils";
 interface AppSidebarProps {
   onOpenWorkbench: () => void;
   currentView: string;
-  onOpenDashboard: () => void;
   onOpenUsage: () => void;
   onOpenBilling: () => void;
   onOpenOrders: () => void;
@@ -43,7 +41,6 @@ const utilityItemClass = `${navItemClass} border-transparent bg-transparent text
 export function AppSidebar({
   onOpenWorkbench,
   currentView,
-  onOpenDashboard,
   onOpenUsage,
   onOpenBilling,
   onOpenOrders,
@@ -112,24 +109,13 @@ export function AppSidebar({
         <Button
           type="button"
           variant="ghost"
-          onClick={onOpenDashboard}
-          aria-current={currentView === "dashboard" ? "page" : undefined}
-          className={itemClass("dashboard")}
-          data-tour="dashboard"
-        >
-          <LayoutDashboard className="h-4 w-4" />
-          {t("navigation.dashboard", { defaultValue: "仪表盘" })}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
           onClick={onOpenUsage}
           aria-current={currentView === "usage" ? "page" : undefined}
           className={itemClass("usage")}
           data-tour="usage"
         >
           <BarChart3 className="h-4 w-4" />
-          {t("navigation.usage", { defaultValue: "使用记录" })}
+          {t("workspaceUi.analyticsTitle")}
         </Button>
         <Button
           type="button"
@@ -210,7 +196,7 @@ export function AppSidebar({
         <Button
           type="button"
           variant="ghost"
-          onClick={session ? onOpenProfile : onOpenDashboard}
+          onClick={onOpenProfile}
           className={cn(
             navItemClass,
             "mb-2 h-auto min-h-11 border border-border-default bg-background py-2 text-left",

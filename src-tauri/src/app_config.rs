@@ -19,69 +19,64 @@ pub struct McpApps {
     pub opencode: bool,
     #[serde(default)]
     pub hermes: bool,
+    #[serde(default, rename = "claude-desktop")]
+    pub claude_desktop: bool,
+    #[serde(default)]
+    pub openclaw: bool,
+    #[serde(default)]
+    pub pi: bool,
+    #[serde(default, rename = "deepseek-harness")]
+    pub deepseek_harness: bool,
+    #[serde(default)]
+    pub workbuddy: bool,
 }
 
 impl McpApps {
     /// 检查指定应用是否启用
-    pub fn is_enabled_for(&self, app: &AppType) -> bool {
-        match app {
-            AppType::Claude => self.claude,
-            AppType::Codex => self.codex,
-            AppType::Gemini => self.gemini,
-            AppType::GrokBuild => self.grokbuild,
-            AppType::OpenCode => self.opencode,
-            AppType::OpenClaw => false, // OpenClaw doesn't support MCP
-            AppType::Hermes => self.hermes,
-            AppType::ClaudeDesktop => false,
+    pub fn is_enabled_for(&self, app: impl Into<crate::ResourceTarget>) -> bool {
+        match app.into() {
+            crate::ResourceTarget::Claude => self.claude,
+            crate::ResourceTarget::Codex => self.codex,
+            crate::ResourceTarget::Gemini => self.gemini,
+            crate::ResourceTarget::GrokBuild => self.grokbuild,
+            crate::ResourceTarget::OpenCode => self.opencode,
+            crate::ResourceTarget::OpenClaw => self.openclaw,
+            crate::ResourceTarget::Workbuddy => self.workbuddy,
+            crate::ResourceTarget::DeepseekHarness => self.deepseek_harness,
+            crate::ResourceTarget::Pi => self.pi,
+            crate::ResourceTarget::Hermes => self.hermes,
+            crate::ResourceTarget::ClaudeDesktop => self.claude_desktop,
         }
     }
 
     /// 设置指定应用的启用状态
-    pub fn set_enabled_for(&mut self, app: &AppType, enabled: bool) {
-        match app {
-            AppType::Claude => self.claude = enabled,
-            AppType::Codex => self.codex = enabled,
-            AppType::Gemini => self.gemini = enabled,
-            AppType::GrokBuild => self.grokbuild = enabled,
-            AppType::OpenCode => self.opencode = enabled,
-            AppType::OpenClaw => {} // OpenClaw doesn't support MCP, ignore
-            AppType::Hermes => self.hermes = enabled,
-            AppType::ClaudeDesktop => {} // Claude Desktop 3P provider config doesn't support MCP here
+    pub fn set_enabled_for(&mut self, app: impl Into<crate::ResourceTarget>, enabled: bool) {
+        match app.into() {
+            crate::ResourceTarget::Claude => self.claude = enabled,
+            crate::ResourceTarget::Codex => self.codex = enabled,
+            crate::ResourceTarget::Gemini => self.gemini = enabled,
+            crate::ResourceTarget::GrokBuild => self.grokbuild = enabled,
+            crate::ResourceTarget::OpenCode => self.opencode = enabled,
+            crate::ResourceTarget::OpenClaw => self.openclaw = enabled,
+            crate::ResourceTarget::Workbuddy => self.workbuddy = enabled,
+            crate::ResourceTarget::DeepseekHarness => self.deepseek_harness = enabled,
+            crate::ResourceTarget::Pi => self.pi = enabled,
+            crate::ResourceTarget::Hermes => self.hermes = enabled,
+            crate::ResourceTarget::ClaudeDesktop => self.claude_desktop = enabled,
         }
     }
 
     /// 获取所有启用的应用列表
-    pub fn enabled_apps(&self) -> Vec<AppType> {
-        let mut apps = Vec::new();
-        if self.claude {
-            apps.push(AppType::Claude);
-        }
-        if self.codex {
-            apps.push(AppType::Codex);
-        }
-        if self.gemini {
-            apps.push(AppType::Gemini);
-        }
-        if self.grokbuild {
-            apps.push(AppType::GrokBuild);
-        }
-        if self.opencode {
-            apps.push(AppType::OpenCode);
-        }
-        if self.hermes {
-            apps.push(AppType::Hermes);
-        }
-        apps
+    pub fn enabled_apps(&self) -> Vec<crate::ResourceTarget> {
+        crate::ResourceTarget::mcp_targets()
+            .into_iter()
+            .filter(|app| self.is_enabled_for(app))
+            .collect()
     }
 
     /// 检查是否所有应用都未启用
     pub fn is_empty(&self) -> bool {
-        !self.claude
-            && !self.codex
-            && !self.gemini
-            && !self.grokbuild
-            && !self.opencode
-            && !self.hermes
+        self.enabled_apps().is_empty()
     }
 }
 
@@ -100,73 +95,72 @@ pub struct SkillApps {
     pub opencode: bool,
     #[serde(default)]
     pub hermes: bool,
+    #[serde(default)]
+    pub openclaw: bool,
+    #[serde(default)]
+    pub pi: bool,
+    #[serde(default, rename = "deepseek-harness")]
+    pub deepseek_harness: bool,
+    #[serde(default)]
+    pub workbuddy: bool,
 }
 
 impl SkillApps {
     /// 检查指定应用是否启用
-    pub fn is_enabled_for(&self, app: &AppType) -> bool {
-        match app {
-            AppType::Claude => self.claude,
-            AppType::Codex => self.codex,
-            AppType::Gemini => self.gemini,
-            AppType::GrokBuild => self.grokbuild,
-            AppType::OpenCode => self.opencode,
-            AppType::Hermes => self.hermes,
-            AppType::OpenClaw => false, // OpenClaw doesn't support Skills
-            AppType::ClaudeDesktop => false,
+    pub fn is_enabled_for(&self, app: impl Into<crate::resource_target::ResourceTarget>) -> bool {
+        match app.into() {
+            crate::resource_target::ResourceTarget::Claude => self.claude,
+            crate::resource_target::ResourceTarget::Codex => self.codex,
+            crate::resource_target::ResourceTarget::Gemini => self.gemini,
+            crate::resource_target::ResourceTarget::GrokBuild => self.grokbuild,
+            crate::resource_target::ResourceTarget::OpenCode => self.opencode,
+            crate::resource_target::ResourceTarget::Hermes => self.hermes,
+            crate::resource_target::ResourceTarget::OpenClaw => self.openclaw,
+            crate::resource_target::ResourceTarget::Pi => self.pi,
+            crate::resource_target::ResourceTarget::DeepseekHarness => self.deepseek_harness,
+            crate::resource_target::ResourceTarget::Workbuddy => self.workbuddy,
+            crate::resource_target::ResourceTarget::ClaudeDesktop => false,
         }
     }
 
     /// 设置指定应用的启用状态
-    pub fn set_enabled_for(&mut self, app: &AppType, enabled: bool) {
-        match app {
-            AppType::Claude => self.claude = enabled,
-            AppType::Codex => self.codex = enabled,
-            AppType::Gemini => self.gemini = enabled,
-            AppType::GrokBuild => self.grokbuild = enabled,
-            AppType::OpenCode => self.opencode = enabled,
-            AppType::Hermes => self.hermes = enabled,
-            AppType::OpenClaw => {} // OpenClaw doesn't support Skills, ignore
-            AppType::ClaudeDesktop => {} // Claude Desktop 3P profiles don't use HRouter skill sync
+    pub fn set_enabled_for(
+        &mut self,
+        app: impl Into<crate::resource_target::ResourceTarget>,
+        enabled: bool,
+    ) {
+        match app.into() {
+            crate::resource_target::ResourceTarget::Claude => self.claude = enabled,
+            crate::resource_target::ResourceTarget::Codex => self.codex = enabled,
+            crate::resource_target::ResourceTarget::Gemini => self.gemini = enabled,
+            crate::resource_target::ResourceTarget::GrokBuild => self.grokbuild = enabled,
+            crate::resource_target::ResourceTarget::OpenCode => self.opencode = enabled,
+            crate::resource_target::ResourceTarget::Hermes => self.hermes = enabled,
+            crate::resource_target::ResourceTarget::OpenClaw => self.openclaw = enabled,
+            crate::resource_target::ResourceTarget::Pi => self.pi = enabled,
+            crate::resource_target::ResourceTarget::DeepseekHarness => {
+                self.deepseek_harness = enabled
+            }
+            crate::resource_target::ResourceTarget::Workbuddy => self.workbuddy = enabled,
+            crate::resource_target::ResourceTarget::ClaudeDesktop => {} // Claude Desktop 3P profiles don't use HRouter skill sync
         }
     }
 
     /// 获取所有启用的应用列表
-    pub fn enabled_apps(&self) -> Vec<AppType> {
-        let mut apps = Vec::new();
-        if self.claude {
-            apps.push(AppType::Claude);
-        }
-        if self.codex {
-            apps.push(AppType::Codex);
-        }
-        if self.gemini {
-            apps.push(AppType::Gemini);
-        }
-        if self.grokbuild {
-            apps.push(AppType::GrokBuild);
-        }
-        if self.opencode {
-            apps.push(AppType::OpenCode);
-        }
-        if self.hermes {
-            apps.push(AppType::Hermes);
-        }
-        apps
+    pub fn enabled_apps(&self) -> Vec<crate::resource_target::ResourceTarget> {
+        crate::resource_target::ResourceTarget::skill_targets()
+            .into_iter()
+            .filter(|app| self.is_enabled_for(app))
+            .collect()
     }
 
     /// 检查是否所有应用都未启用
     pub fn is_empty(&self) -> bool {
-        !self.claude
-            && !self.codex
-            && !self.gemini
-            && !self.grokbuild
-            && !self.opencode
-            && !self.hermes
+        self.enabled_apps().is_empty()
     }
 
     /// 仅启用指定应用（其他应用设为禁用）
-    pub fn only(app: &AppType) -> Self {
+    pub fn only(app: impl Into<crate::resource_target::ResourceTarget>) -> Self {
         let mut apps = Self::default();
         apps.set_enabled_for(app, true);
         apps
@@ -174,12 +168,12 @@ impl SkillApps {
 
     /// 从来源标签列表构建启用状态
     ///
-    /// 标签与 AppType::as_str() 一致时启用对应应用，
+    /// 标签与 crate::resource_target::ResourceTarget::as_str() 一致时启用对应应用，
     /// 其他标签（如 "agents", "cc-switch"）忽略。
     pub fn from_labels(labels: &[String]) -> Self {
         let mut apps = Self::default();
         for label in labels {
-            if let Ok(app) = label.parse::<AppType>() {
+            if let Ok(app) = label.parse::<crate::resource_target::ResourceTarget>() {
                 apps.set_enabled_for(&app, true);
             }
         }

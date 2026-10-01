@@ -281,6 +281,9 @@ export type ClaudeApiKeyField = "ANTHROPIC_AUTH_TOKEN" | "ANTHROPIC_API_KEY";
 
 // 主页面显示的应用配置
 export interface VisibleApps {
+  pi?: boolean;
+  "deepseek-harness"?: boolean;
+  workbuddy?: boolean;
   claude: boolean;
   "claude-desktop": boolean;
   codex: boolean;
@@ -457,6 +460,7 @@ export interface Settings {
 }
 
 export interface SessionMeta {
+  readOnly?: boolean;
   providerId: string;
   sessionId: string;
   title?: string;
@@ -500,6 +504,9 @@ export interface McpApps {
   opencode: boolean;
   openclaw: boolean;
   hermes: boolean;
+  pi?: boolean;
+  "deepseek-harness"?: boolean;
+  workbuddy?: boolean;
 }
 
 // MCP 服务器条目（v3.7.0 统一结构）

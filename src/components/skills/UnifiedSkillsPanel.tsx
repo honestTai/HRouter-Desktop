@@ -1,6 +1,11 @@
+import { save } from "@tauri-apps/plugin-dialog";
+import { AgentResourceContext } from "@/components/common/AgentResourceContext";
+import { Checkbox } from "@/components/ui/checkbox";
+import { isFileAgent } from "@/config/fileAgents";
 import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Download,
   Sparkles,
   Trash2,
   ExternalLink,
@@ -52,6 +57,7 @@ import {
 interface UnifiedSkillsPanelProps {
   onOpenDiscovery: () => void;
   currentApp: AppId;
+  onAppChange?: (app: AppId) => void;
   onInteractionBlockedChange?: (blocked: boolean) => void;
   onNavigationBlockedChange?: (blocked: boolean) => void;
   onCheckUpdatesStateChange?: (state: SkillsCheckUpdatesState) => void;
@@ -84,6 +90,7 @@ const UnifiedSkillsPanel = React.forwardRef<
   const {
     onOpenDiscovery,
     currentApp,
+    onAppChange,
     onInteractionBlockedChange,
     onNavigationBlockedChange,
     onCheckUpdatesStateChange,
@@ -217,6 +224,9 @@ const UnifiedSkillsPanel = React.forwardRef<
       opencode: 0,
       openclaw: 0,
       hermes: 0,
+      pi: 0,
+      "deepseek-harness": 0,
+      workbuddy: 0,
     };
     if (!skills) return counts;
     skills.forEach((skill) => {
@@ -271,6 +281,7 @@ const UnifiedSkillsPanel = React.forwardRef<
   };
 
   const handleToggleAll = async (app: AppId, enabled: boolean) => {
+    if (isFileAgent(app)) return;
     if (!skills || !beginWrite()) return;
 
     const ids = skills
@@ -366,6 +377,10 @@ const UnifiedSkillsPanel = React.forwardRef<
   };
 
   const handleInstallFromZip = async () => {
+    if (!SKILLS_APP_IDS.some((id) => id === currentApp)) {
+      toast.error(t("agentContext.unsupported"));
+      return;
+    }
     if (!beginWrite()) return;
     try {
       const filePath = await skillsApi.openZipFileDialog();
@@ -484,6 +499,10 @@ const UnifiedSkillsPanel = React.forwardRef<
   };
 
   const handleRestoreFromBackup = async (backupId: string) => {
+    if (!SKILLS_APP_IDS.some((id) => id === currentApp)) {
+      toast.error(t("agentContext.unsupported"));
+      return;
+    }
     if (!beginWrite(true)) return;
     try {
       const restored = await restoreBackupMutation.mutateAsync({
@@ -594,10 +613,17 @@ const UnifiedSkillsPanel = React.forwardRef<
   }));
 
   return (
-    <div className="px-6 flex flex-col flex-1 min-h-0 overflow-hidden">
+    <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
+      <AgentResourceContext
+        app={currentApp}
+        supported={SKILLS_APP_IDS}
+        onAppChange={onAppChange}
+        disabled={interactionBlocked}
+      />
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0 flex-1">
           <AppCountBar
+            showAllApps
             totalLabel={t("skills.installed", { count: skills?.length || 0 })}
             counts={enabledCounts}
             appIds={SKILLS_APP_IDS}
@@ -754,6 +780,25 @@ const InstalledSkillListItem: React.FC<InstalledSkillListItemProps> = ({
 }) => {
   const { t } = useTranslation();
 
+  const [exporting, setExporting] = useState(false);
+  const exportZip = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const path = await save({
+        defaultPath: `${skill.directory}.zip`,
+        filters: [{ name: "Skill ZIP", extensions: ["zip"] }],
+      });
+      if (!path) return;
+      await skillsApi.exportZip(skill.id, path);
+      toast.success(t("skills.exported"));
+    } catch (error) {
+      toast.error(t("skills.exportFailed"), { description: String(error) });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const openDocs = async () => {
     if (!skill.readmeUrl) return;
     try {
@@ -778,13 +823,15 @@ const InstalledSkillListItem: React.FC<InstalledSkillListItemProps> = ({
             {skill.name}
           </span>
           {skill.readmeUrl && (
-            <button
+            <Button
+              variant="ghost"
+              size="auto"
               type="button"
               onClick={openDocs}
               className="text-muted-foreground/60 hover:text-foreground flex-shrink-0"
             >
               <ExternalLink size={12} />
-            </button>
+            </Button>
           )}
           <span className="text-xs text-muted-foreground/50 flex-shrink-0">
             {sourceLabel}
@@ -809,6 +856,7 @@ const InstalledSkillListItem: React.FC<InstalledSkillListItemProps> = ({
       </div>
 
       <AppToggleGroup
+        showAllApps
         apps={skill.apps}
         onToggle={(app, enabled) => onToggleApp(skill.id, app, enabled)}
         appIds={SKILLS_APP_IDS}
@@ -816,9 +864,25 @@ const InstalledSkillListItem: React.FC<InstalledSkillListItemProps> = ({
       />
 
       <div
-        className="flex-shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="flex-shrink-0 flex items-center gap-0.5"
         style={hasUpdate ? { opacity: 1 } : undefined}
       >
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          aria-label={t("skills.exportZip")}
+          title={t("skills.exportZip")}
+          disabled={actionsDisabled || exporting}
+          onClick={() => void exportZip()}
+        >
+          {exporting ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Download size={14} />
+          )}
+        </Button>
         {hasUpdate && onUpdate && (
           <Button
             type="button"
@@ -1053,34 +1117,42 @@ const ImportSkillsDialog: React.FC<ImportSkillsDialogProps> = ({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-background rounded-xl p-6 max-w-lg w-full mx-4 shadow-xl max-h-[80vh] flex flex-col">
-          <h2 className="text-lg font-semibold mb-2">{t("skills.import")}</h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            {t("skills.importDescription")}
-          </p>
+      <Dialog
+        open
+        onOpenChange={(open) => {
+          if (!open && !isImporting) onClose();
+        }}
+      >
+        <DialogContent className="max-w-2xl p-0" aria-busy={isImporting}>
+          <DialogHeader>
+            <DialogTitle>{t("skills.import")}</DialogTitle>
+            <DialogDescription>
+              {t("skills.importDescription")}
+            </DialogDescription>
+          </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto space-y-2 mb-4">
+          <div className="min-h-0 flex-1 overflow-y-auto space-y-3 px-6 py-5">
             {skills.map((skill) => (
               <div
                 key={skill.directory}
                 className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted"
               >
-                <input
-                  type="checkbox"
+                <Checkbox
+                  aria-label={skill.name}
                   checked={selected.has(skill.directory)}
-                  onChange={() => toggleSelect(skill.directory)}
+                  onCheckedChange={() => toggleSelect(skill.directory)}
                   className="mt-1"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="font-medium">{skill.name}</div>
                   {skill.description && (
-                    <div className="text-sm text-muted-foreground line-clamp-1">
+                    <div className="mt-1 text-sm leading-relaxed text-muted-foreground line-clamp-2">
                       {skill.description}
                     </div>
                   )}
                   <div className="mt-2">
                     <AppToggleGroup
+                      showAllApps
                       apps={
                         selectedApps[skill.directory] ?? {
                           claude: false,
@@ -1113,7 +1185,7 @@ const ImportSkillsDialog: React.FC<ImportSkillsDialogProps> = ({
                     />
                   </div>
                   <div
-                    className="text-xs text-muted-foreground/50 mt-1 truncate"
+                    className="mt-3 truncate text-xs leading-relaxed text-muted-foreground"
                     title={skill.path}
                   >
                     {skill.path}
@@ -1123,7 +1195,7 @@ const ImportSkillsDialog: React.FC<ImportSkillsDialogProps> = ({
             ))}
           </div>
 
-          <div className="flex justify-end gap-3">
+          <DialogFooter>
             <Button variant="outline" onClick={onClose} disabled={isImporting}>
               {t("common.cancel")}
             </Button>
@@ -1133,9 +1205,9 @@ const ImportSkillsDialog: React.FC<ImportSkillsDialogProps> = ({
             >
               {t("skills.importSelected", { count: selected.size })}
             </Button>
-          </div>
-        </div>
-      </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   );
 };

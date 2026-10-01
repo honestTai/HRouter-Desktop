@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import React from "react";
 import { RefreshCw, AlertCircle, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -67,14 +68,16 @@ const CopilotQuotaFooter: React.FC<CopilotQuotaFooterProps> = ({
             <AlertCircle size={12} />
             <span>{quota.error || t("subscription.queryFailed")}</span>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={() => refetch()}
             disabled={loading}
             className="p-1 rounded hover:bg-muted transition-colors disabled:opacity-50 flex-shrink-0"
             title={t("subscription.refresh")}
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          </button>
+          </Button>
         </div>
       );
     }
@@ -99,7 +102,9 @@ const CopilotQuotaFooter: React.FC<CopilotQuotaFooterProps> = ({
               ? formatRelativeTime(quota.queriedAt, now, t)
               : t("usage.never", { defaultValue: "Never" })}
           </span>
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={(e) => {
               e.stopPropagation();
               refetch();
@@ -109,7 +114,7 @@ const CopilotQuotaFooter: React.FC<CopilotQuotaFooterProps> = ({
             title={t("subscription.refresh")}
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          </button>
+          </Button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -135,14 +140,16 @@ const CopilotQuotaFooter: React.FC<CopilotQuotaFooterProps> = ({
               {formatRelativeTime(quota.queriedAt, now, t)}
             </span>
           )}
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             onClick={() => refetch()}
             disabled={loading}
             className="p-1 rounded hover:bg-muted transition-colors disabled:opacity-50"
             title={t("subscription.refresh")}
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          </button>
+          </Button>
         </div>
       </div>
 

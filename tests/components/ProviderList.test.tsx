@@ -235,12 +235,12 @@ describe("ProviderList Component", () => {
     // Drag attributes from useSortable
     expect(
       providerCardRenderSpy.mock.calls[0][0].dragHandleProps?.attributes[
-      "data-dnd-id"
+        "data-dnd-id"
       ],
     ).toBe("b");
     expect(
       providerCardRenderSpy.mock.calls[1][0].dragHandleProps?.attributes[
-      "data-dnd-id"
+        "data-dnd-id"
       ],
     ).toBe("a");
 
@@ -291,6 +291,9 @@ describe("ProviderList Component", () => {
     const searchInput = screen.getByPlaceholderText(
       "Search name, notes, or URL...",
     );
+    expect(searchInput.closest("#provider-search-panel")).not.toHaveClass(
+      "fixed",
+    );
     // Initially both providers are rendered
     expect(screen.getByTestId("provider-card-alpha")).toBeInTheDocument();
     expect(screen.getByTestId("provider-card-beta")).toBeInTheDocument();
@@ -305,5 +308,8 @@ describe("ProviderList Component", () => {
     expect(
       screen.getByText("No providers match your search."),
     ).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByTestId("provider-card-alpha")).toBeInTheDocument();
+    expect(screen.getByTestId("provider-card-beta")).toBeInTheDocument();
   });
 });

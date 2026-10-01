@@ -1,3 +1,5 @@
+import { save } from "@tauri-apps/plugin-dialog";
+import { skillsApi } from "@/lib/api/skills";
 import { createRef } from "react";
 import { render, screen, waitFor, act, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -11,6 +13,8 @@ import type {
   SkillBackupEntry,
   SkillUpdateInfo,
 } from "@/lib/api/skills";
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn() }));
 
 const scanUnmanagedMock = vi.fn();
 const toggleSkillAppMock = vi.fn();
@@ -187,6 +191,61 @@ describe("UnifiedSkillsPanel", () => {
     );
   });
 
+  it("does not install a shared skill into a fallback Agent when the selected target is unsupported", async () => {
+    const ref = createRef<UnifiedSkillsPanelHandle>();
+    render(
+      <UnifiedSkillsPanel
+        ref={ref}
+        currentApp="claude-desktop"
+        onOpenDiscovery={vi.fn()}
+      />,
+    );
+    await act(async () => {
+      await ref.current?.openInstallFromZip();
+    });
+    expect(installFromZipMock).not.toHaveBeenCalled();
+    expect(toastErrorMock).toHaveBeenCalledWith("agentContext.unsupported");
+  });
+
+  it("exports a Desktop import archive without enabling another Agent", async () => {
+    installedSkillsMock = [makeInstalledSkill()];
+    vi.mocked(save).mockResolvedValueOnce("/tmp/alpha-skill.zip");
+    const exportSpy = vi
+      .spyOn(skillsApi, "exportZip")
+      .mockResolvedValueOnce(true);
+    render(
+      <UnifiedSkillsPanel
+        currentApp="claude-desktop"
+        onOpenDiscovery={vi.fn()}
+      />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "skills.exportZip" }),
+    );
+    await waitFor(() =>
+      expect(exportSpy).toHaveBeenCalledWith(
+        "owner/repo:alpha-skill",
+        "/tmp/alpha-skill.zip",
+      ),
+    );
+    expect(toggleSkillAppMock).not.toHaveBeenCalled();
+    expect(toastSuccessMock).toHaveBeenCalledWith("skills.exported");
+    exportSpy.mockRestore();
+  });
+
+  it("does not export when the save dialog is cancelled", async () => {
+    installedSkillsMock = [makeInstalledSkill()];
+    vi.mocked(save).mockResolvedValueOnce(null);
+    const exportSpy = vi.spyOn(skillsApi, "exportZip");
+    renderPanel();
+    await userEvent.click(
+      screen.getByRole("button", { name: "skills.exportZip" }),
+    );
+    expect(exportSpy).not.toHaveBeenCalled();
+    expect(toastSuccessMock).not.toHaveBeenCalled();
+    exportSpy.mockRestore();
+  });
+
   it("opens the import dialog without crashing when app toggles render", async () => {
     const ref = createRef<UnifiedSkillsPanelHandle>();
 
@@ -206,6 +265,9 @@ describe("UnifiedSkillsPanel", () => {
       expect(screen.getByText("skills.import")).toBeInTheDocument();
       expect(screen.getByText("Shared Skill")).toBeInTheDocument();
       expect(screen.getByText("/tmp/shared-skill")).toBeInTheDocument();
+      expect(
+        screen.getByText("/tmp/shared-skill").closest(".overflow-y-auto"),
+      ).toHaveClass("py-5", "px-6");
     });
 
     await act(async () => {
@@ -351,7 +413,7 @@ describe("UnifiedSkillsPanel", () => {
       }),
       "Visible Skill",
     );
-    await user.click(screen.getByText("Claude:").closest("button")!);
+    await user.click(screen.getAllByRole("checkbox")[0]);
 
     await waitFor(() => {
       expect(bulkToggleSkillAppMock).toHaveBeenCalledWith({
@@ -370,7 +432,7 @@ describe("UnifiedSkillsPanel", () => {
     renderPanel();
 
     const user = userEvent.setup();
-    await user.click(screen.getByText("Claude:").closest("button")!);
+    await user.click(screen.getAllByRole("checkbox")[0]);
 
     await waitFor(() => {
       expect(bulkToggleSkillAppMock).toHaveBeenCalledWith({
@@ -389,7 +451,7 @@ describe("UnifiedSkillsPanel", () => {
     renderPanel();
 
     const user = userEvent.setup();
-    await user.click(screen.getByText("Claude:").closest("button")!);
+    await user.click(screen.getAllByRole("checkbox")[0]);
 
     await waitFor(() => {
       expect(bulkToggleSkillAppMock).toHaveBeenCalledWith({
@@ -412,7 +474,7 @@ describe("UnifiedSkillsPanel", () => {
     renderPanel();
 
     const user = userEvent.setup();
-    await user.click(screen.getByText("Claude:").closest("button")!);
+    await user.click(screen.getAllByRole("checkbox")[0]);
 
     await waitFor(() => {
       expect(toastErrorMock).toHaveBeenCalledWith("common.bulkToggleFailed", {
@@ -533,7 +595,7 @@ describe("UnifiedSkillsPanel", () => {
       expect(onInteractionBlockedChange).toHaveBeenLastCalledWith(true);
       expect(onNavigationBlockedChange).toHaveBeenLastCalledWith(false);
     });
-    expect(screen.getByText("Claude:").closest("button")).toBeDisabled();
+    expect(screen.getAllByRole("checkbox")[0]).toBeDisabled();
     expect(screen.getByTitle("skills.uninstall")).toBeDisabled();
 
     await act(async () => {
@@ -594,9 +656,7 @@ describe("UnifiedSkillsPanel", () => {
       await ref.current?.openImport();
     });
     await userEvent.setup().click(screen.getByTitle("skills.uninstall"));
-    await userEvent
-      .setup()
-      .click(screen.getByText("Claude:").closest("button")!);
+    await userEvent.setup().click(screen.getAllByRole("checkbox")[0]);
 
     expect(scanUnmanagedMock).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

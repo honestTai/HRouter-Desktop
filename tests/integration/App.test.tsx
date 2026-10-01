@@ -1,6 +1,12 @@
 import { Suspense, type ComponentType } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  within,
+} from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { providersApi } from "@/lib/api/providers";
 import {
@@ -196,6 +202,57 @@ describe("App integration with MSW", () => {
     localStorage.removeItem("cc-switch-last-view");
     localStorage.removeItem("hrouter-last-app");
     localStorage.setItem("hrouter-last-view", "providers");
+  });
+
+  it("keeps workbench, provider data, profiles and routes on the same Agent in both directions", async () => {
+    const getAll = vi.spyOn(providersApi, "getAll");
+    const { default: App } = await import("@/App");
+    renderApp(App);
+    await screen.findByTestId("provider-list");
+    fireEvent.click(screen.getByText("switch-codex"));
+    await waitFor(() => expect(getAll).toHaveBeenCalledWith("codex"));
+    fireEvent.click(
+      within(screen.getByRole("navigation")).getByRole("button", {
+        name: "工作台",
+      }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Codex", pressed: true }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Gemini CLI" }));
+    fireEvent.click(
+      within(screen.getByRole("navigation")).getByRole("button", {
+        name: "接入方案",
+      }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Gemini", pressed: true }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Pi Agent" }));
+    fireEvent.click(
+      within(screen.getByRole("navigation")).getByRole("button", {
+        name: "线路策略",
+      }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Pi Agent", pressed: true }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Codex" }));
+    fireEvent.click(
+      within(screen.getByRole("navigation")).getByRole("button", {
+        name: /供应商|配置中心/,
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("provider-list").textContent).toContain(
+        "codex-1",
+      ),
+    );
+    expect(screen.getByTestId("provider-list").textContent).not.toContain(
+      "claude-1",
+    );
+    expect(localStorage.getItem("hrouter-last-app")).toBe("codex");
+    vi.restoreAllMocks();
   });
 
   it("covers basic provider flows via real hooks", async () => {
@@ -399,14 +456,13 @@ describe("App integration with MSW", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("falls back to the HRouter dashboard for unsupported views", async () => {
+  it("falls back to the generic workbench for unsupported views", async () => {
     localStorage.setItem("hrouter-last-view", "skills");
     const { default: App } = await import("@/App");
     renderApp(App);
 
-    expect((await screen.findAllByText("登录 HRouter")).length).toBeGreaterThan(
-      0,
-    );
+    expect(await screen.findByText("接入你的模型服务")).toBeVisible();
+    expect(screen.queryByText("登录 HRouter")).not.toBeInTheDocument();
     expect(
       screen.queryByTestId("unified-skills-panel"),
     ).not.toBeInTheDocument();

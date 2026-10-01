@@ -34,6 +34,11 @@ pub fn reset_test_fs() {
         ".grok",
         ".config",
         ".openclaw",
+        ".pi",
+        ".codebuddy",
+        ".dsh",
+        "Library",
+        "AppData",
         "profiles",
     ] {
         let path = home.join(sub);

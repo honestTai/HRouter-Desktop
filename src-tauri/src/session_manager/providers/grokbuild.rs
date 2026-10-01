@@ -181,6 +181,7 @@ fn parse_summary(path: &Path) -> Option<SessionMeta> {
         .and_then(parse_timestamp_to_ms);
 
     Some(SessionMeta {
+        read_only: None,
         provider_id: "grokbuild".to_string(),
         session_id: session_id.clone(),
         title,

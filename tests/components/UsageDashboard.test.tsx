@@ -46,7 +46,9 @@ vi.mock("@/lib/query/usage", async () => {
 });
 
 vi.mock("@/components/usage/UsageHero", () => ({
-  UsageHero: () => <div data-testid="usage-hero" />,
+  UsageHero: ({ appType }: { appType?: string }) => (
+    <div data-testid="usage-hero" data-agent={appType} />
+  ),
 }));
 
 vi.mock("@/components/usage/UsageTrendChart", () => ({
@@ -54,7 +56,9 @@ vi.mock("@/components/usage/UsageTrendChart", () => ({
 }));
 
 vi.mock("@/components/usage/RequestLogTable", () => ({
-  RequestLogTable: () => <div data-testid="request-log-table" />,
+  RequestLogTable: ({ appType }: { appType?: string }) => (
+    <div data-testid="request-log-table" data-agent={appType} />
+  ),
 }));
 
 vi.mock("@/components/usage/ProviderStatsTable", () => ({
@@ -111,6 +115,42 @@ describe("UsageDashboard", () => {
     useModelStatsMock.mockReset();
     useProviderStatsMock.mockReturnValue({ data: [] });
     useModelStatsMock.mockReturnValue({ data: [] });
+  });
+
+  it("pins workbench analytics to the selected Agent without an independent all filter", () => {
+    renderDashboard({ fixedApp: "gemini" });
+    expect(screen.getByTestId("usage-hero")).toHaveAttribute(
+      "data-agent",
+      "gemini",
+    );
+    expect(screen.getByTestId("request-log-table")).toHaveAttribute(
+      "data-agent",
+      "gemini",
+    );
+    expect(
+      screen.queryByRole("button", { name: "usage.appFilter.all" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("usage.rebuildCodex.title"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("starts from the configuration Agent but allows a read-only All filter", () => {
+    renderDashboard({ initialApp: "pi" });
+    expect(screen.getByTestId("request-log-table")).toHaveAttribute(
+      "data-agent",
+      "pi",
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "usage.appFilter.all" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "usage.appFilter.all" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("request-log-table")).toHaveAttribute(
+      "data-agent",
+      "all",
+    );
   });
 
   it("uses the saved refresh interval when mounted", () => {

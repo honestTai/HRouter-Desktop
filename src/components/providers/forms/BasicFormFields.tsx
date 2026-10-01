@@ -55,7 +55,9 @@ export function BasicFormFields({
       <div className="flex justify-center mb-6">
         <Dialog open={iconDialogOpen} onOpenChange={setIconDialogOpen}>
           <DialogTrigger asChild>
-            <button
+            <Button
+              variant="ghost"
+              size="auto"
               type="button"
               className="w-20 h-20 p-3 rounded-xl border-2 border-muted hover:border-primary transition-colors cursor-pointer bg-muted/30 hover:bg-muted/50 flex items-center justify-center"
               title={
@@ -74,7 +76,7 @@ export function BasicFormFields({
                 color={effectiveIconColor}
                 size={48}
               />
-            </button>
+            </Button>
           </DialogTrigger>
           <DialogContent
             variant="fullscreen"

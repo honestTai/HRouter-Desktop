@@ -1,3 +1,4 @@
+import { isFileAgent } from "@/config/fileAgents";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Save } from "lucide-react";
@@ -70,7 +71,7 @@ export function EditProviderDialog({
       // OpenCode uses additive mode - each provider's config is stored independently in DB
       // Reading live config would return the full opencode.json (with $schema, provider, mcp etc.)
       // instead of just the provider fragment, causing incorrect nested structure on save
-      if (appId === "opencode") {
+      if (appId === "opencode" || isFileAgent(appId)) {
         if (!cancelled) {
           setLiveSettings(null);
           setHasLoadedLive(true);

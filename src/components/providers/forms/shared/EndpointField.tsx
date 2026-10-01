@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { FormLabel } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -82,14 +83,16 @@ export function EndpointField({
           ) : null}
         </div>
         {showManageButton && onManageClick ? (
-          <button
+          <Button
+            variant="ghost"
+            size="auto"
             type="button"
             onClick={onManageClick}
             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <Zap className="h-3.5 w-3.5" />
             {manageButtonLabel || defaultManageLabel}
-          </button>
+          </Button>
         ) : null}
       </div>
       <Input

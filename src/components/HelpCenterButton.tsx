@@ -7,7 +7,6 @@ import {
   Bot,
   CircleHelp,
   Copy,
-  Gauge,
   Globe2,
   Headphones,
   Route,
@@ -40,7 +39,6 @@ const FEATURES = [
     icon: Globe2,
     tone: "text-sky-600 bg-sky-500/10",
   },
-  { key: "dashboard", icon: Gauge, tone: "text-cyan-600 bg-cyan-500/10" },
   { key: "usage", icon: BarChart3, tone: "text-violet-600 bg-violet-500/10" },
   {
     key: "billing",

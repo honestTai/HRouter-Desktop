@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 
 interface FeatureTourProps {
   onNavigate: (view: string) => void;
+  hrouterConnected?: boolean;
+  hrouterCloudEnabled?: boolean;
 }
 
 interface TourRect {
@@ -14,8 +16,7 @@ interface TourRect {
   height: number;
 }
 
-const steps = [
-  { target: "dashboard", view: "dashboard" },
+const allSteps = [
   { target: "usage", view: "usage" },
   { target: "billing", view: "billing" },
   { target: "orders", view: "orders" },
@@ -24,12 +25,29 @@ const steps = [
   { target: "providers", view: "providers" },
 ] as const;
 
-export function FeatureTour({ onNavigate }: FeatureTourProps) {
+export function FeatureTour({
+  onNavigate,
+  hrouterConnected = false,
+  hrouterCloudEnabled = false,
+}: FeatureTourProps) {
+  const steps = useMemo(
+    () =>
+      allSteps.filter((step) => {
+        if (step.view === "profile") return hrouterConnected;
+        if (["billing", "orders", "apiKeys"].includes(step.view))
+          return hrouterCloudEnabled;
+        return true;
+      }),
+    [hrouterConnected, hrouterCloudEnabled],
+  );
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<TourRect | null>(null);
-  const step = steps[index];
+  const step = steps[Math.min(index, steps.length - 1)];
+  useEffect(() => {
+    setIndex((previous) => Math.min(previous, steps.length - 1));
+  }, [steps.length]);
 
   useEffect(() => {
     const start = () => {
@@ -134,7 +152,11 @@ export function FeatureTour({ onNavigate }: FeatureTourProps) {
           </Button>
         </div>
         <p className="mt-2 text-xs leading-5 text-muted-foreground">
-          {t(`faq.tour.${step.target}Description`)}
+          {t(
+            step.target === "usage"
+              ? "localAnalytics.usageHint"
+              : `faq.tour.${step.target}Description`,
+          )}
         </p>
         <div className="mt-4 flex items-center justify-between gap-2">
           <Button

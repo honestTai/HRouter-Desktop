@@ -1,16 +1,15 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useQuery } from "@tanstack/react-query";
-import { useHRouterSession } from "@/hooks/useHRouterSession";
+import { useHRouterAccess } from "@/hooks/useHRouterAccess";
 import { hrouterAccountApi } from "@/lib/api/hrouterPlatform";
 
 const SUMMARY_REFRESH_INTERVAL_MS = 60_000;
 
 export function useHRouterTraySummary() {
-  const session = useHRouterSession();
-  const hadSession = useRef(false);
+  const { session, cloudEnabled } = useHRouterAccess();
   const runsInTauri = isTauri();
-  const enabled = runsInTauri && Boolean(session);
+  const enabled = runsInTauri && cloudEnabled;
 
   const profile = useQuery({
     queryKey: ["hrouter-account", session?.user.id, "profile"],
@@ -29,9 +28,7 @@ export function useHRouterTraySummary() {
 
   useEffect(() => {
     if (!runsInTauri) return;
-    if (!session) {
-      if (!hadSession.current) return;
-      hadSession.current = false;
+    if (!session || !cloudEnabled) {
       void invoke("update_hrouter_tray_summary", { summary: null }).catch(
         (error) => {
           console.debug("[HRouterTray] Failed to clear summary", error);
@@ -39,7 +36,6 @@ export function useHRouterTraySummary() {
       );
       return;
     }
-    hadSession.current = true;
     if (!dashboard.data) return;
 
     void invoke("update_hrouter_tray_summary", {
@@ -54,6 +50,7 @@ export function useHRouterTraySummary() {
     dashboard.data?.today_actual_cost,
     profile.data?.balance,
     runsInTauri,
+    cloudEnabled,
     session,
   ]);
 }

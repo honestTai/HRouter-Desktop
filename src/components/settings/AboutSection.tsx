@@ -1333,7 +1333,9 @@ export function AboutSection({ isPortable }: AboutSectionProps) {
         transition={{ duration: 0.3, delay: 0.3 }}
         className="space-y-3"
       >
-        <button
+        <Button
+          variant="ghost"
+          size="auto"
           type="button"
           onClick={() => setShowInstallCommands((v) => !v)}
           aria-expanded={showInstallCommands}
@@ -1345,7 +1347,7 @@ export function AboutSection({ isPortable }: AboutSectionProps) {
             }`}
           />
           {t("settings.manualInstallCommands")}
-        </button>
+        </Button>
         {showInstallCommands && (
           <div className="rounded-xl border border-border bg-gradient-to-br from-card/80 to-card/40 p-4 space-y-3 shadow-sm">
             <div className="flex items-center justify-between gap-2">

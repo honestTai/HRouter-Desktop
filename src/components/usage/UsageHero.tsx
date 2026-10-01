@@ -45,7 +45,7 @@ interface TitleTheme {
   iconBg: string;
 }
 
-const TITLE_THEMES: Record<AppType | "all", TitleTheme> = {
+const TITLE_THEMES: Partial<Record<AppType | "all", TitleTheme>> = {
   all: { accent: "text-primary", iconBg: "bg-primary/10" },
   claude: {
     accent: "text-amber-600 dark:text-amber-400",
@@ -189,9 +189,10 @@ export function UsageHero({
 
   const titleTheme =
     TITLE_THEMES[(appType ?? "all") as keyof typeof TITLE_THEMES] ??
-    TITLE_THEMES.all;
-  const appLabel =
-    appType && appType in TITLE_THEMES ? t(`usage.appFilter.${appType}`) : null;
+    TITLE_THEMES.all!;
+  const appLabel = appType
+    ? (APP_ICON_MAP[appType as AppId]?.label ?? appType)
+    : null;
 
   const cacheWriteState = deriveCacheWriteState(
     appType ? [appType] : allApps.map((a) => a.appType),

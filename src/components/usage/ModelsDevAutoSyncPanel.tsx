@@ -326,7 +326,9 @@ function AutoSyncDialog({ state, onClose, onSaved }: AutoSyncDialogProps) {
                       const selected = effectiveSelectedKeys.has(entry.key);
                       const common = commonModelKeys.has(entry.key);
                       return (
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="auto"
                           key={entry.key}
                           type="button"
                           aria-pressed={selected}
@@ -382,7 +384,7 @@ function AutoSyncDialog({ state, onClose, onSaved }: AutoSyncDialogProps) {
                               </div>
                             ))}
                           </div>
-                        </button>
+                        </Button>
                       );
                     })}
                     {filtered.length > visible.length && (

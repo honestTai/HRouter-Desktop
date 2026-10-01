@@ -5,34 +5,21 @@ export const EXTRA_AGENTS = [
     id: "pi",
     name: "Pi Agent",
     mark: "π",
-    mode: "local",
     url: "https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/models.md",
   },
   {
     id: "deepseek-harness",
     name: "DeepSeek Harness",
     mark: "DS",
-    mode: "snippet",
     url: "https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/llm/llm-pi-ai/README.md",
   },
   {
     id: "workbuddy",
     name: "WorkBuddy",
     mark: "W",
-    mode: "guide",
     url: "https://www.workbuddy.ai/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Model",
   },
 ] as const;
-/** JSON is a YAML scalar subset: quoting every user string prevents YAML injection. */
-export function deepseekSnippet(input: PiConnection): string {
-  if (
-    input.credentialMode !== "env" ||
-    !/^[A-Za-z_][A-Za-z0-9_]*$/.test(input.credential)
-  )
-    throw new Error("Use an environment variable name, not an API key");
-  const q = JSON.stringify;
-  return `- name: '@deepseek-ai/dsh-llm-pi-ai'\n  config:\n    providers:\n      hrouter:\n        displayName: HRouter\n        apiKeyEnv: ${q(input.credential)}\n        api: ${q(input.api)}\n        baseURL: ${q(input.baseUrl.trim().replace(/\/$/, ""))}\n        models:\n          - id: ${q(input.model.trim())}\n`;
-}
 export function validConnection(
   input: PiConnection,
   agent: ExtraAgent,
@@ -53,9 +40,33 @@ export function validConnection(
       /[\r\n\x00-\x1f]/.test(input.model)
     )
       return false;
-    if (agent === "workbuddy") return true;
+    if (
+      ![
+        "openai-completions",
+        "openai-responses",
+        "anthropic-messages",
+      ].includes(input.api)
+    )
+      return false;
+    if (agent === "workbuddy" && input.api !== "openai-completions")
+      return false;
+    if (input.credentialMode === "keep") return true;
+    if (agent === "workbuddy")
+      return (
+        input.api === "openai-completions" &&
+        input.credentialMode === "literal" &&
+        !!input.credential.trim() &&
+        input.credential.length <= 8192 &&
+        !/[\x00-\x1f]/.test(input.credential)
+      );
     if (input.credentialMode === "env")
       return /^[A-Za-z_][A-Za-z0-9_]*$/.test(input.credential);
+    if (agent === "deepseek-harness" && input.credentialMode === "literal")
+      return (
+        !!input.credential.trim() &&
+        input.credential.length <= 8192 &&
+        !/[\x00-\x1f']/.test(input.credential)
+      );
     return (
       agent === "pi" &&
       !!input.credential.trim() &&

@@ -6,10 +6,10 @@ use std::collections::HashMap;
 use serde::Serialize;
 use tauri::State;
 
-use crate::app_config::AppType;
 use crate::claude_mcp;
 use crate::services::McpService;
 use crate::store::AppState;
+use crate::ResourceTarget as AppType;
 
 /// 获取 Claude MCP 状态
 #[tauri::command]

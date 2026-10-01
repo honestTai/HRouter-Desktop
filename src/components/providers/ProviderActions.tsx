@@ -306,7 +306,7 @@ export function ProviderActions({
           size="icon"
           variant="ghost"
           onClick={onTest || undefined}
-          disabled={isTesting}
+          disabled={isTesting || !onTest}
           title={t("provider.connectivityCheck", "检测连通")}
           className={cn(
             iconButtonClass,
@@ -324,6 +324,7 @@ export function ProviderActions({
           size="icon"
           variant="ghost"
           onClick={onConfigureUsage || undefined}
+          disabled={!onConfigureUsage}
           title={t("provider.configureUsage")}
           className={cn(
             iconButtonClass,
@@ -338,6 +339,7 @@ export function ProviderActions({
           size="icon"
           variant="ghost"
           onClick={canDelete ? onDelete : undefined}
+          disabled={!canDelete}
           title={isReadOnly ? readOnlyHint : t("common.delete")}
           className={cn(
             iconButtonClass,

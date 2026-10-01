@@ -126,6 +126,7 @@ pub struct PaginatedLogs {
 #[serde(rename_all = "camelCase")]
 pub struct RequestLogDetail {
     pub request_id: String,
+    pub request_count: u64,
     pub provider_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provider_name: Option<String>,
@@ -174,6 +175,7 @@ pub struct RequestLogDetail {
 fn row_to_request_log_detail(row: &rusqlite::Row<'_>) -> rusqlite::Result<RequestLogDetail> {
     Ok(RequestLogDetail {
         request_id: row.get(0)?,
+        request_count: row.get::<_, i64>(26).unwrap_or(1).max(0) as u64,
         provider_id: row.get(1)?,
         provider_name: row.get(2)?,
         app_type: row.get(3)?,
@@ -216,6 +218,11 @@ fn provider_name_coalesce(log_alias: &str, provider_alias: &str) -> String {
          WHEN '_gemini_session' THEN 'Gemini (Session)' \
          WHEN '_opencode_session' THEN 'OpenCode (Session)' \
          WHEN '_grok_session' THEN 'Grok Build (Session)' \
+         WHEN '_pi_session' THEN 'Pi (Session)' \
+         WHEN '_openclaw_session' THEN 'OpenClaw (Session)' \
+         WHEN '_workbuddy_session' THEN 'CodeBuddy / WorkBuddy (Session)' \
+         WHEN '_deepseek-harness_session' THEN 'DeepSeek Harness (Session)' \
+         WHEN '_hermes_summary' THEN 'Hermes (Summary)' \
          ELSE {log_alias}.provider_id END)"
     )
 }
@@ -237,24 +244,8 @@ fn dedup_app_type_match_sql(left: &str, right: &str) -> String {
     )
 }
 
-/// SQL 标量表达式：把 Claude Desktop 网关的 `claude-desktop` app_type 在“展示口径”
-/// 上折叠进 `claude`，其余 app_type 原样返回。
-///
-/// 背景：Desktop 网关流量在记账层按各自入口写为 `app_type='claude-desktop'`，
-/// 以保留路由接管的账单审计精度（不要回退这一点）。但 Dashboard 把它当作
-/// Claude Code 呈现——它本质就是跑在 Desktop 壳里的内嵌 Claude Code 运行时，
-/// 且 Desktop 聊天用量永远不经过本软件，单列只会让用户误以为是“桌面版全部用量”。
-///
-/// 用法：把任一参与“按应用筛选/分组”的 `app_type` 列包进此表达式即可，
-/// 这样 `= 'claude'` 过滤会同时命中 `claude-desktop`、`GROUP BY` 会把两者合并，
-/// 而不改动任何已存储的行（详情面板仍读原始 `app_type`）。
-///
-/// 注意：包裹后该列上的索引在此比较中失效，但这些都是已带时间过滤的聚合扫描，
-/// app_type 本就不是主访问路径，可接受。仅用于读侧；跨源去重使用更窄的
-/// [`dedup_app_type_match_sql`]，额度检查（`check_provider_limits`）仍保留原始精确比较。
-fn folded_app_type_sql(column: &str) -> String {
-    format!("CASE WHEN {column} = 'claude-desktop' THEN 'claude' ELSE {column} END")
-}
+// Display and filter by the original app_type. Claude Desktop remains distinct
+// from Claude Code; only cross-source duplicate detection may match both.
 
 /// SQL 片段：把日志/汇总行 LEFT JOIN 到 providers 表以取得供应商名称。
 /// `proxy_request_logs` 与 `usage_daily_rollups` 的 (provider_id, app_type)
@@ -309,7 +300,7 @@ pub(crate) fn effective_usage_log_filter(log_alias: &str) -> String {
         dedup_app_type_match_sql("proxy_dedup.app_type", &format!("{log_alias}.app_type"));
     format!(
         "NOT (
-            {data_source} IN ('session_log', 'codex_session', 'gemini_session', 'opencode_session')
+            {data_source} IN ('session_log', 'codex_session', 'gemini_session', 'opencode_session', 'pi_session', 'openclaw_session', 'workbuddy_session', 'deepseek-harness_session')
             AND EXISTS (
                 SELECT 1
                 FROM proxy_request_logs proxy_dedup
@@ -620,7 +611,7 @@ impl Database {
             params_vec.push(Box::new(end));
         }
         if let Some(at) = app_type {
-            conditions.push(format!("{} = ?", folded_app_type_sql("l.app_type")));
+            conditions.push(format!("{} = ?", "l.app_type"));
             params_vec.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -655,7 +646,7 @@ impl Database {
             &rollup_bounds,
         );
         if let Some(at) = app_type {
-            rollup_conditions.push(format!("{} = ?", folded_app_type_sql("r.app_type")));
+            rollup_conditions.push(format!("{} = ?", "r.app_type"));
             rollup_params.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -691,13 +682,13 @@ impl Database {
                 COALESCE(d.success_count, 0) + COALESCE(r.success_count, 0)
             FROM
                 (SELECT
-                    COUNT(*) as total_requests,
+                    COALESCE(SUM(l.request_count), 0) as total_requests,
                     COALESCE(SUM(CAST(l.total_cost_usd AS REAL)), 0) as total_cost,
                     COALESCE(SUM({fresh_input_detail}), 0) as total_input_tokens,
                     COALESCE(SUM(l.output_tokens), 0) as total_output_tokens,
                     COALESCE(SUM(l.cache_creation_tokens), 0) as total_cache_creation_tokens,
                     COALESCE(SUM(l.cache_read_tokens), 0) as total_cache_read_tokens,
-                    COALESCE(SUM(CASE WHEN l.status_code >= 200 AND l.status_code < 300 THEN 1 ELSE 0 END), 0) as success_count
+                    COALESCE(SUM(CASE WHEN l.status_code >= 200 AND l.status_code < 300 THEN l.request_count ELSE 0 END), 0) as success_count
                  FROM proxy_request_logs l {detail_join} {where_clause}) d,
                 (SELECT
                     COALESCE(SUM(r.request_count), 0) as total_requests,
@@ -822,9 +813,9 @@ impl Database {
 
         let fresh_input_detail = fresh_input_sql("l");
         let fresh_input_rollup = fresh_input_sql("r");
-        // 折叠 claude-desktop → claude：内层投影成同一桶名，外层 GROUP BY 自然合并。
-        let detail_app_type = folded_app_type_sql("l.app_type");
-        let rollup_app_type = folded_app_type_sql("r.app_type");
+        // Group by the same exact Agent IDs used by filters and request rows.
+        let detail_app_type = "l.app_type";
+        let rollup_app_type = "r.app_type";
 
         let sql = format!(
             "SELECT app_type,
@@ -837,13 +828,13 @@ impl Database {
                 SUM(success_count) as success_count
             FROM (
                 SELECT {detail_app_type} as app_type,
-                    COUNT(*) as req_count,
+                    COALESCE(SUM(l.request_count), 0) as req_count,
                     COALESCE(SUM(CAST(l.total_cost_usd AS REAL)), 0) as cost,
                     COALESCE(SUM({fresh_input_detail}), 0) as input_t,
                     COALESCE(SUM(l.output_tokens), 0) as output_t,
                     COALESCE(SUM(l.cache_creation_tokens), 0) as cache_create_t,
                     COALESCE(SUM(l.cache_read_tokens), 0) as cache_read_t,
-                    COALESCE(SUM(CASE WHEN l.status_code >= 200 AND l.status_code < 300 THEN 1 ELSE 0 END), 0) as success_count
+                    COALESCE(SUM(CASE WHEN l.status_code >= 200 AND l.status_code < 300 THEN l.request_count ELSE 0 END), 0) as success_count
                 FROM proxy_request_logs l {detail_join} {detail_where}
                 GROUP BY l.app_type
                 UNION ALL
@@ -954,7 +945,7 @@ impl Database {
             let mut extra_conditions: Vec<String> = Vec::new();
             let mut extra_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
             if let Some(at) = app_type {
-                extra_conditions.push(format!("{} = ?", folded_app_type_sql("l.app_type")));
+                extra_conditions.push(format!("{} = ?", "l.app_type"));
                 extra_params.push(Box::new(at.to_string()));
             }
             push_provider_model_filters(
@@ -981,7 +972,7 @@ impl Database {
             let sql = format!(
                 "SELECT
                     CAST((l.created_at - ?1) / ?3 AS INTEGER) as bucket_idx,
-                    COUNT(*) as request_count,
+                    COALESCE(SUM(l.request_count), 0) as request_count,
                     COALESCE(SUM(CAST(l.total_cost_usd AS REAL)), 0) as total_cost,
                     COALESCE(SUM({fresh_input} + l.output_tokens), 0) as total_tokens,
                     COALESCE(SUM({fresh_input}), 0) as total_input_tokens,
@@ -1067,7 +1058,7 @@ impl Database {
         let mut extra_conditions: Vec<String> = Vec::new();
         let mut extra_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
         if let Some(at) = app_type {
-            extra_conditions.push(format!("{} = ?", folded_app_type_sql("l.app_type")));
+            extra_conditions.push(format!("{} = ?", "l.app_type"));
             extra_params.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -1094,7 +1085,7 @@ impl Database {
         let detail_sql = format!(
             "SELECT
                 date(l.created_at, 'unixepoch', 'localtime') as bucket_date,
-                COUNT(*) as request_count,
+                COALESCE(SUM(l.request_count), 0) as request_count,
                 COALESCE(SUM(CAST(l.total_cost_usd AS REAL)), 0) as total_cost,
                 COALESCE(SUM({fresh_input} + l.output_tokens), 0) as total_tokens,
                 COALESCE(SUM({fresh_input}), 0) as total_input_tokens,
@@ -1150,7 +1141,7 @@ impl Database {
             &rollup_bounds,
         );
         if let Some(at) = app_type {
-            rollup_conditions.push(format!("{} = ?", folded_app_type_sql("r.app_type")));
+            rollup_conditions.push(format!("{} = ?", "r.app_type"));
             rollup_params.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -1282,7 +1273,7 @@ impl Database {
             detail_params.push(Box::new(end));
         }
         if let Some(at) = app_type {
-            detail_conditions.push(format!("{} = ?", folded_app_type_sql("l.app_type")));
+            detail_conditions.push(format!("{} = ?", "l.app_type"));
             detail_params.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -1309,7 +1300,7 @@ impl Database {
             &rollup_bounds,
         );
         if let Some(at) = app_type {
-            rollup_conditions.push(format!("{} = ?", folded_app_type_sql("r.app_type")));
+            rollup_conditions.push(format!("{} = ?", "r.app_type"));
             rollup_params.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -1344,10 +1335,10 @@ impl Database {
             FROM (
                 SELECT l.provider_id, l.app_type,
                     {detail_pname} as provider_name,
-                    COUNT(*) as request_count,
+                    COALESCE(SUM(l.request_count), 0) as request_count,
                     COALESCE(SUM({fresh_input_detail} + l.output_tokens), 0) as total_tokens,
                     COALESCE(SUM(CAST(l.total_cost_usd AS REAL)), 0) as total_cost,
-                    COALESCE(SUM(CASE WHEN l.status_code >= 200 AND l.status_code < 300 THEN 1 ELSE 0 END), 0) as success_count,
+                    COALESCE(SUM(CASE WHEN l.status_code >= 200 AND l.status_code < 300 THEN l.request_count ELSE 0 END), 0) as success_count,
                     COALESCE(SUM(l.latency_ms), 0) as latency_sum
                 FROM proxy_request_logs l
                 LEFT JOIN providers p ON l.provider_id = p.id AND l.app_type = p.app_type
@@ -1426,7 +1417,7 @@ impl Database {
             detail_params.push(Box::new(end));
         }
         if let Some(at) = app_type {
-            detail_conditions.push(format!("{} = ?", folded_app_type_sql("l.app_type")));
+            detail_conditions.push(format!("{} = ?", "l.app_type"));
             detail_params.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -1458,7 +1449,7 @@ impl Database {
             &rollup_bounds,
         );
         if let Some(at) = app_type {
-            rollup_conditions.push(format!("{} = ?", folded_app_type_sql("r.app_type")));
+            rollup_conditions.push(format!("{} = ?", "r.app_type"));
             rollup_params.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -1498,7 +1489,7 @@ impl Database {
                 SUM(total_cost) as total_cost
             FROM (
                 SELECT {detail_model} as model,
-                    COUNT(*) as request_count,
+                    COALESCE(SUM(l.request_count), 0) as request_count,
                     COALESCE(SUM({fresh_input_detail} + l.output_tokens), 0) as total_tokens,
                     COALESCE(SUM(CAST(l.total_cost_usd AS REAL)), 0) as total_cost
                 FROM proxy_request_logs l
@@ -1558,15 +1549,32 @@ impl Database {
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedLogs, AppError> {
+        self.query_request_logs(filters, page, page_size, false)
+    }
+
+    /// Filter before LIMIT so imported session summaries cannot crowd out measured requests.
+    pub fn get_timed_request_logs(&self, filters: &LogFilters) -> Result<PaginatedLogs, AppError> {
+        self.query_request_logs(filters, 0, 20, true)
+    }
+
+    fn query_request_logs(
+        &self,
+        filters: &LogFilters,
+        page: u32,
+        page_size: u32,
+        timed_only: bool,
+    ) -> Result<PaginatedLogs, AppError> {
         let conn = lock_conn!(self.conn);
 
         let mut conditions = vec![effective_usage_log_filter("l")];
+        if timed_only {
+            conditions.push("(l.data_source IS NULL OR l.data_source = 'proxy') AND COALESCE(l.request_count, 1) = 1 AND l.status_code >= 200 AND l.status_code < 300 AND l.output_tokens > 0 AND COALESCE(l.duration_ms, l.latency_ms) > COALESCE(l.first_token_ms, 0)".to_string());
+        }
         let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
         if let Some(ref app_type) = filters.app_type {
-            // 仅过滤口径折叠 claude-desktop→claude；行投影仍返回原始 app_type，
-            // 详情面板据此展示真实入口（路由接管账单审计需要）。
-            conditions.push(format!("{} = ?", folded_app_type_sql("l.app_type")));
+            // Exact Agent scope, including the desktop gateway as its own entry.
+            conditions.push(format!("{} = ?", "l.app_type"));
             params.push(Box::new(app_type.clone()));
         }
         // 与 Dashboard 顶部下拉筛选同口径：Provider 按展示名精确匹配（会话占位
@@ -1622,7 +1630,7 @@ impl Database {
                     l.input_cost_usd, l.output_cost_usd, l.cache_read_cost_usd, l.cache_creation_cost_usd, l.total_cost_usd,
                     l.is_streaming, l.latency_ms, l.first_token_ms, l.duration_ms,
                     l.status_code, l.error_message, l.created_at, l.data_source, l.pricing_model,
-                    l.input_token_semantics
+                    l.input_token_semantics, l.request_count
              FROM proxy_request_logs l
              LEFT JOIN providers p ON l.provider_id = p.id AND l.app_type = p.app_type
              {where_clause}
@@ -1666,7 +1674,7 @@ impl Database {
                     input_cost_usd, output_cost_usd, cache_read_cost_usd, cache_creation_cost_usd, total_cost_usd,
                     is_streaming, latency_ms, first_token_ms, duration_ms,
                     status_code, error_message, created_at, l.data_source, l.pricing_model,
-                    l.input_token_semantics
+                    l.input_token_semantics, l.request_count
              FROM proxy_request_logs l
              LEFT JOIN providers p ON l.provider_id = p.id AND l.app_type = p.app_type
              WHERE l.request_id = ?"
@@ -2426,6 +2434,72 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn timed_request_sampling_filters_before_limit_and_keeps_agent_scope() -> Result<(), AppError> {
+        let db = Database::memory()?;
+        {
+            let conn = lock_conn!(db.conn);
+            insert_usage_log(
+                &conn,
+                "timed",
+                "codex",
+                "p",
+                "timed-model",
+                "proxy",
+                1000,
+                10,
+                20,
+                0,
+                0,
+                200,
+                "0",
+            )?;
+            insert_usage_log(
+                &conn,
+                "other-agent",
+                "claude",
+                "p",
+                "timed-model",
+                "proxy",
+                1001,
+                10,
+                20,
+                0,
+                0,
+                200,
+                "0",
+            )?;
+            for i in 0..25 {
+                insert_usage_log(
+                    &conn,
+                    &format!("session-{i}"),
+                    "codex",
+                    "_codex_session",
+                    "session-model",
+                    "codex_session",
+                    1100 + i,
+                    10,
+                    20,
+                    0,
+                    0,
+                    200,
+                    "0",
+                )?;
+            }
+        }
+        let logs = db.get_timed_request_logs(&LogFilters {
+            app_type: Some("codex".into()),
+            provider_name: None,
+            model: None,
+            status_code: None,
+            start_date: Some(900),
+            end_date: Some(1200),
+        })?;
+        assert_eq!(logs.total, 1);
+        assert_eq!(logs.data[0].request_id, "timed");
+        Ok(())
+    }
+
     fn create_legacy_nullable_logs_table(conn: &Connection) -> Result<(), AppError> {
         conn.execute(
             "CREATE TABLE proxy_request_logs (
@@ -2561,7 +2635,7 @@ mod tests {
     }
 
     #[test]
-    fn test_claude_desktop_folds_into_claude_for_display() -> Result<(), AppError> {
+    fn test_claude_desktop_has_its_own_display_scope() -> Result<(), AppError> {
         let db = Database::memory()?;
         let ts = local_ts(2026, 6, 10, 12, 0, 0);
 
@@ -2600,38 +2674,40 @@ mod tests {
             )?;
         }
 
-        // ① 分应用汇总：desktop 折叠进 claude，不再单列 claude-desktop 桶。
         let by_app = db.get_usage_summary_by_app(None, None, None, None)?;
-        assert_eq!(by_app.len(), 1, "应只剩一个合并后的 claude 桶");
-        assert_eq!(by_app[0].app_type, "claude");
-        assert_eq!(by_app[0].summary.total_requests, 2, "两条行都计入 claude");
-        assert!(
-            !by_app.iter().any(|a| a.app_type == "claude-desktop"),
-            "不应再出现 claude-desktop 桶"
+        assert_eq!(by_app.len(), 2);
+        for app in ["claude", "claude-desktop"] {
+            let bucket = by_app.iter().find(|item| item.app_type == app).unwrap();
+            assert_eq!(bucket.summary.total_requests, 1);
+            assert_eq!(
+                db.get_usage_summary(None, None, Some(app), None, None)?
+                    .total_requests,
+                1
+            );
+            let logs = db.get_request_logs(
+                &LogFilters {
+                    app_type: Some(app.into()),
+                    ..Default::default()
+                },
+                0,
+                50,
+            )?;
+            assert_eq!(logs.total, 1);
+            assert_eq!(logs.data[0].app_type, app);
+            let trends =
+                db.get_daily_trends(Some(ts - 60), Some(ts + 60), Some(app), None, None)?;
+            assert_eq!(trends.iter().map(|row| row.request_count).sum::<u64>(), 1);
+        }
+        assert_eq!(
+            db.get_usage_summary(None, None, None, None, None)?
+                .total_requests,
+            2
         );
-
-        // ② 选中 claude 过滤：汇总应同时覆盖 desktop 行。
-        let claude_summary = db.get_usage_summary(None, None, Some("claude"), None, None)?;
-        assert_eq!(claude_summary.total_requests, 2);
-
-        // ③ 请求日志按 claude 过滤返回两行，且 desktop 行投影仍是原始 app_type。
-        let logs = db.get_request_logs(
-            &LogFilters {
-                app_type: Some("claude".to_string()),
-                ..Default::default()
-            },
-            0, // 页码从 0 开始
-            50,
-        )?;
-        assert_eq!(logs.total, 2, "claude 过滤含 desktop 行");
-        assert!(
-            logs.data.iter().any(|r| r.app_type == "claude-desktop"),
-            "详情面板需要看到真实入口，行投影不可被折叠"
+        assert_eq!(
+            db.get_usage_summary(None, None, Some("codex"), None, None)?
+                .total_requests,
+            0
         );
-
-        // ④ 折叠不外溢：codex 过滤为空。
-        let codex_summary = db.get_usage_summary(None, None, Some("codex"), None, None)?;
-        assert_eq!(codex_summary.total_requests, 0);
 
         Ok(())
     }
@@ -3194,6 +3270,87 @@ mod tests {
         assert_eq!(summary.total_input_tokens, 2000);
         assert_eq!(summary.total_output_tokens, 1000);
 
+        Ok(())
+    }
+
+    #[test]
+    fn all_agent_usage_filters_and_rollups_keep_identical_provider_ids_isolated(
+    ) -> Result<(), AppError> {
+        let db = Database::memory()?;
+        let apps = [
+            "claude",
+            "claude-desktop",
+            "codex",
+            "gemini",
+            "grokbuild",
+            "opencode",
+            "openclaw",
+            "hermes",
+            "pi",
+            "deepseek-harness",
+            "workbuddy",
+        ];
+        {
+            let conn = lock_conn!(db.conn);
+            for (i, app) in apps.iter().enumerate() {
+                conn.execute("INSERT INTO providers (id,app_type,name,settings_config) VALUES ('shared',?1,?1,'{}')", [app])?;
+                insert_usage_log(
+                    &conn,
+                    &format!("scope-{app}"),
+                    app,
+                    "shared",
+                    "shared-model",
+                    "proxy",
+                    1_700_000_000,
+                    (i as i64 + 1) * 100,
+                    10,
+                    0,
+                    0,
+                    200,
+                    "1.0",
+                )?;
+            }
+        }
+        for (i, app) in apps.iter().enumerate() {
+            let summary = db.get_usage_summary(None, None, Some(app), None, None)?;
+            assert_eq!(summary.total_requests, 1);
+            assert_eq!(summary.total_input_tokens, (i as u64 + 1) * 100);
+            let logs = db.get_request_logs(
+                &LogFilters {
+                    app_type: Some(app.to_string()),
+                    ..Default::default()
+                },
+                0,
+                20,
+            )?;
+            assert_eq!(logs.total, 1);
+            assert_eq!(logs.data[0].app_type, *app);
+            assert_eq!(logs.data[0].provider_name.as_deref(), Some(*app));
+            let providers = db.get_provider_stats(None, None, Some(app), None, None)?;
+            assert_eq!(providers.len(), 1);
+            assert_eq!(providers[0].provider_name, *app);
+            let models = db.get_model_stats(None, None, Some(app), None, None)?;
+            assert_eq!(models[0].request_count, 1);
+        }
+        assert_eq!(
+            db.get_usage_summary(None, None, None, None, None)?
+                .total_requests,
+            11
+        );
+        assert_eq!(
+            db.get_usage_summary_by_app(None, None, None, None)?.len(),
+            11
+        );
+        assert_eq!(db.rollup_and_prune(1)?, 11);
+        for (i, app) in apps.iter().enumerate() {
+            let summary = db.get_usage_summary(None, None, Some(app), None, None)?;
+            assert_eq!(summary.total_requests, 1);
+            assert_eq!(summary.total_input_tokens, (i as u64 + 1) * 100);
+            assert_eq!(
+                db.get_provider_stats(None, None, Some(app), None, None)?[0].provider_name,
+                *app
+            );
+        }
         Ok(())
     }
 

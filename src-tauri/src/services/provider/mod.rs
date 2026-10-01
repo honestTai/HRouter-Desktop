@@ -99,7 +99,7 @@ pub fn reapply_current_codex_official_live(state: &AppState) -> Result<bool, App
     // 已生效；若把错误上抛，save_settings 会回滚开关设置，制造"设置=旧值、
     // live=新桶"的会话分裂——正是该回滚要防止的状态。MCP 投影可自愈
     // （下次切换 / 任一 MCP 启停操作都会重新投影）。
-    if let Err(err) = McpService::sync_enabled_for_app(state, &AppType::Codex) {
+    if let Err(err) = McpService::sync_enabled_for_app(state, &crate::ResourceTarget::Codex) {
         log::warn!("统一会话开关重写 live 后重投影 Codex MCP 失败（将在下次同步时自愈）: {err}");
     }
     Ok(true)

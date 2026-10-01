@@ -20,6 +20,8 @@ export function HRouterAccountGate({ children }: { children: ReactNode }) {
   const [password, setPassword] = useState("");
   const [verifyCode, setVerifyCode] = useState("");
   const [countdown, setCountdown] = useState(0);
+  const [challenge, setChallenge] = useState<string | null>(null);
+  const [totp, setTotp] = useState("");
 
   const settings = useQuery({
     queryKey: ["hrouter-account", "public-settings"],
@@ -38,10 +40,20 @@ export function HRouterAccountGate({ children }: { children: ReactNode }) {
 
   const auth = useMutation({
     mutationFn: () =>
-      mode === "login"
-        ? hrouterAuthApi.login(email.trim(), password)
-        : hrouterAuthApi.register(email.trim(), password, verifyCode.trim()),
-    onSuccess: () => {
+      challenge
+        ? hrouterAuthApi.login2FA(challenge, totp.trim())
+        : mode === "login"
+          ? hrouterAuthApi.login(email.trim(), password)
+          : hrouterAuthApi.register(email.trim(), password, verifyCode.trim()),
+    onSuccess: (result) => {
+      if ("requires2FA" in result) {
+        setChallenge(result.tempToken);
+        setPassword("");
+        return;
+      }
+      setChallenge(null);
+      setTotp("");
+      setPassword("");
       void queryClient.invalidateQueries({ queryKey: ["hrouter-account"] });
       toast.success(
         mode === "login"
@@ -71,10 +83,13 @@ export function HRouterAccountGate({ children }: { children: ReactNode }) {
 
   const registrationEnabled = settings.data?.registration_enabled !== false;
   const emailVerifyEnabled = settings.data?.email_verify_enabled === true;
-  const canSubmit =
-    email.trim().includes("@") &&
-    password.length >= 8 &&
-    (mode === "login" || !emailVerifyEnabled || verifyCode.trim().length > 0);
+  const canSubmit = challenge
+    ? /^\d{6}$/.test(totp.trim())
+    : email.trim().includes("@") &&
+      (mode === "login" ? password.length > 0 : password.length >= 8) &&
+      (mode === "login" ||
+        (registrationEnabled &&
+          (!emailVerifyEnabled || verifyCode.trim().length > 0)));
 
   return (
     <div className="flex h-full overflow-y-auto bg-muted/20 px-6 py-8">
@@ -107,7 +122,12 @@ export function HRouterAccountGate({ children }: { children: ReactNode }) {
                   ? "bg-background text-foreground shadow-sm"
                   : ""
               }
-              onClick={() => setMode("login")}
+              disabled={auth.isPending}
+              onClick={() => {
+                setMode("login");
+                setChallenge(null);
+                setTotp("");
+              }}
             >
               {t("hrouterAccount.login", { defaultValue: "登录" })}
             </Button>
@@ -115,89 +135,118 @@ export function HRouterAccountGate({ children }: { children: ReactNode }) {
               type="button"
               variant="ghost"
               size="sm"
-              disabled={!registrationEnabled}
+              disabled={!registrationEnabled || auth.isPending}
               className={
                 mode === "register"
                   ? "bg-background text-foreground shadow-sm"
                   : ""
               }
-              onClick={() => setMode("register")}
+              onClick={() => {
+                setMode("register");
+                setChallenge(null);
+                setTotp("");
+              }}
             >
               {t("hrouterAccount.register", { defaultValue: "注册" })}
             </Button>
           </div>
 
-          <div className="mt-6 space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="hrouter-email">
-                {t("hrouterAccount.email", { defaultValue: "邮箱" })}
-              </Label>
-              <div className="relative">
-                <Mail className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="hrouter-email"
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  className="pl-9"
-                  autoComplete="email"
-                  placeholder="name@example.com"
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="hrouter-password">
-                {t("hrouterAccount.password", { defaultValue: "密码" })}
-              </Label>
+          {challenge ? (
+            <div className="mt-6 space-y-3">
+              <Label htmlFor="hrouter-totp">{t("hrouterWorkspace.totp")}</Label>
               <Input
-                id="hrouter-password"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                autoComplete={
-                  mode === "login" ? "current-password" : "new-password"
-                }
-                placeholder={t("hrouterAccount.passwordHint", {
-                  defaultValue: "至少 8 位",
-                })}
+                id="hrouter-totp"
+                value={totp}
+                onChange={(e) => setTotp(e.target.value.replace(/\D/g, ""))}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                autoFocus
               />
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setChallenge(null);
+                  setTotp("");
+                }}
+              >
+                {t("common.back")}
+              </Button>
             </div>
-            {mode === "register" && emailVerifyEnabled && (
+          ) : (
+            <div className="mt-6 space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="hrouter-code">
-                  {t("hrouterAccount.verifyCode", {
-                    defaultValue: "邮箱验证码",
-                  })}
+                <Label htmlFor="hrouter-email">
+                  {t("hrouterAccount.email", { defaultValue: "邮箱" })}
                 </Label>
-                <div className="flex gap-2">
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    id="hrouter-code"
-                    value={verifyCode}
-                    onChange={(event) => setVerifyCode(event.target.value)}
-                    inputMode="numeric"
-                    maxLength={8}
+                    id="hrouter-email"
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    className="pl-9"
+                    autoComplete="email"
+                    placeholder="name@example.com"
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="shrink-0"
-                    disabled={
-                      !email.trim().includes("@") ||
-                      countdown > 0 ||
-                      sendCode.isPending
-                    }
-                    onClick={() => sendCode.mutate()}
-                  >
-                    {countdown > 0
-                      ? `${countdown}s`
-                      : t("hrouterAccount.sendCode", {
-                          defaultValue: "发送验证码",
-                        })}
-                  </Button>
                 </div>
               </div>
-            )}
-          </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="hrouter-password">
+                  {t("hrouterAccount.password", { defaultValue: "密码" })}
+                </Label>
+                <Input
+                  id="hrouter-password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete={
+                    mode === "login" ? "current-password" : "new-password"
+                  }
+                  placeholder={t("hrouterAccount.passwordHint", {
+                    defaultValue: "至少 8 位",
+                  })}
+                />
+              </div>
+              {mode === "register" && emailVerifyEnabled && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="hrouter-code">
+                    {t("hrouterAccount.verifyCode", {
+                      defaultValue: "邮箱验证码",
+                    })}
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="hrouter-code"
+                      value={verifyCode}
+                      onChange={(event) => setVerifyCode(event.target.value)}
+                      inputMode="numeric"
+                      maxLength={8}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="shrink-0"
+                      disabled={
+                        !email.trim().includes("@") ||
+                        countdown > 0 ||
+                        sendCode.isPending
+                      }
+                      onClick={() => sendCode.mutate()}
+                    >
+                      {countdown > 0
+                        ? `${countdown}s`
+                        : t("hrouterAccount.sendCode", {
+                            defaultValue: "发送验证码",
+                          })}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <Button
             type="submit"
@@ -205,11 +254,13 @@ export function HRouterAccountGate({ children }: { children: ReactNode }) {
             disabled={!canSubmit || auth.isPending || settings.isLoading}
           >
             {auth.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            {mode === "login"
-              ? t("hrouterAccount.login", { defaultValue: "登录" })
-              : t("hrouterAccount.createAccount", {
-                  defaultValue: "创建账户",
-                })}
+            {challenge
+              ? t("hrouterWorkspace.verify")
+              : mode === "login"
+                ? t("hrouterAccount.login", { defaultValue: "登录" })
+                : t("hrouterAccount.createAccount", {
+                    defaultValue: "创建账户",
+                  })}
           </Button>
           {settings.isError && (
             <p className="mt-3 text-xs leading-5 text-red-500">

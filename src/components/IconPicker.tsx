@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import React, { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
@@ -51,7 +52,9 @@ export const IconPicker: React.FC<IconPickerProps> = ({
             const isSelected = value === iconName;
 
             return (
-              <button
+              <Button
+                variant="ghost"
+                size="auto"
                 key={iconName}
                 type="button"
                 onClick={() => onValueChange(iconName)}
@@ -69,7 +72,7 @@ export const IconPicker: React.FC<IconPickerProps> = ({
                 <span className="text-xs text-muted-foreground truncate w-full text-center">
                   {meta?.displayName || iconName}
                 </span>
-              </button>
+              </Button>
             );
           })}
         </div>

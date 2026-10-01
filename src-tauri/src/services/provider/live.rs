@@ -1307,8 +1307,8 @@ pub fn sync_current_to_live(state: &AppState) -> Result<(), AppError> {
     //（配置导入 / 云同步恢复）需要知道结果不完整。
     let mcp_result = McpService::sync_all_enabled(state);
 
-    // Skill sync
-    for app_type in AppType::all() {
+    // Resource destinations also include file-backed Agents, independently of provider enums.
+    for app_type in crate::ResourceTarget::skill_targets() {
         if let Err(e) = crate::services::skill::SkillService::sync_to_app(&state.db, &app_type) {
             log::warn!("同步 Skill 到 {app_type:?} 失败: {e}");
             // Continue syncing other apps, don't abort

@@ -318,6 +318,10 @@ export interface HRouterAffiliateInfo {
 
 export interface HRouterOrderResult {
   order_id: number;
+  currency?: string;
+  result_type?: string;
+  client_secret?: string;
+  intent_id?: string;
   pay_url?: string;
   qr_code?: string;
   amount: number;
@@ -338,6 +342,7 @@ interface AuthResponse {
   expires_in?: number;
   user: HRouterUser;
   requires_2fa?: boolean;
+  temp_token?: string;
 }
 
 interface RefreshResponse {
@@ -542,6 +547,8 @@ function sessionFromAuth(data: AuthResponse): HRouterSession {
       409,
     );
   }
+  if (!data.access_token || !data.user?.id)
+    throw new HRouterApiError("Invalid authentication response", 502);
   return {
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
@@ -552,15 +559,38 @@ function sessionFromAuth(data: AuthResponse): HRouterSession {
   };
 }
 
+export interface HRouterLoginChallenge {
+  requires2FA: true;
+  tempToken: string;
+}
+
 export const hrouterAuthApi = {
   async publicSettings() {
     return unwrapResponse<HRouterPublicSettings>(
       await rawRequest("GET", "/settings/public"),
     );
   },
-  async login(email: string, password: string) {
+  async login(
+    email: string,
+    password: string,
+  ): Promise<HRouterSession | HRouterLoginChallenge> {
     const data = unwrapResponse<AuthResponse>(
       await rawRequest("POST", "/auth/login", { body: { email, password } }),
+    );
+    if (data.requires_2fa) {
+      if (!data.temp_token)
+        throw new HRouterApiError("Invalid 2FA challenge", 502);
+      return { requires2FA: true, tempToken: data.temp_token };
+    }
+    const session = sessionFromAuth(data);
+    saveHRouterSession(session);
+    return session;
+  },
+  async login2FA(tempToken: string, totpCode: string) {
+    const data = unwrapResponse<AuthResponse>(
+      await rawRequest("POST", "/auth/login/2fa", {
+        body: { temp_token: tempToken, totp_code: totpCode },
+      }),
     );
     const session = sessionFromAuth(data);
     saveHRouterSession(session);
@@ -721,13 +751,21 @@ export const hrouterAccountApi = {
       "/payment/orders/my",
       { query: { page, page_size: pageSize, status } },
     ),
+  order: (id: number) =>
+    authenticatedRequest<HRouterPaymentOrder>("GET", `/payment/orders/${id}`),
+  verifyOrder: (outTradeNo: string) =>
+    authenticatedRequest<HRouterPaymentOrder>(
+      "POST",
+      "/payment/orders/verify",
+      { body: { out_trade_no: outTradeNo } },
+    ),
   createOrder: (amount: number, paymentType: string) =>
     authenticatedRequest<HRouterOrderResult>("POST", "/payment/orders", {
       body: {
         amount,
         payment_type: paymentType,
         order_type: "balance",
-        payment_source: "hrouter-desktop",
+        payment_source: "hosted_redirect",
         is_mobile: false,
         return_url: "https://hrouter.net/payment/result",
       },

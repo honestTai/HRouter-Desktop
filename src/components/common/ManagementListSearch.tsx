@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -40,7 +41,9 @@ export function ManagementListSearch({
         className="pl-9 pr-9"
       />
       {value && (
-        <button
+        <Button
+          variant="ghost"
+          size="auto"
           type="button"
           onClick={() => onValueChange("")}
           aria-label={clearLabel}
@@ -48,7 +51,7 @@ export function ManagementListSearch({
           className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <X aria-hidden="true" className="h-4 w-4" />
-        </button>
+        </Button>
       )}
     </div>
   );

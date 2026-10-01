@@ -20,6 +20,7 @@ vi.mock("@/components/ProviderIcon", () => ({
 
 describe("AgentManagerButton", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     apiMocks.getToolVersions.mockImplementation(async ([name]: string[]) => [
       {
         name,
@@ -43,57 +44,60 @@ describe("AgentManagerButton", () => {
     apiMocks.probeToolInstallations.mockResolvedValue([]);
   });
 
-  it("loads CLI and GUI statuses and launches the GUI installer", async () => {
-    render(<AgentManagerButton />);
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "settings.agentInstallUpdate" }),
-    );
-
-    await waitFor(() => {
-      expect(apiMocks.getToolVersions).toHaveBeenCalledTimes(7);
-      expect(apiMocks.getCodexGuiStatus).toHaveBeenCalledTimes(1);
-    });
-    expect(screen.getByText("settings.commandLineAgents")).toBeInTheDocument();
-    expect(screen.getByText("settings.desktopAgents")).toBeInTheDocument();
-    expect(screen.getAllByText("Codex GUI")).toHaveLength(2);
-    expect(screen.getByText("settings.codexGuiInstalled")).toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "settings.toolUpdate" }),
-    );
-
-    await waitFor(() => {
-      expect(apiMocks.launchCodexGuiInstaller).toHaveBeenCalledTimes(1);
-    });
-    expect(apiMocks.runToolLifecycleAction).not.toHaveBeenCalled();
-  });
-
-  it("shows and checks the desktop app for the current macOS platform", async () => {
-    apiMocks.getCodexGuiStatus.mockResolvedValue({
-      platform: "macos",
-      arch: "arm64",
-      supported: true,
-      installed: false,
-      version: null,
-    });
-
+  it("checks every CLI and does not query or display GUI installers", async () => {
     render(<AgentManagerButton />);
     fireEvent.click(
       screen.getByRole("button", { name: "settings.agentInstallUpdate" }),
     );
-
-    expect(await screen.findByText("macOS")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(apiMocks.getToolVersions).toHaveBeenCalledTimes(10),
+    );
+    for (const name of [
+      "claude",
+      "codex",
+      "gemini",
+      "grok",
+      "opencode",
+      "openclaw",
+      "hermes",
+      "pi",
+      "dsh",
+      "codebuddy",
+    ]) {
+      expect(apiMocks.getToolVersions).toHaveBeenCalledWith([name]);
+    }
+    expect(apiMocks.getCodexGuiStatus).not.toHaveBeenCalled();
+    expect(screen.queryByText("Codex GUI")).not.toBeInTheDocument();
     expect(
-      screen.getByText("settings.codexGuiNotInstalled"),
-    ).toBeInTheDocument();
-
+      screen.queryByText("settings.desktopAgents"),
+    ).not.toBeInTheDocument();
+    expect(apiMocks.launchCodexGuiInstaller).not.toHaveBeenCalled();
+  });
+  it("installs a newly supported CLI through the real lifecycle action API", async () => {
+    apiMocks.getToolVersions.mockImplementation(async ([name]: string[]) => [
+      {
+        name,
+        version: name === "pi" ? null : "1.0.0",
+        latest_version: "1.0.0",
+        error: null,
+        env_type: "macos",
+        installed_but_broken: false,
+      },
+    ]);
+    render(<AgentManagerButton />);
     fireEvent.click(
-      screen.getByRole("button", { name: "settings.codexGuiDownload" }),
+      screen.getByRole("button", { name: "settings.agentInstallUpdate" }),
     );
-
-    await waitFor(() => {
-      expect(apiMocks.launchCodexGuiInstaller).toHaveBeenCalledTimes(1);
+    const install = await screen.findByRole("button", {
+      name: "settings.toolInstall",
     });
+    fireEvent.click(install);
+    await waitFor(() =>
+      expect(apiMocks.runToolLifecycleAction).toHaveBeenCalledWith(
+        ["pi"],
+        "install",
+      ),
+    );
+    expect(apiMocks.launchCodexGuiInstaller).not.toHaveBeenCalled();
   });
 });

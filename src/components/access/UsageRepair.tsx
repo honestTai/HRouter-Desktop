@@ -1,3 +1,4 @@
+import { Checkbox } from "@/components/ui/checkbox";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -22,15 +23,14 @@ export function UsageRepair() {
       <p className="text-sm text-muted-foreground">
         {t("accessWorkbench.backUpTheLocalDatabaseThenClearOpencodeSession", {
           defaultValue:
-            "先备份本机数据库，再清理 OpenCode 会话来源的明细、汇总和同步游标，从现存原始日志重新导入。代理请求记录保留；已从 OpenCode 删除的原始历史无法重建。",
+            "先备份数据库，再清理 OpenCode 会话来源的明细、汇总和同步游标，从现存原始日志重新导入。代理请求记录保留；已从 OpenCode 删除的原始历史无法重建。",
         })}
       </p>
       <label className="flex gap-2 text-sm">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={confirmed}
           disabled={busy}
-          onChange={(e) => setConfirmed(e.target.checked)}
+          onCheckedChange={(e) => setConfirmed(e === true)}
         />
         {t(
           "accessWorkbench.iUnderstandSessionStatisticsWillBeRebuiltFromExisting",

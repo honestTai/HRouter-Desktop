@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import React, { useRef, useEffect, useMemo } from "react";
 import { EditorView, basicSetup } from "codemirror";
 import { json } from "@codemirror/lang-json";
@@ -262,14 +263,16 @@ const JsonEditor: React.FC<JsonEditorProps> = ({
         className={isFullHeight ? "flex-1 min-h-0" : ""}
       />
       {language === "json" && (
-        <button
+        <Button
+          variant="ghost"
+          size="auto"
           type="button"
           onClick={handleFormat}
           className={`${isFullHeight ? "mt-2 flex-shrink-0" : "mt-2"} inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors`}
         >
           <Wand2 className="w-3.5 h-3.5" />
           {t("common.format", { defaultValue: "格式化" })}
-        </button>
+        </Button>
       )}
     </div>
   );

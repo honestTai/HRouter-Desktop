@@ -700,7 +700,9 @@ export function OpenCodeFormFields({
       >
         <div className="flex items-start justify-between gap-3">
           <CollapsibleTrigger asChild>
-            <button
+            <Button
+              variant="ghost"
+              size="auto"
               type="button"
               className="flex min-w-0 max-w-3xl flex-1 items-start gap-2 text-left"
             >
@@ -723,7 +725,7 @@ export function OpenCodeFormFields({
                   })}
                 </span>
               </span>
-            </button>
+            </Button>
           </CollapsibleTrigger>
           <Button
             type="button"

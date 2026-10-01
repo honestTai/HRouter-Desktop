@@ -24,20 +24,33 @@ export const APP_IDS: AppId[] = [
   "opencode",
   "openclaw",
   "hermes",
+  "pi",
+  "deepseek-harness",
+  "workbuddy",
 ];
 
-/** App IDs shown in Skills panels (excludes OpenClaw — it doesn't support Skills) */
-export const SKILLS_APP_IDS: AppId[] = [
+/** Capabilities implemented by this desktop app, independent of what is displayed. */
+export const SESSION_APP_IDS: AppId[] = [
+  "pi",
+  "workbuddy",
+  "deepseek-harness",
   "claude",
   "codex",
   "gemini",
   "grokbuild",
   "opencode",
+  "openclaw",
   "hermes",
 ];
+/** All Agents can filter recorded usage; native history coverage differs by source. */
+export const USAGE_APP_IDS: AppId[] = [...APP_IDS];
 
-/** App IDs shown in MCP panels (excludes OpenClaw) */
-export const MCP_APP_IDS: AppId[] = [...SKILLS_APP_IDS];
+/** Native filesystem Skills destinations. Desktop account uploads are separate. */
+export const SKILLS_APP_IDS: AppId[] = APP_IDS.filter(
+  (app) => app !== "claude-desktop",
+);
+
+export const MCP_APP_IDS: AppId[] = [...APP_IDS];
 
 export const APP_ICON_MAP: Record<AppId, AppConfig> = {
   claude: {
@@ -109,6 +122,24 @@ export const APP_ICON_MAP: Record<AppId, AppConfig> = {
       "bg-rose-500/10 ring-1 ring-rose-500/20 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400",
     badgeClass:
       "bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:bg-rose-500/20 border-0 gap-1.5",
+  },
+  pi: {
+    label: "Pi Agent",
+    icon: <ProviderIcon icon="pi" name="Pi Agent" size={14} />,
+    activeClass: "bg-primary/10 text-primary",
+    badgeClass: "bg-primary/10 text-primary border-0 gap-1.5",
+  },
+  "deepseek-harness": {
+    label: "DeepSeek Harness",
+    icon: <ProviderIcon icon="deepseek" name="DeepSeek Harness" size={14} />,
+    activeClass: "bg-primary/10 text-primary",
+    badgeClass: "bg-primary/10 text-primary border-0 gap-1.5",
+  },
+  workbuddy: {
+    label: "WorkBuddy",
+    icon: <ProviderIcon icon="workbuddy" name="WorkBuddy" size={14} />,
+    activeClass: "bg-primary/10 text-primary",
+    badgeClass: "bg-primary/10 text-primary border-0 gap-1.5",
   },
   hermes: {
     label: "Hermes",

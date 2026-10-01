@@ -10,7 +10,6 @@ bundle_dir="$build_dir/HRouterWidget.appex"
 binary_dir="$bundle_dir/Contents/MacOS"
 binary_path="$binary_dir/HRouterWidget"
 version="$(node -p "require('$repo_dir/package.json').version")"
-sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
 requested_arch="${TAURI_ENV_ARCH:-$(uname -m)}"
 temporary_keychain=""
 temporary_signing_dir=""
@@ -47,33 +46,31 @@ case "$requested_arch" in
     ;;
 esac
 
-mkdir -p "$binary_dir"
-cp "$widget_dir/Info.plist" "$bundle_dir/Contents/Info.plist"
-plutil -replace CFBundleShortVersionString -string "$version" "$bundle_dir/Contents/Info.plist"
-plutil -replace CFBundleVersion -string "${HROUTER_WIDGET_BUILD_NUMBER:-1}" "$bundle_dir/Contents/Info.plist"
+# Build as an actual macOS app-extension target. A bare `swiftc` executable
+# enters Widget.main before NSExtension initializes its host context and traps
+# in ExtensionFoundation (_EXRunningExtension._shared) when the gallery loads it.
+# Xcode supplies `-e _NSExtensionMain`, extension metadata and runtime paths.
+xcodebuild \
+  -project "$widget_dir/HRouterWidget.xcodeproj" \
+  -target HRouterWidget \
+  -configuration Release \
+  -quiet \
+  "ARCHS=${architectures[*]}" \
+  ONLY_ACTIVE_ARCH=NO \
+  "CONFIGURATION_BUILD_DIR=$build_dir" \
+  "SYMROOT=$build_dir/xcode" \
+  "OBJROOT=$build_dir/xcode/intermediates" \
+  "MARKETING_VERSION=$version" \
+  "CURRENT_PROJECT_VERSION=${HROUTER_WIDGET_BUILD_NUMBER:-2}" \
+  CODE_SIGNING_ALLOWED=NO \
+  build
 
-compiled_binaries=()
-for architecture in "${architectures[@]}"; do
-  arch_binary="$build_dir/HRouterWidget-$architecture"
-  xcrun swiftc \
-    -application-extension \
-    -parse-as-library \
-    -whole-module-optimization \
-    -O \
-    -sdk "$sdk_path" \
-    -target "$architecture-apple-macos12.0" \
-    -framework Foundation \
-    -framework SwiftUI \
-    -framework WidgetKit \
-    "$widget_dir/HRouterWidget.swift" \
-    -o "$arch_binary"
-  compiled_binaries+=("$arch_binary")
-done
-
-if [[ ${#compiled_binaries[@]} -eq 1 ]]; then
-  cp "${compiled_binaries[0]}" "$binary_path"
-else
-  xcrun lipo -create "${compiled_binaries[@]}" -output "$binary_path"
+# Reject a plain Swift executable even if it compiles and codesigns correctly.
+# Save nm output first: grep -q with pipefail can otherwise terminate nm early.
+undefined_symbols="$(xcrun nm -u "$binary_path")"
+if ! grep -q '_NSExtensionMain' <<< "$undefined_symbols"; then
+  echo "Widget is missing the NSExtensionMain bootstrap entry point." >&2
+  exit 1
 fi
 
 signing_identity="${HROUTER_WIDGET_SIGNING_IDENTITY:-}"

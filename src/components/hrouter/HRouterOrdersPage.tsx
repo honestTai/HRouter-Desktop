@@ -1,3 +1,4 @@
+import { isPaymentPending } from "@/lib/hrouterPayment";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ban, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
@@ -87,6 +88,15 @@ export function HRouterOrdersPage() {
     queryFn: () =>
       hrouterAccountApi.orders(page, 20, status === "all" ? undefined : status),
     enabled: Boolean(session),
+  });
+  const verifyOrder = useMutation({
+    mutationFn: hrouterAccountApi.verifyOrder,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["hrouter-account", session?.user.id],
+      });
+    },
+    onError: (error) => toast.error(extractErrorMessage(error)),
   });
   const cancelOrder = useMutation({
     mutationFn: (id: number) => hrouterAccountApi.cancelOrder(id),
@@ -187,7 +197,8 @@ export function HRouterOrdersPage() {
                         {order.out_trade_no}
                       </TableCell>
                       <TableCell className="py-3 text-right font-medium tabular-nums">
-                        ¥{Number(order.pay_amount || order.amount).toFixed(2)}
+                        {order.currency ?? "CNY"}{" "}
+                        {Number(order.pay_amount ?? order.amount).toFixed(2)}
                       </TableCell>
                       <TableCell className="py-3">
                         {methodNames[order.payment_type] || order.payment_type}
@@ -196,13 +207,28 @@ export function HRouterOrdersPage() {
                         <span
                           className={`rounded-sm px-1.5 py-0.5 text-[11px] font-medium ${statusClass(order.status)}`}
                         >
-                          {statusName(order.status)}
+                          {t(
+                            `hrouterWorkspace.orderStatus.${order.status.toUpperCase()}`,
+                            { defaultValue: statusName(order.status) },
+                          )}
                         </span>
                       </TableCell>
                       <TableCell className="py-3 text-xs text-muted-foreground">
                         {new Date(order.created_at).toLocaleString()}
                       </TableCell>
                       <TableCell className="py-3 text-right">
+                        {isPaymentPending(order.status.toUpperCase()) && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={verifyOrder.isPending}
+                            onClick={() =>
+                              verifyOrder.mutate(order.out_trade_no)
+                            }
+                          >
+                            {t("hrouterWorkspace.verifyPayment")}
+                          </Button>
+                        )}
                         {order.status.toUpperCase() === "PENDING" && (
                           <Button
                             size="icon"

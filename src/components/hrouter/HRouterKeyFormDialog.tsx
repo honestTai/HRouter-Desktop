@@ -1,3 +1,4 @@
+import { DateTimeField } from "@/components/ui/date-time-field";
 import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -385,10 +386,10 @@ export function HRouterKeyFormDialog({
                 </div>
               )}
               {(editing || expirationPreset === "custom") && (
-                <Input
-                  type="datetime-local"
+                <DateTimeField
+                  includeTime
                   value={expirationDate}
-                  onChange={(event) => setExpirationDate(event.target.value)}
+                  onValueChange={setExpirationDate}
                 />
               )}
             </div>

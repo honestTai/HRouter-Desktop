@@ -74,3 +74,6 @@ pub use s3_sync::*;
 pub use usage::*;
 pub use webdav_sync::*;
 pub use workspace::*;
+
+mod usage_widget;
+pub use usage_widget::*;

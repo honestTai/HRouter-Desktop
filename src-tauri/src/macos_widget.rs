@@ -105,3 +105,50 @@ mod tests {
         assert_eq!(encoded["balance"], 0.0);
     }
 }
+
+// The Agent snapshot is independent of account login/tray state. Never persist
+// credentials, endpoint URLs, script output or session text in the shared container.
+static AGENT_WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+fn write_agent_file(name: &str, payload: serde_json::Value) -> Result<(), String> {
+    let _guard = AGENT_WRITE_LOCK.lock().map_err(|e| e.to_string())?;
+    let directory = summary_directory()?;
+    fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
+    let tmp = directory.join(format!(".{name}.tmp"));
+    fs::write(
+        &tmp,
+        serde_json::to_vec(&payload).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
+    fs::rename(tmp, directory.join(name)).map_err(|e| e.to_string())?;
+    // WidgetKit owns scheduling; this requests, but does not force, a refresh.
+    unsafe { hrouter_reload_widget_timelines() };
+    Ok(())
+}
+
+pub fn sync_agent_snapshot(v: &serde_json::Value) -> Result<(), String> {
+    write_agent_file(
+        "agent-summary.json",
+        serde_json::json!({
+            "app":v["app"], "providerId":v["providerId"], "revision":v["providerRevision"],
+            "tokens":v["summary"]["realTotalTokens"], "cacheRate":v["summary"]["cacheHitRate"],
+            "speed":v["tokensPerSecond"], "updatedAt":v["measuredAt"]
+        }),
+    )
+}
+
+pub fn sync_agent_finance(
+    app: &str,
+    provider: &str,
+    revision: &str,
+    v: &serde_json::Value,
+) -> Result<(), String> {
+    write_agent_file(
+        "agent-finance.json",
+        serde_json::json!({
+            "app":app, "providerId":provider, "revision":revision,
+            "today":v["todayCost"], "spent":v["totalSpent"], "balance":v["balance"],
+            "unit":v["unit"], "tpm":v["tokensPerMinute"],
+            "updatedAt":SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
+        }),
+    )
+}

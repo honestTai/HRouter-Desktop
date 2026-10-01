@@ -91,6 +91,7 @@ pub fn sync_all_unlocked(db: &Database) -> SessionSyncResult {
         "Grok Build",
         crate::services::session_usage_grokbuild::sync_grokbuild_usage(db),
     );
+    result.merge(crate::services::session_usage_extra::sync_extra_usage(db));
     notify_sync_result(&result);
     result
 }
@@ -616,7 +617,7 @@ pub fn get_data_source_breakdown(db: &Database) -> Result<Vec<DataSourceSummary>
 
     let effective_filter = effective_usage_log_filter("l");
     let sql = format!(
-        "SELECT COALESCE(l.data_source, 'proxy') as ds, COUNT(*) as cnt,
+        "SELECT COALESCE(l.data_source, 'proxy') as ds, SUM(l.request_count) as cnt,
                 COALESCE(SUM(CAST(l.total_cost_usd AS REAL)), 0) as cost
          FROM proxy_request_logs l
          WHERE {effective_filter}

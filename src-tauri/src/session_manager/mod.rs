@@ -4,11 +4,13 @@ pub mod terminal;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-use providers::{claude, codex, gemini, grokbuild, hermes, openclaw, opencode};
+use providers::{file_agents, claude, codex, gemini, grokbuild, hermes, openclaw, opencode};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionMeta {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub read_only: Option<bool>,
     pub provider_id: String,
     pub session_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -83,6 +85,7 @@ pub fn scan_sessions() -> Vec<SessionMeta> {
     sessions.extend(r5);
     sessions.extend(r6);
     sessions.extend(r7);
+    sessions.extend(file_agents::scan_sessions());
 
     sessions.sort_by(|a, b| {
         let a_ts = a.last_active_at.or(a.created_at).unwrap_or(0);
@@ -104,6 +107,7 @@ pub fn load_messages(provider_id: &str, source_path: &str) -> Result<Vec<Session
 
     let path = Path::new(source_path);
     match provider_id {
+        "pi" | "workbuddy" | "deepseek-harness" => file_agents::load_messages(provider_id, path),
         "codex" => codex::load_messages(path),
         "claude" => claude::load_messages(path),
         "opencode" => opencode::load_messages(path),
@@ -160,6 +164,7 @@ fn delete_session_with_roots(
         let validated_root = canonicalize_existing_path(root, "session root")?;
         if validated_source.starts_with(&validated_root) {
             return match provider_id {
+                "pi" | "workbuddy" | "deepseek-harness" => file_agents::delete_session(provider_id, &validated_root, &validated_source, session_id),
                 "codex" => codex::delete_session(&validated_root, &validated_source, session_id),
                 "claude" => claude::delete_session(&validated_root, &validated_source, session_id),
                 "opencode" => {
@@ -196,6 +201,7 @@ fn delete_session_with_roots(
 
 fn provider_roots(provider_id: &str) -> Result<Vec<PathBuf>, String> {
     let roots = match provider_id {
+        "pi" | "workbuddy" | "deepseek-harness" => file_agents::roots(provider_id),
         "codex" => codex::session_roots(),
         "claude" => vec![crate::config::get_claude_config_dir().join("projects")],
         "opencode" => vec![opencode::get_opencode_data_dir()],

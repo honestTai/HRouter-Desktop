@@ -120,6 +120,8 @@ export const getProviderLabel = (
 
 // 根据 providerId 获取对应的图标名称
 export const getProviderIconName = (providerId: string) => {
+  if (providerId === "claude-desktop") return "claude";
+  if (providerId === "deepseek-harness") return "deepseek";
   if (providerId === "codex") return "openai";
   if (providerId === "grokbuild") return "grok";
   if (providerId === "claude") return "claude";

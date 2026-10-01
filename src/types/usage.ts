@@ -1,3 +1,4 @@
+import type { AppId } from "@/lib/api/types";
 // 使用统计相关类型定义
 
 export interface TokenUsage {
@@ -9,6 +10,7 @@ export interface TokenUsage {
 
 export interface RequestLog {
   requestId: string;
+  requestCount?: number;
   providerId: string;
   providerName?: string;
   appType: string;
@@ -173,31 +175,23 @@ export interface UsageRangeSelection {
   liveEndTime?: boolean;
 }
 
-/**
- * App types surfaced as dashboard filter buttons.
- *
- * `claude-desktop` is intentionally NOT listed: the Desktop gateway's proxy
- * traffic is still recorded under its own `app_type` (preserving route-takeover
- * billing audit — the request detail panel shows the real value), but the
- * dashboard folds it into `claude` for display. It is the embedded Claude Code
- * runtime running inside the Desktop shell, and Desktop *chat* usage never
- * passes through this app at all, so a separate "Claude Desktop" bucket would
- * only ever show a partial number and mislead users into reading it as the
- * Desktop's full usage. The backend collapses `claude-desktop → claude` in
- * every dashboard query (see `folded_app_type_sql`).
- * `opencode` / `openclaw` / `hermes` have no proxy handler at all — they
- * appear only as managed apps elsewhere.
- */
-export type AppType = "claude" | "codex" | "gemini" | "grokbuild" | "opencode";
+/** Filters use the same Agent IDs as persisted request rows; no desktop-to-CLI folding. */
+export type AppType = AppId;
 
 export type AppTypeFilter = "all" | AppType;
 
 export const KNOWN_APP_TYPES: ReadonlyArray<AppType> = [
   "claude",
+  "claude-desktop",
   "codex",
   "gemini",
   "grokbuild",
   "opencode",
+  "openclaw",
+  "hermes",
+  "pi",
+  "deepseek-harness",
+  "workbuddy",
 ];
 
 /**

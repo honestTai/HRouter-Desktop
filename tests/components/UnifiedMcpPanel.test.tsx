@@ -1,4 +1,11 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { createRef } from "react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import UnifiedMcpPanel from "@/components/mcp/UnifiedMcpPanel";
@@ -43,7 +50,9 @@ vi.mock("@/hooks/useMcp", () => ({
 }));
 
 vi.mock("@/components/mcp/McpFormModal", () => ({
-  default: () => null,
+  default: ({ defaultEnabledApps }: { defaultEnabledApps: string[] }) => (
+    <div data-testid="mcp-default-targets">{defaultEnabledApps.join(",")}</div>
+  ),
 }));
 
 vi.mock("sonner", () => ({
@@ -108,6 +117,31 @@ describe("UnifiedMcpPanel", () => {
     mocks.toggle.mockResolvedValue(undefined);
     mocks.bulkToggle.mockResolvedValue({ succeeded: [], failed: [] });
   });
+
+  it.each([
+    ["codex", "codex"],
+    ["gemini", "gemini"],
+    ["claude-desktop", "claude-desktop"],
+    ["pi", "pi"],
+  ] as const)(
+    "creates MCP entries only for the explicit %s target",
+    async (app, expected) => {
+      const ref =
+        createRef<
+          import("@/components/mcp/UnifiedMcpPanel").UnifiedMcpPanelHandle
+        >();
+      render(
+        <UnifiedMcpPanel ref={ref} currentApp={app} onOpenChange={vi.fn()} />,
+      );
+      act(() => ref.current?.openAdd());
+      expect(
+        await screen.findByTestId("mcp-default-targets"),
+      ).toHaveTextContent(expected);
+      expect(screen.getByTestId("mcp-default-targets").textContent).toBe(
+        expected,
+      );
+    },
+  );
 
   it("searches the explicit non-sensitive MCP fields and renders a visible ScrollArea", () => {
     mocks.serversMap = {

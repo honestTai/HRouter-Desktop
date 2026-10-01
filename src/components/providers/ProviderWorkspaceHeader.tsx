@@ -13,6 +13,9 @@ const appNames: Record<AppId, string> = {
   opencode: "OpenCode",
   openclaw: "OpenClaw",
   hermes: "Hermes",
+  pi: "Pi Agent",
+  "deepseek-harness": "DeepSeek Harness",
+  workbuddy: "WorkBuddy",
 };
 
 interface Props {

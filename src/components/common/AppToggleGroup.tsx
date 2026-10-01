@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
 import React from "react";
 import {
   Tooltip,
@@ -12,6 +14,7 @@ interface AppToggleGroupProps {
   onToggle: (app: AppId, enabled: boolean) => void;
   appIds?: AppId[];
   disabled?: boolean;
+  showAllApps?: boolean;
 }
 
 export const AppToggleGroup: React.FC<AppToggleGroupProps> = ({
@@ -19,19 +22,24 @@ export const AppToggleGroup: React.FC<AppToggleGroupProps> = ({
   onToggle,
   appIds = APP_IDS,
   disabled = false,
+  showAllApps = false,
 }) => {
+  const { t } = useTranslation();
   return (
-    <div className="flex items-center gap-1.5 flex-shrink-0">
-      {appIds.map((app) => {
+    <div className="flex flex-wrap items-center gap-1.5">
+      {(showAllApps ? APP_IDS : appIds).map((app) => {
+        const supported = appIds.includes(app);
         const { label, icon, activeClass } = APP_ICON_MAP[app];
         const enabled = apps[app];
         return (
           <Tooltip key={app}>
             <TooltipTrigger asChild>
-              <button
+              <Button
+                variant="ghost"
+                size="auto"
                 type="button"
                 onClick={() => onToggle(app, !enabled)}
-                disabled={disabled}
+                disabled={disabled || !supported}
                 aria-label={label}
                 aria-pressed={Boolean(enabled)}
                 className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
@@ -39,12 +47,16 @@ export const AppToggleGroup: React.FC<AppToggleGroupProps> = ({
                 } disabled:cursor-not-allowed`}
               >
                 {icon}
-              </button>
+              </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
               <p>
                 {label}
-                {enabled ? " ✓" : ""}
+                {!supported
+                  ? ` · ${t(app === "claude-desktop" ? "skills.clientImport" : "workspaceUi.notAdapted")}`
+                  : enabled
+                    ? " ✓"
+                    : ""}
               </p>
             </TooltipContent>
           </Tooltip>

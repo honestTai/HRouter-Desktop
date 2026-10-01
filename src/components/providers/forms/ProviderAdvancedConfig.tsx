@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, Coins } from "lucide-react";
@@ -42,48 +43,39 @@ export function ProviderAdvancedConfig({
     <div className="space-y-4">
       {/* 计费配置 */}
       <div className="rounded-lg border border-border/50 bg-muted/20">
-        <button
-          type="button"
-          className="flex w-full items-center justify-between p-4 hover:bg-muted/30 transition-colors"
-          onClick={() => setIsPricingConfigOpen(!isPricingConfigOpen)}
-        >
-          <div className="flex items-center gap-3">
-            <Coins className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">
-              {t("providerAdvanced.pricingConfig", {
-                defaultValue: "计费配置",
-              })}
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div
-              className="flex items-center gap-2"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Label
-                htmlFor="pricing-config-enabled"
-                className="text-sm text-muted-foreground"
-              >
-                {t("providerAdvanced.useCustomPricing", {
-                  defaultValue: "使用单独配置",
-                })}
-              </Label>
-              <Switch
-                id="pricing-config-enabled"
-                checked={pricingConfig.enabled}
-                onCheckedChange={(checked) => {
-                  onPricingConfigChange({ ...pricingConfig, enabled: checked });
-                  if (checked) setIsPricingConfigOpen(true);
-                }}
-              />
-            </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-expanded={isPricingConfigOpen}
+            onClick={() => setIsPricingConfigOpen(!isPricingConfigOpen)}
+            className="gap-3"
+          >
+            <Coins className="h-4 w-4" />
+            {t("providerAdvanced.pricingConfig", { defaultValue: "计费配置" })}
             {isPricingConfigOpen ? (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <ChevronDown className="h-4 w-4" />
             ) : (
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <ChevronRight className="h-4 w-4" />
             )}
+          </Button>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="pricing-config-enabled">
+              {t("providerAdvanced.useCustomPricing", {
+                defaultValue: "使用单独配置",
+              })}
+            </Label>
+            <Switch
+              id="pricing-config-enabled"
+              checked={pricingConfig.enabled}
+              onCheckedChange={(checked) => {
+                onPricingConfigChange({ ...pricingConfig, enabled: checked });
+                if (checked) setIsPricingConfigOpen(true);
+              }}
+            />
           </div>
-        </button>
+        </div>
         <div
           className={cn(
             "overflow-hidden transition-all duration-200",

@@ -1,4 +1,4 @@
-//! Lightweight client configuration; no proxy, session, or AppType migration.
+//! File-backed client adapters. No proxy or session migration.
 //! Pi schema: earendil-works/pi packages/coding-agent/docs/models.md (2026-10-01).
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -10,7 +10,7 @@ use std::{
     sync::Mutex,
 };
 
-static PI_WRITE_LOCK: Mutex<()> = Mutex::new(());
+pub(super) static PI_WRITE_LOCK: Mutex<()> = Mutex::new(());
 const MAX_CONFIG_BYTES: u64 = 2 * 1024 * 1024;
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -38,7 +38,7 @@ pub struct PiApplied {
     pub backup_path: Option<String>,
 }
 
-fn pi_path() -> Result<PathBuf, String> {
+pub(super) fn pi_path() -> Result<PathBuf, String> {
     let home = crate::config::get_home_dir();
     let home = home.canonicalize().unwrap_or(home);
     // Tests and the isolated preview must never inherit the user's real Pi override.
@@ -64,29 +64,32 @@ fn check_path(path: &Path) -> Result<(), String> {
     for item in path.ancestors() {
         match fs::symlink_metadata(item) {
             Ok(meta) if meta.file_type().is_symlink() => {
-                return Err("Pi configuration uses a symbolic link; edit it in Pi instead".into())
+                return Err(
+                    "Agent configuration uses a symbolic link; edit the target file directly"
+                        .into(),
+                )
             }
             Ok(meta) if item == path && !meta.is_file() => {
-                return Err("Pi models.json is not a regular file".into())
+                return Err("Configuration path is not a regular file".into())
             }
             Ok(_) => (),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => (),
-            Err(e) => return Err(format!("Cannot inspect Pi configuration: {e}")),
+            Err(e) => return Err(format!("Cannot inspect Agent configuration: {e}")),
         }
     }
     Ok(())
 }
-fn read(path: &Path) -> Result<Option<Vec<u8>>, String> {
+pub(super) fn read(path: &Path) -> Result<Option<Vec<u8>>, String> {
     check_path(path)?;
     match fs::metadata(path) {
         Ok(meta) if meta.len() > MAX_CONFIG_BYTES => {
-            Err("Pi configuration is too large to edit safely".into())
+            Err("Agent configuration is too large to edit safely".into())
         }
         Ok(_) => fs::read(path)
             .map(Some)
-            .map_err(|e| format!("Cannot read Pi configuration: {e}")),
+            .map_err(|e| format!("Cannot read Agent configuration: {e}")),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(e) => Err(format!("Cannot read Pi configuration: {e}")),
+        Err(e) => Err(format!("Cannot read Agent configuration: {e}")),
     }
 }
 fn validate(input: &PiConnection) -> Result<(), String> {
@@ -112,6 +115,9 @@ fn validate(input: &PiConnection) -> Result<(), String> {
     {
         return Err("Invalid model ID".into());
     }
+    if input.credential_mode == "keep" {
+        return Ok(());
+    }
     let key = input.credential.trim();
     if key.is_empty() || key.len() > 8192 || key.chars().any(char::is_control) {
         return Err("Invalid credential".into());
@@ -134,7 +140,10 @@ fn validate(input: &PiConnection) -> Result<(), String> {
     }
     Ok(())
 }
-fn merged(input: &PiConnection, before: Option<&[u8]>) -> Result<(Value, bool, usize), String> {
+pub(super) fn merged(
+    input: &PiConnection,
+    before: Option<&[u8]>,
+) -> Result<(Value, bool, usize), String> {
     validate(input)?;
     let mut doc: Value = match before {
         Some(bytes) => serde_json::from_slice(bytes)
@@ -143,7 +152,7 @@ fn merged(input: &PiConnection, before: Option<&[u8]>) -> Result<(Value, bool, u
     };
     let root = doc
         .as_object_mut()
-        .ok_or("Pi configuration must be a JSON object")?;
+        .ok_or("Agent configuration must be a JSON object")?;
     let providers = root
         .entry("providers")
         .or_insert_with(|| json!({}))
@@ -165,7 +174,16 @@ fn merged(input: &PiConnection, before: Option<&[u8]>) -> Result<(Value, bool, u
     } else {
         input.credential.trim().to_owned()
     };
-    entry.insert("apiKey".into(), json!(key));
+    if input.credential_mode == "keep" {
+        if !entry
+            .get("apiKey")
+            .is_some_and(|v| v.is_string() && !v.as_str().unwrap().is_empty())
+        {
+            return Err("No saved credential; enter an API key or environment variable".into());
+        }
+    } else {
+        entry.insert("apiKey".into(), json!(key));
+    }
     let models = entry
         .entry("models")
         .or_insert_with(|| json!([]))
@@ -208,33 +226,34 @@ fn review(
         before,
     ))
 }
-fn private_atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
-    let parent = path.parent().ok_or("Invalid Pi path")?;
-    fs::create_dir_all(parent).map_err(|e| format!("Cannot create Pi directory: {e}"))?;
+pub(super) fn private_atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let parent = path.parent().ok_or("Invalid configuration path")?;
+    fs::create_dir_all(parent)
+        .map_err(|e| format!("Cannot create configuration directory: {e}"))?;
     check_path(path)?;
     let mut tmp = tempfile::NamedTempFile::new_in(parent)
-        .map_err(|e| format!("Cannot prepare Pi file: {e}"))?;
+        .map_err(|e| format!("Cannot prepare configuration file: {e}"))?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         tmp.as_file()
             .set_permissions(fs::Permissions::from_mode(0o600))
-            .map_err(|e| format!("Cannot protect Pi file: {e}"))?;
+            .map_err(|e| format!("Cannot protect configuration file: {e}"))?;
     }
     tmp.write_all(bytes)
         .and_then(|_| tmp.as_file().sync_all())
-        .map_err(|e| format!("Cannot write Pi file: {e}"))?;
+        .map_err(|e| format!("Cannot write configuration file: {e}"))?;
     tmp.persist(path)
-        .map_err(|e| format!("Cannot replace Pi file: {}", e.error))?;
+        .map_err(|e| format!("Cannot replace configuration file: {}", e.error))?;
     Ok(())
 }
 fn apply_at(path: &Path, input: &PiConnection, fingerprint: &str) -> Result<PiApplied, String> {
     let _lock = PI_WRITE_LOCK
         .lock()
-        .map_err(|_| "Pi configuration is busy")?;
+        .map_err(|_| "Agent configuration is busy")?;
     let (preview, doc, before) = review(path, input)?;
     if preview.fingerprint != fingerprint {
-        return Err("Pi configuration changed after preview; preview again".into());
+        return Err("Agent configuration changed after preview; preview again".into());
     }
     let backup_path = if let Some(bytes) = &before {
         let backup = path
@@ -249,10 +268,10 @@ fn apply_at(path: &Path, input: &PiConnection, fingerprint: &str) -> Result<PiAp
     };
     // Recheck after backup; Pi may have written while the preview was open.
     if read(path)? != before {
-        return Err("Pi configuration changed during backup; preview again".into());
+        return Err("Agent configuration changed during backup; preview again".into());
     }
     let mut bytes =
-        serde_json::to_vec_pretty(&doc).map_err(|_| "Could not encode Pi configuration")?;
+        serde_json::to_vec_pretty(&doc).map_err(|_| "Could not encode Agent configuration")?;
     bytes.push(b'\n');
     private_atomic_write(path, &bytes)?;
     Ok(PiApplied {

@@ -1,3 +1,5 @@
+import { invalidateAgentContext } from "@/lib/query/agentContext";
+import { isFileAgent } from "@/config/fileAgents";
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -305,7 +307,10 @@ export function useProviderActions(
         if (!proxyRequiredReason) {
           let messageKey = "notifications.switchSuccess";
           let defaultMessage = "切换成功！";
-          if (activeApp === "codex") {
+          if (isFileAgent(activeApp)) {
+            messageKey = "agentProvider.activated";
+            defaultMessage = "供应商配置已启用，请在 Agent 中刷新并选择模型";
+          } else if (activeApp === "codex") {
             messageKey = "notifications.codexRestartRequired";
             defaultMessage = "切换成功，请重启客户端以生效";
           } else if (activeApp === "grokbuild") {
@@ -363,9 +368,7 @@ export function useProviderActions(
         };
 
         await providersApi.update(updatedProvider, activeApp);
-        await queryClient.invalidateQueries({
-          queryKey: ["providers", activeApp],
-        });
+        await invalidateAgentContext(queryClient, activeApp);
         // 🔧 保存用量脚本后，也应该失效该 provider 的用量查询缓存
         // 这样主页列表会使用新配置重新查询，而不是使用测试时的缓存
         await queryClient.invalidateQueries({

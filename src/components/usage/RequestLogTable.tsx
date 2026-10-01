@@ -1,3 +1,5 @@
+import { APP_ICON_MAP } from "@/config/appConfig";
+import type { AppId } from "@/lib/api/types";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -155,6 +157,9 @@ export function RequestLogTable({
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-center whitespace-nowrap">
+                    {t("workspaceUi.agent")}
+                  </TableHead>
+                  <TableHead className="text-center whitespace-nowrap">
                     {t("usage.time")}
                   </TableHead>
                   <TableHead className="text-center whitespace-nowrap">
@@ -187,7 +192,7 @@ export function RequestLogTable({
                 {logs.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={9}
+                      colSpan={10}
                       className="text-center text-muted-foreground"
                     >
                       {t("usage.noData")}
@@ -196,8 +201,18 @@ export function RequestLogTable({
                 ) : (
                   logs.map((log) => {
                     const unpriced = isUnpricedUsage(log);
+                    // Session imports report usage, not HTTP response timing/status.
+                    const hasHttpMetadata =
+                      !log.dataSource || log.dataSource === "proxy";
                     return (
                       <TableRow key={log.requestId}>
+                        <TableCell className="whitespace-nowrap">
+                          <span className="inline-flex items-center gap-2">
+                            {APP_ICON_MAP[log.appType as AppId]?.icon}
+                            {APP_ICON_MAP[log.appType as AppId]?.label ??
+                              log.appType}
+                          </span>
+                        </TableCell>
                         <TableCell className="text-center whitespace-nowrap text-xs px-1.5">
                           {new Date(log.createdAt * 1000).toLocaleString(
                             locale,
@@ -245,7 +260,7 @@ export function RequestLogTable({
                                 className="tabular-nums"
                                 title={
                                   isCacheInclusive
-                                    ? `Raw: ${log.inputTokens.toLocaleString()}`
+                                    ? `${t("usage.rawInputLabel")}: ${log.inputTokens.toLocaleString()}`
                                     : undefined
                                 }
                               >
@@ -291,26 +306,32 @@ export function RequestLogTable({
                             )}
                         </TableCell>
                         <TableCell className="text-center whitespace-nowrap text-xs tabular-nums">
-                          {(log.latencyMs / 1000).toFixed(1)}s
-                          {log.firstTokenMs != null && (
-                            <span className="text-muted-foreground">
-                              /{(log.firstTokenMs / 1000).toFixed(1)}s
-                            </span>
-                          )}
+                          <RequestTiming log={log} />
                         </TableCell>
                         <TableCell className="text-center">
                           <span
                             className={
-                              log.statusCode >= 200 && log.statusCode < 300
-                                ? "text-green-600"
-                                : "text-red-600"
+                              !hasHttpMetadata
+                                ? "text-muted-foreground"
+                                : log.statusCode >= 200 && log.statusCode < 300
+                                  ? "text-green-600"
+                                  : "text-red-600"
                             }
                           >
-                            {log.statusCode}
+                            {hasHttpMetadata ? log.statusCode : "—"}
                           </span>
                         </TableCell>
                         <TableCell className="text-center text-xs text-muted-foreground">
-                          {log.dataSource || "proxy"}
+                          {t(`usage.dataSources.${log.dataSource || "proxy"}`, {
+                            defaultValue: log.dataSource || "proxy",
+                          })}
+                          {(log.requestCount ?? 1) > 1 && (
+                            <span className="block text-[10px] text-muted-foreground">
+                              {t("usage.aggregatedCalls", {
+                                count: log.requestCount,
+                              })}
+                            </span>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
@@ -399,6 +420,49 @@ export function RequestLogTable({
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/** Durations come from the request, never from spacing between session events. */
+export function RequestTiming({
+  log,
+}: {
+  log: {
+    durationMs?: number;
+    latencyMs: number;
+    firstTokenMs?: number;
+    dataSource?: string;
+  };
+}) {
+  const { t } = useTranslation();
+  const duration = log.durationMs ?? log.latencyMs;
+  const valid = (n: number | undefined): n is number =>
+    n != null && Number.isFinite(n) && n >= 0;
+  const format = (n: number) =>
+    n < 1000 ? `${Math.round(n)} ms` : `${(n / 1000).toFixed(2)} s`;
+  const missing = t("usage.timingMissing");
+  return (
+    <div
+      className="space-y-1 py-1 text-left"
+      title={t("usage.timingExplanation")}
+    >
+      <div className="flex justify-between gap-3">
+        <span className="text-muted-foreground">
+          {t("usage.durationLabel")}
+        </span>
+        <span>
+          {valid(duration) && duration > 0 ? format(duration) : missing}
+        </span>
+      </div>
+      <div className="flex justify-between gap-3">
+        <span className="text-muted-foreground">
+          {t("usage.firstTokenLabel")}
+        </span>
+        <span>
+          {valid(log.firstTokenMs) ? format(log.firstTokenMs) : missing}
+        </span>
+      </div>
     </div>
   );
 }

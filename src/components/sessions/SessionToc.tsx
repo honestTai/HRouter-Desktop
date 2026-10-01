@@ -41,12 +41,13 @@ export function SessionTocSidebar({
       <ScrollArea className="h-[calc(100%-40px)]">
         <div className="p-2 space-y-0.5">
           {items.map((item, tocIndex) => (
-            <button
+            <Button
+              variant="ghost"
               key={item.index}
               type="button"
               onClick={() => onItemClick(item.index)}
               className={cn(
-                "w-full text-left px-2 py-1.5 rounded text-xs transition-colors",
+                "h-auto justify-start whitespace-normal font-normal w-full text-left px-2 py-1.5 rounded text-xs transition-colors",
                 "hover:bg-muted/80 text-muted-foreground hover:text-foreground",
                 "flex items-start gap-2",
               )}
@@ -55,7 +56,7 @@ export function SessionTocSidebar({
                 {tocIndex + 1}
               </span>
               <span className="line-clamp-2 leading-snug">{item.preview}</span>
-            </button>
+            </Button>
           ))}
         </div>
       </ScrollArea>
@@ -110,12 +111,13 @@ export function SessionTocDialog({
         <div className="overflow-y-auto max-h-[calc(70vh-80px)]">
           <div className="p-3 pb-4 space-y-1">
             {items.map((item, tocIndex) => (
-              <button
+              <Button
+                variant="ghost"
                 key={item.index}
                 type="button"
                 onClick={() => onItemClick(item.index)}
                 className={cn(
-                  "w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all",
+                  "h-auto justify-start whitespace-normal font-normal w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all",
                   "hover:bg-primary/10 text-foreground",
                   "flex items-start gap-3",
                   "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset",
@@ -127,7 +129,7 @@ export function SessionTocDialog({
                 <span className="line-clamp-2 leading-relaxed pt-0.5">
                   {item.preview}
                 </span>
-              </button>
+              </Button>
             ))}
           </div>
         </div>

@@ -26,6 +26,12 @@ fn default_true() -> bool {
 #[serde(rename_all = "camelCase")]
 pub struct VisibleApps {
     #[serde(default = "default_true")]
+    pub pi: bool,
+    #[serde(rename = "deepseek-harness", default = "default_true")]
+    pub deepseek_harness: bool,
+    #[serde(default = "default_true")]
+    pub workbuddy: bool,
+    #[serde(default = "default_true")]
     pub claude: bool,
     #[serde(
         rename = "claude-desktop",
@@ -51,6 +57,9 @@ pub struct VisibleApps {
 impl Default for VisibleApps {
     fn default() -> Self {
         Self {
+            pi: true,
+            deepseek_harness: true,
+            workbuddy: true,
             claude: true,
             claude_desktop: true,
             codex: true,

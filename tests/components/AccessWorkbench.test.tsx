@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import i18n from "i18next";
 import en from "@/i18n/locales/en.json";
+import zh from "@/i18n/locales/zh.json";
 import ja from "@/i18n/locales/ja.json";
 import zhTW from "@/i18n/locales/zh-TW.json";
 import userEvent from "@testing-library/user-event";
@@ -44,6 +45,13 @@ function show() {
   );
 }
 beforeEach(() => {
+  i18n.addResourceBundle(
+    "zh",
+    "translation",
+    { agentFiles: zh.agentFiles },
+    true,
+    true,
+  );
   vi.restoreAllMocks();
   vi.spyOn(providersApi, "getAll").mockResolvedValue({
     p: { id: "p", name: "Custom API", settingsConfig: {}, category: "custom" },
@@ -157,8 +165,8 @@ describe("AccessWorkbench", () => {
     await user.click(screen.getByRole("tab", { name: "费用与账单" }));
     expect(screen.getByText("本地统计可用")).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "了解 / 登录 HRouter" }),
-    ).toBeVisible();
+      screen.queryByRole("button", { name: "了解 / 登录 HRouter" }),
+    ).not.toBeInTheDocument();
   });
   it("updates workbench labels when the UI language changes", async () => {
     show();
@@ -191,4 +199,27 @@ describe("billing date scope", () => {
     expect(() => reconciliationRange("2026-01-01", "2026-09-01")).toThrow();
     expect(() => reconciliationRange("invalid", "2026-09-01")).toThrow();
   });
+});
+
+it("routes all eleven agents through the same provider workspace and add action", async () => {
+  show();
+  const user = userEvent.setup();
+  const codex = screen.getByRole("button", { name: /Codex/ });
+  for (const [name, id] of [
+    ["Pi Agent", "pi"],
+    ["DeepSeek Harness", "deepseek-harness"],
+    ["WorkBuddy", "workbuddy"],
+  ] as const) {
+    const card = screen.getByRole("button", { name: new RegExp(name) });
+    expect(card.parentElement).toBe(codex.parentElement);
+    await user.click(card);
+    expect(screen.getByRole("tab", { name: "开放接入" })).toBeVisible();
+    expect(
+      screen.queryByRole("region", { name: `${name} 配置管理` }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "添加供应商" }));
+    expect(actions.onAdd).toHaveBeenLastCalledWith("general", id);
+    await user.click(screen.getByRole("button", { name: "配置中心" }));
+    expect(actions.onProviders).toHaveBeenLastCalledWith(id);
+  }
 });

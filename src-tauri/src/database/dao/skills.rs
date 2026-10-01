@@ -23,7 +23,7 @@ impl Database {
             .prepare(
                 "SELECT id, name, description, directory, repo_owner, repo_name, repo_branch,
                         readme_url, enabled_claude, enabled_codex, enabled_gemini, enabled_grokbuild,
-                        enabled_opencode, enabled_hermes, installed_at, content_hash, updated_at
+                        enabled_opencode, enabled_hermes, installed_at, content_hash, updated_at, enabled_openclaw, enabled_pi, enabled_deepseek_harness, enabled_workbuddy
                  FROM skills ORDER BY name ASC",
             )
             .map_err(|e| AppError::Database(e.to_string()))?;
@@ -46,6 +46,10 @@ impl Database {
                         grokbuild: row.get(11)?,
                         opencode: row.get(12)?,
                         hermes: row.get(13)?,
+                        openclaw: row.get(17)?,
+                        pi: row.get(18)?,
+                        deepseek_harness: row.get(19)?,
+                        workbuddy: row.get(20)?,
                     },
                     installed_at: row.get(14)?,
                     content_hash: row.get(15)?,
@@ -69,7 +73,7 @@ impl Database {
             .prepare(
                 "SELECT id, name, description, directory, repo_owner, repo_name, repo_branch,
                         readme_url, enabled_claude, enabled_codex, enabled_gemini, enabled_grokbuild,
-                        enabled_opencode, enabled_hermes, installed_at, content_hash, updated_at
+                        enabled_opencode, enabled_hermes, installed_at, content_hash, updated_at, enabled_openclaw, enabled_pi, enabled_deepseek_harness, enabled_workbuddy
                  FROM skills WHERE id = ?1",
             )
             .map_err(|e| AppError::Database(e.to_string()))?;
@@ -91,6 +95,10 @@ impl Database {
                     grokbuild: row.get(11)?,
                     opencode: row.get(12)?,
                     hermes: row.get(13)?,
+                    openclaw: row.get(17)?,
+                    pi: row.get(18)?,
+                    deepseek_harness: row.get(19)?,
+                    workbuddy: row.get(20)?,
                 },
                 installed_at: row.get(14)?,
                 content_hash: row.get(15)?,
@@ -112,8 +120,8 @@ impl Database {
             "INSERT OR REPLACE INTO skills
              (id, name, description, directory, repo_owner, repo_name, repo_branch,
               readme_url, enabled_claude, enabled_codex, enabled_gemini, enabled_grokbuild, enabled_opencode, enabled_hermes,
-              installed_at, content_hash, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+              installed_at, content_hash, updated_at, enabled_openclaw, enabled_pi, enabled_deepseek_harness, enabled_workbuddy)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
             params![
                 skill.id,
                 skill.name,
@@ -132,6 +140,7 @@ impl Database {
                 skill.installed_at,
                 skill.content_hash,
                 skill.updated_at,
+                skill.apps.openclaw, skill.apps.pi, skill.apps.deepseek_harness, skill.apps.workbuddy,
             ],
         )
         .map_err(|e| AppError::Database(e.to_string()))?;
@@ -200,8 +209,8 @@ impl Database {
         let conn = lock_conn!(self.conn);
         let affected = conn
             .execute(
-                "UPDATE skills SET enabled_claude = ?1, enabled_codex = ?2, enabled_gemini = ?3, enabled_grokbuild = ?4, enabled_opencode = ?5, enabled_hermes = ?6 WHERE id = ?7",
-                params![apps.claude, apps.codex, apps.gemini, apps.grokbuild, apps.opencode, apps.hermes, id],
+                "UPDATE skills SET enabled_claude = ?1, enabled_codex = ?2, enabled_gemini = ?3, enabled_grokbuild = ?4, enabled_opencode = ?5, enabled_hermes = ?6, enabled_openclaw = ?8, enabled_pi = ?9, enabled_deepseek_harness = ?10, enabled_workbuddy = ?11 WHERE id = ?7",
+                params![apps.claude, apps.codex, apps.gemini, apps.grokbuild, apps.opencode, apps.hermes, id, apps.openclaw, apps.pi, apps.deepseek_harness, apps.workbuddy],
             )
             .map_err(|e| AppError::Database(e.to_string()))?;
         Ok(affected > 0)
@@ -307,6 +316,22 @@ impl Database {
 mod tests {
     use super::*;
     use crate::app_config::AppType;
+
+    #[test]
+    fn every_skill_destination_roundtrips_without_changing_other_flags() {
+        let db = Database::memory().unwrap();
+        for app in crate::ResourceTarget::skill_targets() {
+            let row = skill(app.as_str(), app.as_str(), SkillApps::only(&app));
+            db.save_skill(&row).unwrap();
+            let loaded = db.get_installed_skill(app.as_str()).unwrap().unwrap();
+            assert_eq!(loaded.apps, row.apps);
+            assert_eq!(loaded.apps.enabled_apps(), vec![app]);
+        }
+        assert_eq!(
+            db.get_all_installed_skills().unwrap().len(),
+            crate::ResourceTarget::skill_targets().len()
+        );
+    }
 
     fn skill(id: &str, name: &str, apps: SkillApps) -> InstalledSkill {
         InstalledSkill {

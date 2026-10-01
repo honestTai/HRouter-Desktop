@@ -1,3 +1,4 @@
+import { Card, CardContent } from "@/components/ui/card";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Info, Loader2, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -41,6 +42,7 @@ export function SettingsPage({
   const {
     settings,
     isLoading,
+    reloadSettings,
     updateSettings,
     autoSaveSettings,
     requiresRestart,
@@ -116,7 +118,7 @@ export function SettingsPage({
   if (!open) return null;
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden px-6 pb-8 pt-8 lg:px-8">
+    <div className="h-full min-h-0 w-full flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
       {isBusy ? (
         <div className="flex flex-1 items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -125,75 +127,102 @@ export function SettingsPage({
         <Tabs
           value={activeTab}
           onValueChange={setActiveTab}
-          className="flex h-full min-h-0 min-w-0 w-full flex-col"
+          className="mx-auto w-full max-w-6xl"
         >
-          <TabsList className="mb-7 flex w-full max-w-80 shrink-0 rounded-none border-b border-border bg-transparent p-0">
+          <TabsList className="mb-6 inline-flex">
             <TabsTrigger value="general">
               {t("settings.tabGeneral")}
             </TabsTrigger>
             <TabsTrigger value="about">{t("common.about")}</TabsTrigger>
           </TabsList>
 
-          <div className="mx-auto min-h-0 min-w-0 w-full max-w-6xl flex-1 overflow-y-auto overflow-x-hidden pr-2">
-            <TabsContent value="general" className="mt-0">
+          <div className="min-w-0 w-full">
+            <TabsContent value="general" className="mt-0 space-y-5">
+              {!settings && (
+                <Card role="alert" className="shadow-none">
+                  <CardContent className="space-y-4 p-6">
+                    <p className="text-sm text-muted-foreground">
+                      {t("workspaceUi.settingsUnavailable")}
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => void reloadSettings()}
+                    >
+                      {t("common.retry")}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
               {settings && (
-                <div className="w-full max-w-5xl divide-y divide-border-default rounded-lg border border-border bg-card px-6">
-                  <div className="flex flex-wrap gap-3 py-5">
-                    <AgentManagerButton showLabel />
-                    <HelpCenterButton showLabel />
-                    <SupportGroupButton sidebar />
-                  </div>
-                  <div className="grid gap-8 py-5 lg:grid-cols-2">
-                    <LanguageSettings
-                      value={settings.language}
-                      onChange={(language) => void handleAutoSave({ language })}
-                    />
-                    <ThemeSettings />
-                  </div>
-                  <div className="py-5">
-                    <AppVisibilitySettings
-                      settings={settings}
-                      onChange={(updates) => void handleAutoSave(updates)}
-                    />
-                  </div>
-                  <div className="py-5">
-                    <WindowSettings
-                      settings={settings}
-                      onChange={(updates) => void handleAutoSave(updates)}
-                    />
-                  </div>
-                </div>
+                <>
+                  <Card className="shadow-none">
+                    <CardContent className="flex flex-wrap items-center gap-3 p-5">
+                      <AgentManagerButton showLabel />
+                      <HelpCenterButton showLabel />
+                      <SupportGroupButton sidebar />
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-none">
+                    <CardContent className="grid gap-6 p-5 lg:grid-cols-2">
+                      <LanguageSettings
+                        value={settings.language}
+                        onChange={(language) =>
+                          void handleAutoSave({ language })
+                        }
+                      />
+                      <ThemeSettings />
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-none">
+                    <CardContent className="p-5">
+                      <AppVisibilitySettings
+                        settings={settings}
+                        onChange={(updates) => void handleAutoSave(updates)}
+                      />
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-none">
+                    <CardContent className="p-5">
+                      <WindowSettings
+                        settings={settings}
+                        onChange={(updates) => void handleAutoSave(updates)}
+                      />
+                    </CardContent>
+                  </Card>
+                </>
               )}
             </TabsContent>
 
             <TabsContent value="about" className="mt-0">
-              <div className="w-full max-w-3xl py-5">
-                <div className="flex items-start gap-4 border-b border-border-default pb-6">
-                  <img
-                    src={hrouterLogo}
-                    alt="HRouter"
-                    className="h-12 w-12 shrink-0 rounded-lg"
-                  />
-                  <div className="min-w-0">
-                    <h2 className="text-lg font-semibold">HRouter Desktop</h2>
-                    <p className="mt-1 break-words text-sm leading-6 text-muted-foreground">
-                      {t("app.description")}
-                    </p>
+              <Card className="shadow-none">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4 border-b border-border-default pb-6">
+                    <img
+                      src={hrouterLogo}
+                      alt="HRouter"
+                      className="h-12 w-12 shrink-0 rounded-lg"
+                    />
+                    <div className="min-w-0">
+                      <h2 className="text-lg font-semibold">HRouter Desktop</h2>
+                      <p className="mt-1 break-words text-sm leading-6 text-muted-foreground">
+                        {t("app.description")}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <UpdateBadge className="my-4" />
-                <dl className="divide-y divide-border-default text-sm">
-                  <div className="flex items-center justify-between gap-4 py-4">
-                    <dt className="flex items-center gap-2 text-muted-foreground">
-                      <Info className="h-4 w-4" />
-                      {t("common.version")}
-                    </dt>
-                    <dd className="shrink-0 font-mono font-medium">
-                      {version ? `v${version.replace(/^v/, "")}` : "-"}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
+                  <UpdateBadge className="my-4" />
+                  <dl className="divide-y divide-border-default text-sm">
+                    <div className="flex items-center justify-between gap-4 py-4">
+                      <dt className="flex items-center gap-2 text-muted-foreground">
+                        <Info className="h-4 w-4" />
+                        {t("common.version")}
+                      </dt>
+                      <dd className="shrink-0 font-mono font-medium">
+                        {version ? `v${version.replace(/^v/, "")}` : "-"}
+                      </dd>
+                    </div>
+                  </dl>
+                </CardContent>
+              </Card>
             </TabsContent>
           </div>
         </Tabs>

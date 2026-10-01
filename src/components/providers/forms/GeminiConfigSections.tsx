@@ -1,3 +1,5 @@
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import JsonEditor from "@/components/JsonEditor";
@@ -62,10 +64,9 @@ export const GeminiEnvSection: React.FC<GeminiEnvSectionProps> = ({
         </label>
 
         <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={useCommonConfig}
-            onChange={(e) => onCommonConfigToggle(e.target.checked)}
+            onCheckedChange={(e) => onCommonConfigToggle(e === true)}
             className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
           />
           {t("geminiConfig.writeCommonConfig", {
@@ -75,7 +76,9 @@ export const GeminiEnvSection: React.FC<GeminiEnvSectionProps> = ({
       </div>
 
       <div className="flex items-center justify-end">
-        <button
+        <Button
+          variant="ghost"
+          size="auto"
           type="button"
           onClick={onEditCommonConfig}
           className="text-xs text-blue-500 dark:text-blue-400 hover:underline"
@@ -83,7 +86,7 @@ export const GeminiEnvSection: React.FC<GeminiEnvSectionProps> = ({
           {t("geminiConfig.editCommonConfig", {
             defaultValue: "编辑通用配置",
           })}
-        </button>
+        </Button>
       </div>
 
       {commonConfigError && (

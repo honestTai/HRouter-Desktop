@@ -390,7 +390,9 @@ export function ProviderPresetSelector({
         </div>
       </div>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
-        <button
+        <Button
+          variant="ghost"
+          size="auto"
           type="button"
           onClick={() => onPresetChange("custom")}
           className={`inline-flex items-center justify-start gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors w-full ${
@@ -401,7 +403,7 @@ export function ProviderPresetSelector({
         >
           <span className="inline-block w-4 h-4 flex-shrink-0" aria-hidden />
           <span className="truncate">{t("providerPreset.custom")}</span>
-        </button>
+        </Button>
 
         {visiblePresetEntries.length === 0 && (
           <div className="col-span-full rounded-md border border-dashed border-border-default px-3 py-2 text-xs text-muted-foreground">
@@ -417,7 +419,9 @@ export function ProviderPresetSelector({
           const isPrimePartner = entry.preset.primePartner;
           const presetCategory = entry.preset.category ?? "others";
           return (
-            <button
+            <Button
+              variant="ghost"
+              size="auto"
               key={entry.id}
               type="button"
               onClick={() => onPresetChange(entry.id)}
@@ -445,7 +449,7 @@ export function ProviderPresetSelector({
                   </span>
                 )
               )}
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -453,7 +457,9 @@ export function ProviderPresetSelector({
       {onUniversalPresetSelect && universalProviderPresets.length > 0 && (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
           {universalProviderPresets.map((preset) => (
-            <button
+            <Button
+              variant="ghost"
+              size="auto"
               key={`universal-${preset.providerType}`}
               type="button"
               onClick={() => onUniversalPresetSelect(preset)}
@@ -472,10 +478,12 @@ export function ProviderPresetSelector({
               <span className="absolute -top-1 -right-1 flex items-center gap-0.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-md">
                 <Layers className="h-2.5 w-2.5" />
               </span>
-            </button>
+            </Button>
           ))}
           {onManageUniversalProviders && (
-            <button
+            <Button
+              variant="ghost"
+              size="auto"
               type="button"
               onClick={onManageUniversalProviders}
               className="inline-flex items-center justify-start gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-accent text-muted-foreground hover:bg-accent/80 w-full"
@@ -489,7 +497,7 @@ export function ProviderPresetSelector({
                   defaultValue: "管理",
                 })}
               </span>
-            </button>
+            </Button>
           )}
         </div>
       )}

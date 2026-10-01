@@ -1,3 +1,8 @@
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { parse as parseToml } from "smol-toml";
@@ -675,7 +680,9 @@ export function HRouterProviderForm({
             ).map(([mode, label]) => {
               const active = codexContextMode === mode;
               return (
-                <button
+                <Button
+                  variant="ghost"
+                  size="auto"
                   key={mode}
                   type="button"
                   role="radio"
@@ -688,7 +695,7 @@ export function HRouterProviderForm({
                   onClick={() => selectCodexContextMode(mode)}
                 >
                   {label}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -822,25 +829,33 @@ export function HRouterProviderForm({
         </section>
       )}
 
-      <details className="group rounded-xl border bg-card">
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium">
-          配置名称（可选）
-          <span className="ml-2 text-xs font-normal text-muted-foreground">
-            用于区分多个 HRouter Key
-          </span>
-        </summary>
-        <div className="space-y-4 border-t px-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="hrouter-config-name">配置名称</Label>
-            <Input
-              id="hrouter-config-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder={defaultName}
-            />
+      <Collapsible className="group rounded-xl border bg-card">
+        <CollapsibleTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-auto w-full justify-start px-4 py-3 text-sm font-medium"
+          >
+            配置名称（可选）
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              用于区分多个 HRouter Key
+            </span>
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="space-y-4 border-t px-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="hrouter-config-name">配置名称</Label>
+              <Input
+                id="hrouter-config-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={defaultName}
+              />
+            </div>
           </div>
-        </div>
-      </details>
+        </CollapsibleContent>
+      </Collapsible>
 
       {showButtons && (
         <div className="flex justify-end gap-2">

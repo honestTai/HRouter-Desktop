@@ -1,3 +1,4 @@
+import { Checkbox } from "@/components/ui/checkbox";
 import { SearchSelect } from "@/components/ui/search-select";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
@@ -167,10 +168,9 @@ export function QuotaSummary({ app }: { app: AppId }) {
             </div>
           ))}
           <label className="flex gap-2 text-sm">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={independent}
-              onChange={(e) => setIndependent(e.target.checked)}
+              onCheckedChange={(e) => setIndependent(e === true)}
             />
             {t(
               "accessWorkbench.iConfirmTheseKeysAndPlansHaveIndependentQuotas",

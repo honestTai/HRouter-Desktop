@@ -42,7 +42,11 @@
     "deleting": "Deleting...",
     "auto": "Auto",
     "enabled": "Enabled",
-    "notSet": "Not Set"
+    "notSet": "Not Set",
+    "previous": "Previous",
+    "next": "Next",
+    "finish": "Finish",
+    "retry": "Retry"
   },
   "firstRunNotice": {
     "title": "Welcome to HRouter",
@@ -82,7 +86,7 @@
     "contextTitle": "Codex context",
     "contextDescription": "Choose the official 272K preset, official 1M preset, or a custom context window, with the matching config.toml shown immediately.",
     "usageTitle": "Usage analytics",
-    "usageDescription": "Inspect tokens, cache hits, and cost trends by request, provider, and model. Costs use model-plaza prices and are shown in CNY.",
+    "usageDescription": "View summaries, trends and request details together. Local Agent data needs no login. With a configured HRouter key and account login, switch to cloud records; the two sources remain separate.",
     "agentsTitle": "Agent installation and updates",
     "agentsDescription": "Detect and install seven CLI agents. Codex GUI identifies the current OS and provides the matching offline installer.",
     "updatesTitle": "HRouter updates",
@@ -99,7 +103,7 @@
     "tour": {
       "dashboardTitle": "Dashboard",
       "dashboardDescription": "Review balance, exact spend and request aggregates, tokens, model share, and performance.",
-      "usageTitle": "Usage records",
+      "usageTitle": "Usage analytics",
       "usageDescription": "Filter requests by key, group, type, or model. Collapse the overview and scroll the records independently.",
       "billingTitle": "Top-ups and referrals",
       "billingDescription": "Choose a payment method and manage invitation links and referral rewards.",
@@ -321,7 +325,8 @@
     "totalRevenue": "Total rewards",
     "rewardRuleShare": "Share your invitation code or link with a new user.",
     "rewardRuleRecharge": "When the invited user tops up, you earn {{rate}}% in rewards.",
-    "rewardRuleTransfer": "Rewards can be transferred to your account balance at any time."
+    "rewardRuleTransfer": "Rewards can be transferred to your account balance at any time.",
+    "paymentDone": "I have paid"
   },
   "navigation": {
     "productSubtitle": "AI Development Platform",
@@ -1082,7 +1087,7 @@
     "versionUpdate": "App Update",
     "versionUpdateHint": "Check for a new HRouter version and review what changed.",
     "agentInstallUpdate": "Install / Update Agents",
-    "agentInstallUpdateHint": "Detect, install, or update local agents. Codex supports the CLI and the desktop app for the current OS.",
+    "agentInstallUpdateHint": "Detect, install and update CLI Agents only. CodeBuddy CLI shares model configuration with WorkBuddy; it is not the WorkBuddy desktop installer.",
     "commandLineAgents": "Command-line Agents",
     "desktopAgents": "Desktop Agents",
     "agentCount": "{{count}} CLI tools",
@@ -1216,7 +1221,10 @@
     "grokbuild": "Grok Build",
     "opencode": "OpenCode",
     "openclaw": "OpenClaw",
-    "hermes": "Hermes"
+    "hermes": "Hermes",
+    "pi": "Pi Agent",
+    "deepseek-harness": "DeepSeek Harness",
+    "workbuddy": "WorkBuddy"
   },
   "appSwitcher": {
     "more": "More apps"
@@ -1992,7 +2000,25 @@
       "syncNow": "Sync now"
     },
     "cacheReadCostPerMillion": "Cache Read Cost (per million tokens, CNY)",
-    "cacheCreationCostPerMillion": "Cache Write Cost (per million tokens, CNY)"
+    "cacheCreationCostPerMillion": "Cache Write Cost (per million tokens, CNY)",
+    "aggregatedCalls": "{{count}} calls aggregated",
+    "dataSources": {
+      "proxy": "Proxy request",
+      "session_log": "Claude session",
+      "codex_session": "Codex session",
+      "gemini_session": "Gemini session",
+      "grok_session": "Grok Build session",
+      "opencode_session": "OpenCode session",
+      "pi_session": "Pi session",
+      "openclaw_session": "OpenClaw session",
+      "workbuddy_session": "CodeBuddy-compatible session",
+      "deepseek-harness_session": "Harness session",
+      "hermes_summary": "Hermes usage summary"
+    },
+    "timingMissing": "Not recorded",
+    "durationLabel": "Duration",
+    "firstTokenLabel": "First token",
+    "timingExplanation": "Only measured request timing is shown. Session logs may omit response and first-token timing; message intervals are not used as substitutes."
   },
   "usageScript": {
     "title": "Configure Usage Query",
@@ -2790,7 +2816,11 @@
       "successSingle": "Skill {{name}} installed",
       "successMultiple": "Successfully installed {{count}} skills",
       "noSkillsFound": "No skills found in ZIP file (requires SKILL.md file)"
-    }
+    },
+    "exportZip": "Export Skill ZIP",
+    "exported": "Exported. Import the ZIP in Claude Settings → Skills. Export does not enable the Skill.",
+    "exportFailed": "Export failed",
+    "clientImport": "Import in client"
   },
   "deeplink": {
     "confirmImport": "Confirm Import Provider",
@@ -3425,7 +3455,7 @@
   "accessWorkbench": {
     "operationFailedPleaseTryAgain": "Operation failed. Please try again.",
     "connectYourModelService": "Connect your model service",
-    "connectOfficialServicesYourOwnEndpointsOrThirdParty": "Connect official services, your own endpoints, or third-party relays. General features need no login.",
+    "connectOfficialServicesYourOwnEndpointsOrThirdParty": "Connect official services, your own endpoints, and third-party providers.",
     "workbenchApp": "Workbench app",
     "connect": "Connect",
     "connectionCheck": "Connection check",
@@ -3510,7 +3540,7 @@
     "automaticFailoverQueue": "Automatic failover queue",
     "tryAlternativesInQueueOrderUsingTheProviderOrder": "Try alternatives in queue order, using the provider order from Providers. Configuring a queue without enabling routing does not forward traffic.",
     "seeEachRequestSProviderActualModelStatusAnd": "See each request's provider, actual model, status, and cost under Costs and billing → Local estimate. Global switches:",
-    "localEstimate": "Local estimate",
+    "localEstimate": "Estimated costs",
     "calculatedFromLocalRequestsSessionLogsAndConfiguredPrices": "Calculated from local requests, session logs, and configured prices. Data coverage, caching, retries, and pricing affect the estimate; it is not a provider billing receipt.",
     "filterByAppProviderModelOrDateAndInspect": "Filter by app, provider, model, or date and inspect individual requests below.",
     "hrouterServerBilling": "HRouter server billing",
@@ -3521,9 +3551,9 @@
     "remaining": "remaining",
     "balanceIsBelowYourThresholdMeteredCallsMayBe": "Balance is below your threshold; metered calls may be affected. Check server records for plan quotas.",
     "viewIndividualServerCharges": "View individual server charges",
-    "signInToViewActualChargesBalanceAndPlans": "Sign in to view actual charges, balance, and plans. Local statistics work without login.",
+    "signInToViewActualChargesBalanceAndPlans": "View HRouter charges, balance, and plans.",
     "serverRecordsMayIncludeOtherDevicesLocalEstimatesAnd": "Server records may include other devices. Local estimates and cumulative account spend may use different scopes or currencies and are not subtracted directly.",
-    "localRequestsAndEstimatedCosts": "Local requests and estimated costs",
+    "localRequestsAndEstimatedCosts": "Requests and costs",
     "selectValidStartAndEndDates": "Select valid start and end dates.",
     "compareAtMost93DaysAtATime": "Compare at most 93 days at a time.",
     "enterAPositiveExchangeRateOrLeaveItBlank": "Enter a positive exchange rate, or leave it blank to show currencies separately.",
@@ -3620,8 +3650,8 @@
     "convertedDifference": "At reference rate {{rate}}, actual server charges minus the local estimate are ¥{{difference}}. This does not establish overcharging."
   },
   "accessPlans": {
-    "description": "Save provider references, MCP, Skills and prompt selections per Agent. Profiles contain no key copies or conversation backups. Applying writes client configuration; it is not an atomic cross-app switch.",
-    "supported": "Profiles support Claude Code, Claude Desktop and Codex only. Other Agents are not modified.",
+    "description": "Save provider, MCP and Skills selections and preview changes before switching. Prompt files are never managed or overwritten.",
+    "supported": "Profiles cover all Agents; MCP and Skills are captured only where supported.",
     "snapshotHint": "Saves selections. Later edits to a provider also affect profiles referencing it.",
     "createTitle": "Save current access setup",
     "name": "Profile name",
@@ -3644,7 +3674,7 @@
     "save": "Save",
     "delete": "Delete profile",
     "clear": "Clear profile marker",
-    "applyWarning": "Apply “{{name}}” to {{app}}. This autosaves the previous profile, disables local takeover for this Agent, then updates provider, MCP, Skills and prompts. Changes are not atomic; partial failures are listed as warnings. Finish active requests first.",
+    "applyWarning": "Apply “{{name}}” to {{app}}. The previous profile is saved automatically, any supported active local takeover is disabled, then providers and supported MCP/Skills are updated. Prompt files are not modified. This is not an atomic transaction; partial failures are reported. Finish in-flight requests first.",
     "snapshotWarning": "Replace the {{app}} snapshot in “{{name}}” with current configuration. Other Agent snapshots are unchanged. This cannot be undone.",
     "deleteWarning": "Delete the shared profile “{{name}}” and all of its Agent snapshots. Providers and conversation files are not deleted.",
     "clearWarning": "Clear the current profile marker for {{app}} without restoring or changing client configuration.",
@@ -3652,12 +3682,19 @@
     "previewFailed": "Current providers could not be loaded. Applying is disabled."
   },
   "routePolicies": {
-    "description": "Manage primary and backup routes using the existing local proxy, without a new Gateway. Direct access is the default; enable takeover only when automatic failover is needed.",
+    "description": "Select an Agent, then configure its routes. Proxy-capable Agents support automatic failover; other Agents can use native provider routes.",
     "supported": "Existing failover supports Claude Code, Codex, Gemini CLI and Grok Build. Unsupported apps have no routing controls.",
     "boundary": "Before changing routes",
     "hint": "Takeover rewrites client configuration; disabling restores its backup. Failover tries providers in queue order. Session stickiness and cross-model context compatibility are not guaranteed.",
     "queueHint": "Priority follows provider order. Requests are not forwarded without takeover.",
-    "advanced": "Retry and timeout settings"
+    "advanced": "Retry and timeout settings",
+    "directTitle": "Provider routes",
+    "directMode": "Native direct connection",
+    "directHint": "Choose “Use this route” and confirm to write the provider to this Agent’s native configuration. This mode does not use the local proxy or automatic failover.",
+    "additiveHint": "This Agent keeps multiple providers. “Use this route” adds a provider without replacing other routes; the Agent selects the actual provider and model. This page does not enable automatic failover.",
+    "noProviders": "No provider routes yet. Add a provider first.",
+    "useRoute": "Use this route",
+    "inUse": "In native config"
   },
   "agentAccess": {
     "unavailable": "Client configuration unavailable",
@@ -3694,7 +3731,7 @@
     "workbuddyStep3": "The default path is /chat/completions. Enable Custom Protocol only for a full non-standard endpoint URL. Save, then select it in the chat model picker.",
     "previewTitle": "Changes to review",
     "backup": "The existing file will be fully backed up before merging.",
-    "create": "Creates models.json without creating sessions or login data.",
+    "create": "Creates the configuration file only, not sessions or login data.",
     "updateProvider": "Updates the existing hrouter provider; preserves {{count}} models and other custom fields.",
     "addProvider": "Adds the hrouter provider without changing other providers.",
     "piNotice": "Finish active Pi requests first. Endpoint and protocol changes affect every hrouter model. Does not modify auth.json or settings.json; existing Pi login credentials may take precedence over this API key.",
@@ -3708,5 +3745,156 @@
     "copyUrl": "Copy endpoint",
     "copyModel": "Copy model ID",
     "copied": "Copied"
+  },
+  "agentFiles": {
+    "configuration": "Configuration",
+    "description": "Read local configuration, preview, then back up and save. No gateway or session migration.",
+    "refresh": "Refresh",
+    "add": "Add model",
+    "edit": "Edit",
+    "location": "Configuration file",
+    "existing": "Configuration detected. Other settings are preserved when saving.",
+    "notCreated": "Not created yet. The file is only created after confirmation.",
+    "empty": "No managed model configurations yet. Add a model to save it in this agent’s configuration directory.",
+    "endpoint": "API endpoint",
+    "keepKey": "Keep saved credential",
+    "keyProtected": "Saved secrets are not returned to the UI. This edit preserves the original credential.",
+    "previewSummary": "The saved configuration will contain {{count}} models.",
+    "protection": "Other configuration and model metadata are preserved. Sessions and login data are untouched. Changes made after preview block the write.",
+    "piNotice": "Manages the hrouter provider in Pi. Endpoint and protocol affect all its models. Respects PI_CODING_AGENT_DIR. Existing auth.json credentials may take precedence.",
+    "deepseek-harnessNotice": "Adds a dedicated hrouter provider in the global cordis.patch.yml under DSH_HOME (default ~/.dsh), for all profiles. Text outside the managed block is preserved. CLI overlays or a same-named provider in another profile can conflict. Set the variable in the Harness launch environment.",
+    "workbuddyNotice": "Uses WorkBuddy-compatible ~/.codebuddy/models.json, shared with CodeBuddy. Requires a literal API key and OpenAI Chat Completions; /chat/completions is appended if missing. Project configuration may override this file. New models enable tool calling; use a tool-capable model.",
+    "piNext": "Open /model in Pi to refresh, then select the model. Saving configuration does not verify service connectivity.",
+    "deepseek-harnessNext": "Restart Harness with the environment variable set, then select a model under hrouter. Existing session model selections are not changed automatically.",
+    "workbuddyNext": "Check Settings → Model in WorkBuddy, restart if needed, then select the model in chat. Saving configuration does not verify service connectivity.",
+    "modelCount": "{{count}} model configurations"
+  },
+  "agentProvider": {
+    "invalid": "Enter a provider name, valid endpoint, model ID and credential.",
+    "activated": "Provider configuration enabled. Refresh the agent and select the model.",
+    "piNotice": "Uses the same provider save/enable flow. Activation backs up and updates Pi models.json without changing sessions.",
+    "deepseek-harnessNotice": "Activation backs up and updates ~/.dsh/cordis.patch.yml (respects DSH_HOME). Literal API keys are saved in its .env; process/project variables may override them. Restart Harness and select the hrouter model. No manual merge required.",
+    "workbuddyNotice": "Activation backs up and updates ~/.codebuddy/models.json, shared by WorkBuddy and CodeBuddy. OpenAI Chat Completions only, with endpoint completion. Project settings can override global values. Select the configured model in WorkBuddy."
+  },
+  "localAnalytics": {
+    "source": "Data source",
+    "local": "Agent usage",
+    "cloud": "HRouter billing",
+    "login": "Sign in to view HRouter usage",
+    "cloudNote": "Server-side account records · Not added to local usage",
+    "importTitle": "Refresh usage",
+    "coverage": "Read available local Agent usage and proxy records. Separate readers handle Pi/OpenClaw, CodeBuddy-compatible JSONL, supported Harness sessions and the Hermes ledger. Claude Desktop uses proxy records captured by this tool. Missing source records never become synthetic data.",
+    "estimates": "Incremental import only; original sessions are unchanged. Other devices are excluded. Costs are local estimates, not provider invoices.",
+    "sync": "Refresh usage",
+    "syncing": "Reading…",
+    "syncFailed": "Could not read usage. Existing statistics are retained. Check the Agent data directory and retry.",
+    "syncResult": "Scanned {{scanned}} files, imported {{imported}} records; {{errors}} issues, {{deferred}} files deferred.",
+    "dashboardHint": "View requests, tokens, and costs",
+    "usageHint": "Filter usage by Agent, model, and date",
+    "providersHint": "Manage agent connections to any compatible provider",
+    "summaryNote": "Hermes exposes cumulative session/model usage. Rows are marked as summaries with call counts and source update times, not reconstructed per-request timestamps."
+  },
+  "sessionWorkspace": {
+    "description": "Manage Agent sessions, project directories, and messages",
+    "allAgents": "All agents",
+    "loadFailed": "Could not read sessions. Check local directories and retry.",
+    "messagesFailed": "Could not read messages. Reselect the session or refresh and retry.",
+    "emptyHint": "Create a session in your agent, then refresh. Clear filters to see sessions from other agents.",
+    "clearFilters": "Show all sessions",
+    "detailHint": "Choose a session to review messages, navigate context, or resume work.",
+    "clientDelete": "Delete this session in the Agent to preserve its indexes and generation references."
+  },
+  "workspaceUi": {
+    "analyticsTitle": "Usage analytics",
+    "notAdapted": "Not integrated",
+    "capabilityHint": "All agents are shown; unavailable adapters cannot be changed",
+    "sessionNotAdapted": "This app does not read sessions for this agent yet. Sessions from other agents remain available.",
+    "date": "Date",
+    "time": "Time",
+    "settingsUnavailable": "Settings could not be loaded. Run the desktop app or retry the local service connection.",
+    "agent": "Agent"
+  },
+  "agentContext": {
+    "current": "Current Agent",
+    "target": "Target Agent",
+    "sharedHint": "This is a shared library. New items and installations default to the current Agent; existing resources remain independently enabled for each Agent.",
+    "unsupported": "This feature is not yet supported for the current Agent. You can browse shared resources; explicitly choose a supported Agent before installing or enabling. No other Agent is selected automatically.",
+    "filterHint": "Initially shows the current Agent. Changing this filter or choosing All does not change the Agent configured on other pages.",
+    "loadFailed": "Unable to load providers for the current Agent. Configuration actions are paused; please retry.",
+    "desktopSkills": "Claude Desktop imports Skills through its account. Export a Skill ZIP and add it in Claude Settings; exporting does not mark it enabled."
+  },
+  "hrouterWorkspace": {
+    "home": "Home",
+    "profile": "Profile",
+    "payment": "Payment",
+    "overview": "Dashboard",
+    "records": "Usage records",
+    "breadcrumb": "HRouter breadcrumb",
+    "navigation": "HRouter account navigation",
+    "logoutError": "Logout request failed; the session was cleared",
+    "totp": "Authenticator code",
+    "verify": "Verify and sign in",
+    "invalidAmount": "Check the payment method and recharge limits",
+    "openPaymentError": "Could not open checkout. Please retry.",
+    "unsafePayment": "Unsafe payment URL was blocked",
+    "paymentUnsupported": "This method requires a payment-provider client. Cancel the order and create a new one with another method.",
+    "checkingPayment": "Checking order status",
+    "paymentQueryError": "Unable to confirm payment status. Retry the query.",
+    "verifyPayment": "Check payment status",
+    "orderStatus": {
+      "PENDING": "Pending payment",
+      "PAID": "Paid, awaiting credit",
+      "RECHARGING": "Crediting balance",
+      "COMPLETED": "Completed",
+      "EXPIRED": "Expired",
+      "CANCELLED": "Cancelled",
+      "FAILED": "Failed"
+    }
+  },
+  "usageWidget": {
+    "open": "Desktop usage widget",
+    "shrink": "Smaller display",
+    "enlarge": "Larger display",
+    "pin": "Keep on top",
+    "minimize": "Minimize",
+    "maximize": "Maximize or restore",
+    "windowError": "Window operation failed. Retry in the desktop app.",
+    "today": "Today’s usage",
+    "requests": "{{count}} requests",
+    "input": "Input",
+    "output": "Output",
+    "cacheRead": "Cache read",
+    "cacheWrite": "Cache write",
+    "cacheRate": "Cache hit rate",
+    "speed": "Generation speed",
+    "speedHint": "Up to 20 completed requests in the last 5 minutes, {{count}} valid samples. Scale: 100 tok/s, not a quota limit.",
+    "provider": "Current provider quota",
+    "noProvider": "No single provider selected",
+    "dataError": "Could not read usage. Refresh to retry.",
+    "financeError": "Could not query this key’s quota. Refresh to retry.",
+    "todayCost": "Actual spend today",
+    "used": "Used quota",
+    "remaining": "Remaining",
+    "invalidPlan": "Plan is currently unavailable",
+    "syncError": "Some Agent records could not refresh; showing available data",
+    "updated": "Updated",
+    "follow": "Follows the workbench Agent",
+    "speedUnavailable": "No timed requests available. Session logs do not report generation speed; routing subsequent requests through the proxy enables measurement.",
+    "throughput": "Current key throughput",
+    "throughputHint": "Server-reported tokens per minute, not per-request generation speed.",
+    "totalSpent": "Current key total spend",
+    "nativeTitle": "Native macOS widget",
+    "nativeHelp": "Right-click the desktop → Edit Widgets, then search for HRouter. On older systems, use Notification Center. Follows the selected Agent; macOS schedules refreshes."
+  },
+  "hrouterWallet": {
+    "summary": "Recharge summary",
+    "rechargeAmount": "Recharge amount",
+    "fee": "Fee",
+    "actualPay": "Amount payable",
+    "credited": "Expected credit",
+    "finalAmountHint": "Calculated from the current configuration. The order payment amount and final credited balance are authoritative.",
+    "pay": "Pay {{amount}}",
+    "moreAmounts": "More amounts (+{{count}})",
+    "unavailable": "Online balance recharge is unavailable. You can still redeem a code."
   }
 }

@@ -1,3 +1,4 @@
+import { UsageWidget } from "@/components/widget/UsageWidget";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
@@ -23,10 +24,6 @@ import {
   MODELS_DEV_SYNC_CONFIG_QUERY_KEY,
   syncModelsDevPricingOnStartup,
 } from "./lib/modelsDevAutoSync";
-import {
-  HROUTER_MODEL_PLAZA_QUERY_KEY,
-  syncHRouterModelPlazaPricing,
-} from "./lib/hrouterModelPlazaPricing";
 import { initializeWindowActivity } from "@/lib/windowActivity";
 
 installGlobalErrorHandlers();
@@ -90,6 +87,22 @@ try {
 }
 
 async function bootstrap() {
+  if (new URLSearchParams(window.location.search).get("usage-widget") === "1") {
+    ReactDOM.createRoot(document.getElementById("root")!).render(
+      <React.StrictMode>
+        <FrontendErrorBoundary>
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider defaultTheme="system" storageKey="hrouter-theme">
+              <UsageWidget />
+              <Toaster />
+            </ThemeProvider>
+          </QueryClientProvider>
+        </FrontendErrorBoundary>
+      </React.StrictMode>,
+    );
+    return;
+  }
+
   // 启动早期主动查询后端初始化错误，避免事件竞态
   try {
     const initError = (await invoke(
@@ -143,22 +156,12 @@ async function bootstrap() {
         await queryClient.invalidateQueries({ queryKey: ["usage"] });
       }
     } catch (error) {
-      // 离线或 models.dev 暂时不可用不应阻塞 HRouter 价格同步。
+      // 可选价格源离线不应阻塞本地工作台。
       reportFrontendError("models_dev_startup_sync", error);
     } finally {
       await queryClient.invalidateQueries({
         queryKey: MODELS_DEV_SYNC_CONFIG_QUERY_KEY,
       });
-    }
-
-    try {
-      // 模型广场价格最后写入，确保 HRouter 的人民币售价是统计计费的权威来源。
-      const result = await syncHRouterModelPlazaPricing();
-      queryClient.setQueryData(HROUTER_MODEL_PLAZA_QUERY_KEY, result);
-      await queryClient.invalidateQueries({ queryKey: ["usage"] });
-    } catch (error) {
-      // 网络不可用时继续使用上次成功同步到本地的价格。
-      reportFrontendError("hrouter_model_plaza_startup_sync", error);
     }
   })();
 }
