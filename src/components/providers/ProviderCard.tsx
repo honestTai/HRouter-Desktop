@@ -1,5 +1,12 @@
 import { useMemo, useState, useEffect } from "react";
-import { GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  GripVertical,
+  ChevronDown,
+  ChevronUp,
+  CircleAlert,
+  CircleCheck,
+  Boxes,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type {
   DraggableAttributes,
@@ -103,6 +110,29 @@ function isOfficialProvider(provider: Provider, appId: AppId): boolean {
   return false;
 }
 
+const APP_LABELS: Record<AppId, string> = {
+  claude: "Claude Code",
+  "claude-desktop": "Claude Desktop",
+  codex: "Codex",
+  gemini: "Gemini CLI",
+  grokbuild: "Grok Build",
+  opencode: "OpenCode",
+  openclaw: "OpenClaw",
+  hermes: "Hermes",
+};
+
+function getConfiguredModelCount(settingsConfig: unknown): number {
+  if (!settingsConfig || typeof settingsConfig !== "object") return 0;
+  const config = settingsConfig as Record<string, unknown>;
+  const candidates = [config.models, config.availableModels, config.model_list];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate.length;
+    if (candidate && typeof candidate === "object")
+      return Object.keys(candidate).length;
+  }
+  return typeof config.model === "string" && config.model.trim() ? 1 : 0;
+}
+
 const extractApiUrl = (provider: Provider, fallbackText: string) => {
   if (provider.notes?.trim()) {
     return provider.notes.trim();
@@ -173,6 +203,7 @@ export function ProviderCard({
   const isAdditiveMode = appId === "opencode" && !isAnyOmo;
 
   const { data: health } = useProviderHealth(provider.id, appId);
+  const configuredModelCount = getConfiguredModelCount(provider.settingsConfig);
 
   const fallbackUrlText = t("provider.notConfigured", {
     defaultValue: "未配置接口地址",
@@ -477,6 +508,36 @@ export function ProviderCard({
                 <span className="min-w-0 truncate">{displayUrl}</span>
               </button>
             )}
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                {APP_LABELS[appId]}
+              </span>
+              {configuredModelCount > 0 && (
+                <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5">
+                  <Boxes className="h-3 w-3" /> {configuredModelCount} 个模型
+                </span>
+              )}
+              {isInFailoverQueue && health && (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded px-1.5 py-0.5",
+                    health.is_healthy
+                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                      : "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+                  )}
+                >
+                  {health.is_healthy ? (
+                    <CircleCheck className="h-3 w-3" />
+                  ) : (
+                    <CircleAlert className="h-3 w-3" />
+                  )}
+                  {health.is_healthy
+                    ? "线路正常"
+                    : `${health.consecutive_failures} 次失败`}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 

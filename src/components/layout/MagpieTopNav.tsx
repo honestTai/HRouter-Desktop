@@ -5,12 +5,22 @@ import {
   LayoutGrid,
   Network,
   Rows3,
+  MoreHorizontal,
+  CircleDollarSign,
+  ReceiptText,
+  Megaphone,
   Settings,
   UserRound,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import hrouterLogo from "@/assets/icons/hrouter.svg";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useHRouterSession } from "@/hooks/useHRouterSession";
 
@@ -20,7 +30,11 @@ type PrimaryView =
   | "profiles"
   | "routes"
   | "usage"
-  | "dashboard";
+  | "dashboard"
+  | "billing"
+  | "orders"
+  | "apiKeys"
+  | "announcements";
 
 interface Props {
   currentView: string;
@@ -121,6 +135,41 @@ export function MagpieTopNav({
           <BarChart3 className="h-3.5 w-3.5" />
           {t("navigation.usage", { defaultValue: "用量" })}
         </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className={cn(
+                navItemClass,
+                "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+              aria-label={t("navigation.more", { defaultValue: "更多" })}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="hidden sm:inline">
+                {t("navigation.more", { defaultValue: "更多" })}
+              </span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            <DropdownMenuItem onSelect={() => onNavigate("billing")}>
+              <CircleDollarSign className="h-4 w-4" />
+              {t("navigation.billing", { defaultValue: "充值支付" })}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onNavigate("orders")}>
+              <ReceiptText className="h-4 w-4" />
+              {t("navigation.orders", { defaultValue: "个人订单" })}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onNavigate("apiKeys")}>
+              <KeyRound className="h-4 w-4" />
+              {t("navigation.apiKeys", { defaultValue: "API 密钥" })}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onNavigate("announcements")}>
+              <Megaphone className="h-4 w-4" />
+              {t("navigation.announcements", { defaultValue: "公告与服务" })}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </nav>
 
       <div
