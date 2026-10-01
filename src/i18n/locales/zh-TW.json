@@ -2392,7 +2392,22 @@
       "searching": "搜尋中...",
       "searchFailed": "搜尋失敗",
       "matchCount": "{{count}} 處相符"
-    }
+    },
+    "providersTitle": "供應商",
+    "providersDescription": "為你的 Agent 管理模型服務。在這裡設定、切換與測試。",
+    "savedCount": "{{count}} 個設定",
+    "loading": "正在載入…",
+    "configuration": "設定方式",
+    "routedProvider": "目前路由供應商",
+    "selectedProvider": "目前選用的供應商",
+    "multipleProviders": "多個供應商獨立管理",
+    "noSelection": "尚未選擇供應商",
+    "localRouting": "本機路由",
+    "directConfig": "直接設定",
+    "editConfiguration": "查看設定",
+    "navigation": "主導覽",
+    "localWorkspace": "工作空間",
+    "providerList": "已儲存的供應商"
   },
   "openclaw": {
     "backupCreated": "已建立備份：{{path}}",

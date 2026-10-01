@@ -2391,7 +2391,22 @@
       "searching": "Searching...",
       "searchFailed": "Search failed",
       "matchCount": "{{count}} match(es)"
-    }
+    },
+    "providersTitle": "Providers",
+    "providersDescription": "Model services for your agents. Configure, switch, and test in one place.",
+    "savedCount": "{{count}} saved",
+    "loading": "Loading…",
+    "configuration": "Configuration mode",
+    "routedProvider": "Current routed provider",
+    "selectedProvider": "Selected provider",
+    "multipleProviders": "Providers managed independently",
+    "noSelection": "No provider selected",
+    "localRouting": "Local routing",
+    "directConfig": "Direct configuration",
+    "editConfiguration": "View configuration",
+    "navigation": "Main navigation",
+    "localWorkspace": "Workspace",
+    "providerList": "Saved providers"
   },
   "openclaw": {
     "backupCreated": "Backup created: {{path}}",

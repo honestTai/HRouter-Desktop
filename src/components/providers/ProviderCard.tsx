@@ -296,14 +296,13 @@ export function ProviderCard({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-xl border border-border p-4 transition-all duration-300",
+        "provider-card relative overflow-hidden rounded-lg border border-border p-4 transition-colors duration-150",
         "bg-card text-card-foreground group",
         isAutoFailoverEnabled || isProxyTakeover
           ? "hover:border-emerald-500/50"
           : "hover:border-border-active",
-        shouldUseGreen &&
-          "border-emerald-500/60 shadow-sm shadow-emerald-500/10",
-        shouldUseBlue && "border-blue-500/60 shadow-sm shadow-blue-500/10",
+        shouldUseGreen && "border-emerald-500/40",
+        shouldUseBlue && "border-primary/40",
         !(isActiveProvider || hasPersistentConfigHighlight) &&
           "hover:shadow-sm",
         dragHandleProps?.isDragging &&
@@ -312,10 +311,10 @@ export function ProviderCard({
     >
       <div
         className={cn(
-          "absolute inset-0 bg-gradient-to-r to-transparent transition-opacity duration-500 pointer-events-none",
-          shouldUseGreen && "from-emerald-500/10",
-          shouldUseBlue && "from-blue-500/10",
-          !shouldUseGreen && !shouldUseBlue && "from-primary/10",
+          "absolute inset-y-3 left-0 w-0.5 rounded-full transition-opacity duration-150 pointer-events-none",
+          shouldUseGreen && "bg-emerald-500",
+          shouldUseBlue && "bg-primary",
+          !shouldUseGreen && !shouldUseBlue && "bg-primary",
           isActiveProvider || hasPersistentConfigHighlight
             ? "opacity-100"
             : "opacity-0",

@@ -165,7 +165,7 @@ export function AppSwitcher({
   return (
     <div
       ref={rootRef}
-      className="inline-flex bg-muted rounded-xl p-1 gap-1"
+      className="inline-flex border border-border bg-muted/50 rounded-lg p-1 gap-1"
       style={{ WebkitAppRegion: "no-drag" } as any}
     >
       {visibleList.map((app) => {
@@ -177,6 +177,7 @@ export function AppSwitcher({
             onClick={() => handleSwitch(app)}
             title={APP_DISPLAY_NAME[app]}
             aria-label={APP_DISPLAY_NAME[app]}
+            aria-pressed={isActive}
             className={cn(
               "group inline-flex items-center px-3 h-8 rounded-md text-sm font-medium transition-all duration-200",
               isActive

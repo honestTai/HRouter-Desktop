@@ -37,7 +37,7 @@ interface AppSidebarProps {
 }
 
 const navItemClass =
-  "h-9 w-full justify-start gap-3 rounded-md px-3 text-sm font-medium";
+  "h-9 w-full justify-start gap-3 rounded-md px-3 text-[13px] font-medium";
 const utilityItemClass = `${navItemClass} border-transparent bg-transparent text-muted-foreground shadow-none hover:bg-muted hover:text-foreground`;
 
 export function AppSidebar({
@@ -60,14 +60,14 @@ export function AppSidebar({
     cn(
       navItemClass,
       currentView === view
-        ? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+        ? "bg-card text-foreground shadow-sm ring-1 ring-border hover:bg-card hover:text-foreground"
         : "text-muted-foreground hover:text-foreground",
     );
 
   return (
-    <aside className="flex h-full w-full flex-col border-r border-border-default bg-muted/20">
-      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-border-default px-4">
-        <img src={hrouterLogo} alt="HRouter" className="h-8 w-8 rounded-md" />
+    <aside className="flex h-full w-full flex-col border-r border-border-default bg-muted/40">
+      <div className="flex h-16 shrink-0 items-center gap-2.5 px-5">
+        <img src={hrouterLogo} alt="HRouter" className="h-7 w-7 rounded-md" />
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold">HRouter</div>
           <div className="truncate text-[11px] text-muted-foreground">
@@ -76,11 +76,18 @@ export function AppSidebar({
         </div>
       </div>
 
-      <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
+      <nav
+        aria-label={t("workspace.navigation")}
+        className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-4"
+      >
+        <p className="mb-2 px-3 text-[11px] font-medium text-muted-foreground">
+          {t("workspace.localWorkspace")}
+        </p>
         <Button
           type="button"
           variant="ghost"
           onClick={onOpenWorkbench}
+          aria-current={currentView === "workbench" ? "page" : undefined}
           className={itemClass("workbench")}
         >
           <LayoutGrid className="h-4 w-4" />
@@ -90,6 +97,7 @@ export function AppSidebar({
           type="button"
           variant="ghost"
           onClick={onOpenProviders}
+          aria-current={currentView === "providers" ? "page" : undefined}
           className={itemClass("providers")}
         >
           <KeyRound className="h-4 w-4" />
@@ -98,13 +106,14 @@ export function AppSidebar({
           })}
         </Button>
         <div className="my-3 border-t border-border-default" />
-        <p className="mb-1 px-3 text-[10px] font-semibold text-muted-foreground">
+        <p className="mb-1 px-3 text-[11px] font-medium text-muted-foreground">
           {t("navigation.hrouterPlatform", { defaultValue: "HRouter 平台" })}
         </p>
         <Button
           type="button"
           variant="ghost"
           onClick={onOpenDashboard}
+          aria-current={currentView === "dashboard" ? "page" : undefined}
           className={itemClass("dashboard")}
           data-tour="dashboard"
         >
@@ -115,6 +124,7 @@ export function AppSidebar({
           type="button"
           variant="ghost"
           onClick={onOpenUsage}
+          aria-current={currentView === "usage" ? "page" : undefined}
           className={itemClass("usage")}
           data-tour="usage"
         >
@@ -125,6 +135,7 @@ export function AppSidebar({
           type="button"
           variant="ghost"
           onClick={onOpenBilling}
+          aria-current={currentView === "billing" ? "page" : undefined}
           className={itemClass("billing")}
           data-tour="billing"
         >
@@ -135,6 +146,7 @@ export function AppSidebar({
           type="button"
           variant="ghost"
           onClick={onOpenOrders}
+          aria-current={currentView === "orders" ? "page" : undefined}
           className={itemClass("orders")}
           data-tour="orders"
         >
@@ -145,6 +157,7 @@ export function AppSidebar({
           type="button"
           variant="ghost"
           onClick={onOpenApiKeys}
+          aria-current={currentView === "apiKeys" ? "page" : undefined}
           className={itemClass("apiKeys")}
           data-tour="apiKeys"
         >
@@ -155,6 +168,7 @@ export function AppSidebar({
           type="button"
           variant="ghost"
           onClick={onOpenProfile}
+          aria-current={currentView === "profile" ? "page" : undefined}
           className={itemClass("profile")}
           data-tour="profile"
         >
@@ -184,7 +198,7 @@ export function AppSidebar({
           <span className="ml-auto h-1.5 w-1.5 rounded-full bg-orange-500" />
         </Button>
 
-        <p className="mb-1 mt-5 px-3 text-[10px] font-semibold text-muted-foreground">
+        <p className="mb-1 mt-5 px-3 text-[11px] font-medium text-muted-foreground">
           {t("navigation.localTools", { defaultValue: "本地工具" })}
         </p>
         <div data-tour="agents">
@@ -230,6 +244,7 @@ export function AppSidebar({
           type="button"
           variant="ghost"
           onClick={onOpenSettings}
+          aria-current={currentView === "settings" ? "page" : undefined}
           className={itemClass("settings")}
         >
           <Settings className="h-4 w-4" />

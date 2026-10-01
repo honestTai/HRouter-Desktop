@@ -2391,7 +2391,22 @@
       "searching": "検索中...",
       "searchFailed": "検索に失敗しました",
       "matchCount": "{{count}}件一致"
-    }
+    },
+    "providersTitle": "プロバイダー",
+    "providersDescription": "エージェントのモデルサービスを一元管理。設定、切り替え、テストをここで。",
+    "savedCount": "{{count}} 件の設定",
+    "loading": "読み込み中…",
+    "configuration": "設定方法",
+    "routedProvider": "現在のルーティング先",
+    "selectedProvider": "選択中のプロバイダー",
+    "multipleProviders": "プロバイダーを個別に管理",
+    "noSelection": "未選択",
+    "localRouting": "ローカルルーティング",
+    "directConfig": "直接設定",
+    "editConfiguration": "設定を表示",
+    "navigation": "メインナビゲーション",
+    "localWorkspace": "ワークスペース",
+    "providerList": "保存済みプロバイダー"
   },
   "openclaw": {
     "backupCreated": "バックアップを作成しました: {{path}}",

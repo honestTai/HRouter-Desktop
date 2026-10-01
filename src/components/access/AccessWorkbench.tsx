@@ -39,7 +39,8 @@ import { extractErrorMessage } from "@/utils/errorUtils";
 
 const selectClass =
   "h-10 rounded-md border border-border bg-background px-3 text-sm min-w-0";
-const panelClass = "rounded-xl border border-border bg-card p-5 space-y-4";
+const panelClass =
+  "workbench-panel rounded-lg border border-border bg-card p-6 space-y-4";
 function failure(error: unknown) {
   return (
     extractErrorMessage(error) ||
@@ -69,14 +70,12 @@ export function AccessWorkbench(props: Props) {
   const [app, setApp] = useState<AppId>("claude");
   const [tab, setTab] = useState("connect");
   return (
-    <div className="h-full overflow-y-auto px-6 pb-10 pt-5">
+    <div className="h-full overflow-y-auto px-6 lg:px-8 pb-10 pt-8">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold tracking-widest text-primary">
-              HROUTER DESKTOP
-            </p>
-            <h1 className="mt-2 text-2xl font-semibold">
+            <p className="workspace-eyebrow">HROUTER DESKTOP</p>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight">
               {t("accessWorkbench.connectYourModelService", {
                 defaultValue: "接入你的模型服务",
               })}
@@ -104,7 +103,7 @@ export function AccessWorkbench(props: Props) {
           </select>
         </div>
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="mb-5 flex h-auto flex-wrap justify-start gap-1 bg-muted/60 p-1">
+          <TabsList className="workbench-tabs mb-6 flex h-auto w-full flex-wrap justify-start gap-x-5 gap-y-1 rounded-none border-b border-border bg-transparent p-0">
             <TabsTrigger value="connect">
               {t("accessWorkbench.connect", { defaultValue: "开放接入" })}
             </TabsTrigger>

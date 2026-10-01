@@ -2391,7 +2391,22 @@
       "searching": "搜索中...",
       "searchFailed": "搜索失败",
       "matchCount": "{{count}} 处匹配"
-    }
+    },
+    "providersTitle": "供应商",
+    "providersDescription": "为你的 Agent 管理模型服务。配置、切换与测试，都在这里。",
+    "savedCount": "{{count}} 个配置",
+    "loading": "正在加载…",
+    "configuration": "配置方式",
+    "routedProvider": "当前路由供应商",
+    "selectedProvider": "当前选用的供应商",
+    "multipleProviders": "多个供应商独立管理",
+    "noSelection": "尚未选择供应商",
+    "localRouting": "本地路由",
+    "directConfig": "直接配置",
+    "editConfiguration": "查看配置",
+    "navigation": "主导航",
+    "localWorkspace": "工作空间",
+    "providerList": "已保存的供应商"
   },
   "openclaw": {
     "backupCreated": "已创建备份：{{path}}",

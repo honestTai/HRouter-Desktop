@@ -4,14 +4,14 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --background: 240 14% 97%;
+    --foreground: 240 8% 14%;
     --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
 
-    --primary: 210 100% 56%;
+    --primary: 243 48% 49%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 240 4.8% 95.9%;
@@ -27,7 +27,7 @@
 
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 210 100% 56%;
+    --ring: 243 48% 49%;
 
     --radius: 0.5rem;
   }
@@ -40,7 +40,7 @@
     --popover: 240 5% 16%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 210 100% 54%;
+    --primary: 239 72% 72%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 240 5% 18%;
@@ -56,7 +56,7 @@
 
     --border: 240 5% 24%;
     --input: 240 5% 24%;
-    --ring: 210 100% 54%;
+    --ring: 239 72% 72%;
   }
 }
 
@@ -251,5 +251,30 @@ input[type="password"]::-ms-clear {
   .usage-range-calendar {
     min-width: 0;
     flex: 1 1 0%;
+  }
+}
+
+/* Quiet desktop surfaces: restrained emphasis, readable hierarchy. */
+@layer components {
+  .workspace-eyebrow {
+    @apply text-[11px] font-medium tracking-[0.12em] text-muted-foreground;
+  }
+  .provider-workspace-header {
+    @apply pt-8 pb-2;
+  }
+  .workbench-tabs [role="tab"] {
+    @apply rounded-none border-b-2 border-transparent px-0 py-3 text-[13px] shadow-none;
+  }
+  .workbench-tabs [role="tab"][data-state="active"] {
+    @apply border-primary bg-transparent text-foreground shadow-none;
+  }
+  .workbench-panel > svg {
+    @apply h-10 w-10 rounded-lg border border-border bg-muted/50 p-2.5 text-foreground;
+  }
+}
+@media (hover: none) {
+  .provider-card .group-hover\:opacity-100 {
+    opacity: 1;
+    pointer-events: auto;
   }
 }

@@ -59,6 +59,7 @@ import {
 } from "@/lib/platform";
 import { AppSwitcher } from "@/components/AppSwitcher";
 import { ProfileSwitcher } from "@/components/profiles/ProfileSwitcher";
+import { ProviderWorkspaceHeader } from "@/components/providers/ProviderWorkspaceHeader";
 import { ProviderList } from "@/components/providers/ProviderList";
 import { AddProviderDialog } from "@/components/providers/AddProviderDialog";
 import { AccessWorkbench } from "@/components/access/AccessWorkbench";
@@ -138,7 +139,7 @@ interface SyncStatusUpdatedPayload {
 
 const DEFAULT_DRAG_BAR_HEIGHT = isWindows() || isLinux() ? 0 : 28; // px
 const HEADER_HEIGHT = 64; // px
-const SIDEBAR_WIDTH = 232; // px
+const SIDEBAR_WIDTH = 216; // px
 
 const STORAGE_KEY = "hrouter-last-app";
 const VALID_APPS: AppId[] = [
@@ -1011,7 +1012,7 @@ function MainApp() {
           return <AgentsDefaultsPanel />;
         default:
           return (
-            <div className="px-6 flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="px-6 lg:px-8 flex flex-col flex-1 min-h-0 overflow-hidden">
               <div className="flex-1 overflow-y-auto overflow-x-hidden pb-12 px-1">
                 <AnimatePresence mode="wait">
                   <motion.div
@@ -1020,8 +1021,22 @@ function MainApp() {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.15 }}
-                    className="space-y-4"
+                    className="mx-auto w-full max-w-6xl space-y-4"
                   >
+                    <ProviderWorkspaceHeader
+                      appId={activeApp}
+                      providerCount={Object.keys(providers).length}
+                      currentProvider={
+                        providers[
+                          isProxyRunning && isCurrentAppTakeoverActive
+                            ? activeProviderId || currentProviderId
+                            : currentProviderId
+                        ]
+                      }
+                      isLoading={isLoading}
+                      isTakeover={isProxyRunning && isCurrentAppTakeoverActive}
+                      onEdit={setEditingProvider}
+                    />
                     <ProviderList
                       providers={providers}
                       currentProviderId={currentProviderId}
@@ -1205,7 +1220,7 @@ function MainApp() {
       </div>
 
       <header
-        className="fixed right-0 z-50 border-b border-border-default bg-background/95 backdrop-blur-md"
+        className="fixed right-0 z-50 border-b border-border-default bg-card"
         {...DRAG_REGION_ATTR}
         style={
           {
