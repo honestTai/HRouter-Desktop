@@ -46,9 +46,11 @@ describe("Reliability controls", () => {
     );
     await user.click(screen.getByRole("button", { name: "添加模型规则" }));
     await user.type(screen.getByLabelText("路由模型 1"), "model-a");
-    await user.selectOptions(screen.getByLabelText("路由 1 线路 1"), "a");
+    await user.click(screen.getByRole("combobox", { name: "路由 1 线路 1" }));
+    await user.click(await screen.findByRole("option", { name: "Primary" }));
     await user.click(screen.getByRole("button", { name: "添加备用" }));
-    await user.selectOptions(screen.getByLabelText("路由 1 线路 2"), "b");
+    await user.click(screen.getByRole("combobox", { name: "路由 1 线路 2" }));
+    await user.click(await screen.findByRole("option", { name: "Backup" }));
     expect(save).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "保存模型路由" }));
     await waitFor(() =>
@@ -93,9 +95,10 @@ describe("Reliability controls", () => {
       data: [{ remaining: 5, unit: "USD" }],
     });
     show(<QuotaSummary app="claude" />);
-    await screen.findByRole("option", { name: "m" });
+
     expect(query).not.toHaveBeenCalled();
-    await user.selectOptions(screen.getByLabelText("额度线路组"), "m");
+    await user.click(screen.getByRole("combobox", { name: "额度线路组" }));
+    await user.click(await screen.findByRole("option", { name: "m" }));
     await user.click(screen.getByRole("button", { name: "刷新组内额度" }));
     await screen.findByLabelText(
       "确认这些 Key 及套餐的额度相互独立，按相同单位汇总",

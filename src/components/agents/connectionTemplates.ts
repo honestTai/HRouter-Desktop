@@ -1,0 +1,69 @@
+import type { PiConnection } from "@/lib/api/externalAgents";
+export type ExtraAgent = "pi" | "deepseek-harness" | "workbuddy";
+export const EXTRA_AGENTS = [
+  {
+    id: "pi",
+    name: "Pi Agent",
+    mark: "π",
+    mode: "local",
+    url: "https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/models.md",
+  },
+  {
+    id: "deepseek-harness",
+    name: "DeepSeek Harness",
+    mark: "DS",
+    mode: "snippet",
+    url: "https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/llm/llm-pi-ai/README.md",
+  },
+  {
+    id: "workbuddy",
+    name: "WorkBuddy",
+    mark: "W",
+    mode: "guide",
+    url: "https://www.workbuddy.ai/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Model",
+  },
+] as const;
+/** JSON is a YAML scalar subset: quoting every user string prevents YAML injection. */
+export function deepseekSnippet(input: PiConnection): string {
+  if (
+    input.credentialMode !== "env" ||
+    !/^[A-Za-z_][A-Za-z0-9_]*$/.test(input.credential)
+  )
+    throw new Error("Use an environment variable name, not an API key");
+  const q = JSON.stringify;
+  return `- name: '@deepseek-ai/dsh-llm-pi-ai'\n  config:\n    providers:\n      hrouter:\n        displayName: HRouter\n        apiKeyEnv: ${q(input.credential)}\n        api: ${q(input.api)}\n        baseURL: ${q(input.baseUrl.trim().replace(/\/$/, ""))}\n        models:\n          - id: ${q(input.model.trim())}\n`;
+}
+export function validConnection(
+  input: PiConnection,
+  agent: ExtraAgent,
+): boolean {
+  try {
+    const url = new URL(input.baseUrl);
+    if (
+      !["http:", "https:"].includes(url.protocol) ||
+      url.username ||
+      url.password ||
+      url.hash ||
+      url.search
+    )
+      return false;
+    if (
+      !input.model.trim() ||
+      input.model.length > 256 ||
+      /[\r\n\x00-\x1f]/.test(input.model)
+    )
+      return false;
+    if (agent === "workbuddy") return true;
+    if (input.credentialMode === "env")
+      return /^[A-Za-z_][A-Za-z0-9_]*$/.test(input.credential);
+    return (
+      agent === "pi" &&
+      !!input.credential.trim() &&
+      input.credential.length <= 8192 &&
+      !input.credential.trim().startsWith("!") &&
+      !/[$\x00-\x1f]/.test(input.credential)
+    );
+  } catch {
+    return false;
+  }
+}

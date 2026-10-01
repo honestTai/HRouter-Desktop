@@ -1,3 +1,4 @@
+import { SearchSelect } from "@/components/ui/search-select";
 import i18n from "i18next";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
@@ -125,8 +126,6 @@ export function BillingReconciliation({ userId }: { userId: number }) {
       setBusy(false);
     }
   };
-  const selectClass =
-    "h-10 min-w-0 rounded-md border bg-background px-3 text-sm";
   return (
     <section className="rounded-xl border border-border bg-card p-5 space-y-4">
       <h2 className="font-semibold">
@@ -141,68 +140,68 @@ export function BillingReconciliation({ userId }: { userId: number }) {
         })}
       </p>
       <div className="grid gap-3 md:grid-cols-3">
-        <select
+        <SearchSelect
           aria-label={t("accessWorkbench.comparisonApp", {
             defaultValue: "核对应用",
           })}
-          className={selectClass}
           value={app}
           disabled={busy}
-          onChange={(e) => {
-            setApp(e.target.value as AppId);
+          onValueChange={(value) => {
+            setApp(value as AppId);
             setProviderId("");
             setResult(null);
           }}
-        >
-          <option value="claude">Claude Code</option>
-          <option value="codex">Codex</option>
-        </select>
-        <select
+          options={[
+            { value: "claude", label: "Claude Code" },
+            { value: "codex", label: "Codex" },
+          ]}
+        />
+        <SearchSelect
           aria-label={t("accessWorkbench.localBillingProvider", {
             defaultValue: "本机账单供应商",
           })}
-          className={selectClass}
           disabled={busy}
           value={providerId}
-          onChange={(e) => {
-            setProviderId(e.target.value);
+          onValueChange={(value) => {
+            setProviderId(value);
             setResult(null);
           }}
-        >
-          <option value="">
-            {t("accessWorkbench.selectLocalProvider", {
-              defaultValue: "选择本机供应商",
-            })}
-          </option>
-          {Object.values(providers.data ?? {}).map((p) => (
-            <option value={p.id} key={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-        <select
+          options={[
+            {
+              value: "",
+              label: t("accessWorkbench.selectLocalProvider", {
+                defaultValue: "选择本机供应商",
+              }),
+            },
+            ...(Object.values(providers.data ?? {}).map((p) => ({
+              value: p.id,
+              label: p.name,
+            })) ?? []),
+          ]}
+        />
+        <SearchSelect
           aria-label={t("accessWorkbench.serverBillingKey", {
             defaultValue: "服务端账单 Key",
           })}
-          className={selectClass}
           disabled={busy}
           value={keyId}
-          onChange={(e) => {
-            setKeyId(e.target.value);
+          onValueChange={(value) => {
+            setKeyId(value);
             setResult(null);
           }}
-        >
-          <option value="">
-            {t("accessWorkbench.selectHrouterKey", {
-              defaultValue: "选择 HRouter Key",
-            })}
-          </option>
-          {keys.data?.map((k) => (
-            <option key={k.id} value={k.id}>
-              {k.name} · #{k.id}
-            </option>
-          ))}
-        </select>
+          options={[
+            {
+              value: "",
+              label: t("accessWorkbench.selectHrouterKey", {
+                defaultValue: "选择 HRouter Key",
+              }),
+            },
+            ...(keys.data?.map((k) => ({
+              value: String(k.id),
+              label: k.name + "· #" + k.id,
+            })) ?? []),
+          ]}
+        />
       </div>
       <div className="grid gap-3 md:grid-cols-3">
         <label className="space-y-2 text-sm">

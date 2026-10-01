@@ -105,15 +105,16 @@ describe("AccessWorkbench", () => {
     });
     show();
     await user.click(screen.getByRole("tab", { name: "接入体检" }));
-    await screen.findByRole("option", { name: "Custom API" });
-    await user.selectOptions(screen.getByLabelText("选择供应商"), "p");
+    await user.click(screen.getByRole("combobox", { name: "选择供应商" }));
+    await user.click(await screen.findByRole("option", { name: "Custom API" }));
     await user.click(screen.getByRole("button", { name: "检测模型目录" }));
     await waitFor(() =>
       expect(diagnose).toHaveBeenCalledWith("claude", "p", "", false),
     );
     await user.click(screen.getByRole("checkbox"));
     expect(screen.getByRole("button", { name: "开始完整体检" })).toBeDisabled();
-    await user.type(screen.getByLabelText("模型 ID"), "test-model");
+    await user.click(screen.getByRole("combobox", { name: "模型 ID" }));
+    await user.click(await screen.findByRole("option", { name: "test-model" }));
     await user.click(screen.getByRole("button", { name: "开始完整体检" }));
     await waitFor(() =>
       expect(diagnose).toHaveBeenLastCalledWith(
@@ -137,8 +138,8 @@ describe("AccessWorkbench", () => {
       .mockRejectedValue(new Error("配置在预览后发生变化，请重新预览。"));
     show();
     await user.click(screen.getByRole("tab", { name: "配置保护" }));
-    await screen.findByRole("option", { name: "Custom API" });
-    await user.selectOptions(screen.getByLabelText("选择供应商"), "p");
+    await user.click(screen.getByRole("combobox", { name: "选择供应商" }));
+    await user.click(await screen.findByRole("option", { name: "Custom API" }));
     await user.click(screen.getByRole("button", { name: "预览切换影响" }));
     await user.click(
       await screen.findByRole("button", { name: "确认切换并保存快照" }),

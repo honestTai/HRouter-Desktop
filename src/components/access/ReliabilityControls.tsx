@@ -1,3 +1,4 @@
+import { SearchSelect } from "@/components/ui/search-select";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { extractErrorMessage } from "@/utils/errorUtils";
 
 const panel = "rounded-xl border border-border bg-card p-5 space-y-3";
-const select = "h-10 rounded-md border bg-background px-3 text-sm";
 
 export function ReliabilityControls({ app }: { app: AppId }) {
   const { t } = useTranslation();
@@ -79,41 +79,39 @@ export function ReliabilityControls({ app }: { app: AppId }) {
             {row.providers.map((providerId, position) => (
               <div className="flex gap-2" key={position}>
                 <span className="self-center text-sm">P{position + 1}</span>
-                <select
+                <SearchSelect
                   aria-label={t("accessWorkbench.routePosition", {
                     defaultValue: "路由 {{value0}} 线路 {{value1}}",
                     value0: index + 1,
                     value1: position + 1,
                   })}
-                  className={select}
                   value={providerId}
                   disabled={busy}
-                  onChange={(e) =>
+                  onValueChange={(value) =>
                     setDraft(
                       rows.map((r, i) =>
                         i === index
                           ? {
                               ...r,
                               providers: r.providers.map((p, j) =>
-                                j === position ? e.target.value : p,
+                                j === position ? value : p,
                               ),
                             }
                           : r,
                       ),
                     )
                   }
-                >
-                  <option value="">
-                    {t("accessWorkbench.selectProviderKey", {
-                      defaultValue: "选择供应商 / Key",
-                    })}
-                  </option>
-                  {choices.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    {
+                      value: "",
+                      label: t("accessWorkbench.selectProviderKey", {
+                        defaultValue: "选择供应商 / Key",
+                      }),
+                    },
+                    ...(choices.map((p) => ({ value: p.id, label: p.name })) ??
+                      []),
+                  ]}
+                />
                 <Button
                   variant="ghost"
                   disabled={busy}
@@ -192,26 +190,23 @@ export function ReliabilityControls({ app }: { app: AppId }) {
             defaultValue: "供应商兼容选项",
           })}
         </h3>
-        <select
-          className={select}
+        <SearchSelect
           aria-label={t("accessWorkbench.providerForCompatibilityOptions", {
             defaultValue: "兼容选项供应商",
           })}
           value={id}
-          onChange={(e) => setId(e.target.value)}
+          onValueChange={(value) => setId(value)}
           disabled={busy}
-        >
-          <option value="">
-            {t("accessWorkbench.selectProvider", {
-              defaultValue: "选择供应商",
-            })}
-          </option>
-          {choices.map((p) => (
-            <option value={p.id} key={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+          options={[
+            {
+              value: "",
+              label: t("accessWorkbench.selectProvider", {
+                defaultValue: "选择供应商",
+              }),
+            },
+            ...(choices.map((p) => ({ value: p.id, label: p.name })) ?? []),
+          ]}
+        />
         {selected && (
           <>
             <label className="flex gap-2 text-sm">

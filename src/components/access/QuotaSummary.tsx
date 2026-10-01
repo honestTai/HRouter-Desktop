@@ -1,3 +1,4 @@
+import { SearchSelect } from "@/components/ui/search-select";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -69,30 +70,29 @@ export function QuotaSummary({ app }: { app: AppId }) {
             "按已保存的模型主备组查询各供应商已有的用量接口。查询结果来自供应商配置的用量脚本，不发起模型推理；未配置或查询失败会单独显示。",
         })}
       </p>
-      <select
-        className="h-10 border rounded bg-background px-3"
+      <SearchSelect
+        className="min-w-0"
         aria-label={t("accessWorkbench.quotaRouteGroup", {
           defaultValue: "额度线路组",
         })}
         value={model}
         disabled={busy}
-        onChange={(e) => {
-          setModel(e.target.value);
+        onValueChange={(value) => {
+          setModel(value);
           setReport(null);
           setIndependent(false);
         }}
-      >
-        <option value="">
-          {t("accessWorkbench.selectModelRouteGroup", {
-            defaultValue: "选择模型主备组",
-          })}
-        </option>
-        {routes.data?.map((r) => (
-          <option key={r.model} value={r.model}>
-            {r.model}
-          </option>
-        ))}
-      </select>
+        options={[
+          {
+            value: "",
+            label: t("accessWorkbench.selectModelRouteGroup", {
+              defaultValue: "选择模型主备组",
+            }),
+          },
+          ...(routes.data?.map((r) => ({ value: r.model, label: r.model })) ??
+            []),
+        ]}
+      />
       <Button
         disabled={busy || !route}
         onClick={() => {

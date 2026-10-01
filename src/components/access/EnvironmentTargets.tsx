@@ -1,3 +1,4 @@
+import { SearchSelect } from "@/components/ui/search-select";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -91,27 +92,26 @@ export function EnvironmentTargets() {
               )
             }
           />
-          <select
+          <SearchSelect
             aria-label={t("accessWorkbench.environmentApp", {
               defaultValue: "环境应用 {{value0}}",
               value0: index + 1,
             })}
-            className="h-10 border rounded bg-background px-3"
+            className="min-w-0"
             value={row.app}
             disabled={busy}
-            onChange={(e) =>
+            onValueChange={(value) =>
               change(
                 rows.map((r, i) =>
-                  i === index
-                    ? { ...r, app: e.target.value, providerId: "" }
-                    : r,
+                  i === index ? { ...r, app: value, providerId: "" } : r,
                 ),
               )
             }
-          >
-            <option value="claude">Claude Code</option>
-            <option value="codex">Codex</option>
-          </select>
+            options={[
+              { value: "claude", label: "Claude Code" },
+              { value: "codex", label: "Codex" },
+            ]}
+          />
           <Input
             aria-label={t("accessWorkbench.environmentDirectory", {
               defaultValue: "配置目录 {{value0}}",
@@ -130,37 +130,35 @@ export function EnvironmentTargets() {
               )
             }
           />
-          <select
+          <SearchSelect
             aria-label={t("accessWorkbench.environmentProvider", {
               defaultValue: "环境供应商 {{value0}}",
               value0: index + 1,
             })}
-            className="h-10 border rounded bg-background px-3"
+            className="min-w-0"
             value={row.providerId}
             disabled={busy}
-            onChange={(e) =>
+            onValueChange={(value) =>
               change(
                 rows.map((r, i) =>
-                  i === index ? { ...r, providerId: e.target.value } : r,
+                  i === index ? { ...r, providerId: value } : r,
                 ),
               )
             }
-          >
-            <option value="">
-              {t("accessWorkbench.selectApiKeyProvider", {
-                defaultValue: "选择 API Key 供应商",
-              })}
-            </option>
-            {Object.values(
-              (row.app === "claude" ? claude.data : codex.data) ?? {},
-            )
-              .filter((p) => p.category !== "official")
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-          </select>
+            options={[
+              {
+                value: "",
+                label: t("accessWorkbench.selectApiKeyProvider", {
+                  defaultValue: "选择 API Key 供应商",
+                }),
+              },
+              ...(Object.values(
+                (row.app === "claude" ? claude.data : codex.data) ?? {},
+              )
+                .filter((p) => p.category !== "official")
+                .map((p) => ({ value: p.id, label: p.name })) ?? []),
+            ]}
+          />
           <Button
             variant="ghost"
             disabled={busy}

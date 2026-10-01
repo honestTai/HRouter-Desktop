@@ -1,3 +1,5 @@
+import { ExtraAgentConnections } from "@/components/agents/ExtraAgentConnections";
+import { SearchSelect } from "@/components/ui/search-select";
 import i18n from "i18next";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
@@ -39,8 +41,6 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { extractErrorMessage } from "@/utils/errorUtils";
 
-const selectClass =
-  "h-10 rounded-md border border-border bg-background px-3 text-sm min-w-0";
 const panelClass =
   "workbench-panel rounded-lg border border-border bg-card p-6 space-y-4";
 function failure(error: unknown) {
@@ -157,6 +157,7 @@ export function AccessWorkbench(props: Props) {
             ))}
           </div>
         </div>
+        <ExtraAgentConnections />
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="workbench-tabs mb-6 flex h-auto w-full flex-wrap justify-start gap-x-5 gap-y-1 rounded-none border-b border-border bg-transparent p-0">
             <TabsTrigger value="connect">
@@ -503,24 +504,23 @@ function ProviderSelect({
   const { t } = useTranslation();
 
   return (
-    <select
-      className={`${selectClass} w-full`}
+    <SearchSelect
       aria-label={t("accessWorkbench.selectProvider", {
         defaultValue: "选择供应商",
       })}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onValueChange={(value) => onChange(value)}
       disabled={disabled}
-    >
-      <option value="">
-        {t("accessWorkbench.selectProvider", { defaultValue: "选择供应商" })}
-      </option>
-      {providers.map((p) => (
-        <option key={p.id} value={p.id}>
-          {p.name}
-        </option>
-      ))}
-    </select>
+      options={[
+        {
+          value: "",
+          label: t("accessWorkbench.selectProvider", {
+            defaultValue: "选择供应商",
+          }),
+        },
+        ...(providers.map((p) => ({ value: p.id, label: p.name })) ?? []),
+      ]}
+    />
   );
 }
 function DiagnosticsPanel({ app }: { app: AppId }) {
@@ -588,25 +588,23 @@ function DiagnosticsPanel({ app }: { app: AppId }) {
         <label htmlFor="probe-model" className="text-sm">
           {t("accessWorkbench.modelId", { defaultValue: "模型 ID" })}
         </label>
-        <Input
+        <SearchSelect
           id="probe-model"
-          list="probe-models"
+          aria-label={t("accessWorkbench.modelId", { defaultValue: "模型 ID" })}
           className="mt-2"
           value={model}
-          onChange={(e) => {
-            setModel(e.target.value);
-          }}
+          onValueChange={setModel}
+          allowCustomValue
           disabled={busy}
+          options={(report?.models ?? []).map((value) => ({
+            value,
+            label: value,
+          }))}
           placeholder={t(
             "accessWorkbench.checkTheModelCatalogThenSelectAModelFor",
             { defaultValue: "先检测模型目录，再选择模型进行完整体检" },
           )}
         />
-        <datalist id="probe-models">
-          {report?.models.map((m) => (
-            <option key={m} value={m} />
-          ))}
-        </datalist>
       </div>
       <label className="flex items-start gap-2 text-sm">
         <input

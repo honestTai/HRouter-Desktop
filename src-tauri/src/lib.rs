@@ -14,6 +14,7 @@ mod database;
 mod deeplink;
 mod environment_targets;
 mod error;
+mod external_agents;
 mod gemini_config;
 mod gemini_mcp;
 mod grok_config;
@@ -1598,6 +1599,8 @@ pub fn run() {
             // Stream health check
             commands::stream_check_provider,
             commands::diagnose_provider,
+            external_agents::preview_pi_connection,
+            external_agents::apply_pi_connection,
             commands::preview_cc_switch_import,
             commands::import_cc_switch_providers,
             commands::get_access_protection,
