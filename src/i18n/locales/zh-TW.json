@@ -2407,7 +2407,12 @@
     "editConfiguration": "查看設定",
     "navigation": "主導覽",
     "localWorkspace": "工作空間",
-    "providerList": "已儲存的供應商"
+    "providerList": "已儲存的供應商",
+    "agents": "工作台",
+    "profiles": "接入方案",
+    "routes": "線路策略",
+    "profilesTitle": "接入方案",
+    "routesTitle": "線路策略"
   },
   "openclaw": {
     "backupCreated": "已建立備份：{{path}}",

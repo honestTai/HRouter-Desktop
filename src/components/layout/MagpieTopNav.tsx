@@ -3,6 +3,8 @@ import {
   ExternalLink,
   KeyRound,
   LayoutGrid,
+  Network,
+  Rows3,
   Settings,
   UserRound,
 } from "lucide-react";
@@ -12,7 +14,13 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useHRouterSession } from "@/hooks/useHRouterSession";
 
-type PrimaryView = "workbench" | "providers" | "dashboard" | "usage";
+type PrimaryView =
+  | "workbench"
+  | "providers"
+  | "profiles"
+  | "routes"
+  | "usage"
+  | "dashboard";
 
 interface Props {
   currentView: string;
@@ -80,6 +88,22 @@ export function MagpieTopNav({
         >
           <KeyRound className="h-3.5 w-3.5" />
           {t("navigation.providers", { defaultValue: "供应商" })}
+        </button>
+        <button
+          type="button"
+          className={item("profiles")}
+          onClick={() => onNavigate("profiles")}
+        >
+          <Rows3 className="h-3.5 w-3.5" />
+          {t("workspace.profiles", { defaultValue: "接入方案" })}
+        </button>
+        <button
+          type="button"
+          className={item("routes")}
+          onClick={() => onNavigate("routes")}
+        >
+          <Network className="h-3.5 w-3.5" />
+          {t("workspace.routes", { defaultValue: "线路策略" })}
         </button>
         <button
           type="button"

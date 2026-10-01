@@ -75,6 +75,8 @@ import { HRouterProfilePage } from "@/components/hrouter/HRouterProfilePage";
 import { HRouterUsagePage } from "@/components/hrouter/HRouterUsagePage";
 import { FeatureTour } from "@/components/FeatureTour";
 import { MagpieTopNav } from "@/components/layout/MagpieTopNav";
+import { ProfilesPage } from "@/components/profiles/ProfilesPage";
+import { RoutesPage } from "@/components/proxy/RoutesPage";
 import { EnvWarningBanner } from "@/components/env/EnvWarningBanner";
 import { ProxyToggle } from "@/components/proxy/ProxyToggle";
 import { ClaudeDesktopRouteToggle } from "@/components/proxy/ClaudeDesktopRouteToggle";
@@ -116,6 +118,8 @@ type View =
   | "apiKeys"
   | "profile"
   | "providers"
+  | "profiles"
+  | "routes"
   | "settings"
   | "prompts"
   | "skills"
@@ -171,6 +175,8 @@ const VALID_VIEWS: View[] = [
   "apiKeys",
   "profile",
   "providers",
+  "profiles",
+  "routes",
   "announcements",
   "settings",
 ];
@@ -921,6 +927,10 @@ function MainApp() {
           );
         case "usage":
           return <HRouterUsagePage />;
+        case "profiles":
+          return <ProfilesPage activeApp={activeApp} />;
+        case "routes":
+          return <RoutesPage activeApp={activeApp} />;
         case "billing":
           return <HRouterBillingPage />;
         case "orders":
@@ -1096,7 +1106,8 @@ function MainApp() {
     return <div className="flex min-h-0 flex-1 flex-col">{content}</div>;
   };
 
-  const isMainHeaderView = currentView === "providers";
+  const isMainHeaderView =
+    currentView === "providers" || currentView === "routes";
   const showsAgentSwitcher = currentView === "providers";
   const isPrimaryNavigationView =
     currentView === "workbench" ||
@@ -1107,6 +1118,8 @@ function MainApp() {
     currentView === "apiKeys" ||
     currentView === "profile" ||
     currentView === "providers" ||
+    currentView === "profiles" ||
+    currentView === "routes" ||
     currentView === "announcements" ||
     currentView === "settings";
 
@@ -1285,6 +1298,10 @@ function MainApp() {
                     t("navigation.profile", { defaultValue: "个人中心" })}
                   {currentView === "providers" &&
                     t("navigation.providers", { defaultValue: "配置中心" })}
+                  {currentView === "profiles" &&
+                    t("workspace.profiles", { defaultValue: "接入方案" })}
+                  {currentView === "routes" &&
+                    t("workspace.routes", { defaultValue: "线路策略" })}
                   {currentView === "announcements" &&
                     t("navigation.announcements", {
                       defaultValue: "公告与服务",
@@ -1320,6 +1337,10 @@ function MainApp() {
                     t("navigation.providersHint", {
                       defaultValue: "管理 Agent、供应商与 HRouter Key",
                     })}
+                  {currentView === "profiles" &&
+                    "保存和切换整套 Agent 接入配置"}
+                  {currentView === "routes" &&
+                    "管理主线路、备用线路和自动故障切换"}
                   {currentView === "announcements" &&
                     t("navigation.announcementsHint", {
                       defaultValue: "查看 HRouter.net 公告与平台服务",

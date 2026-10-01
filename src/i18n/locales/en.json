@@ -2406,7 +2406,12 @@
     "editConfiguration": "View configuration",
     "navigation": "Main navigation",
     "localWorkspace": "Workspace",
-    "providerList": "Saved providers"
+    "providerList": "Saved providers",
+    "agents": "Agents",
+    "profiles": "Profiles",
+    "routes": "Route policies",
+    "profilesTitle": "Access profiles",
+    "routesTitle": "Route policies"
   },
   "openclaw": {
     "backupCreated": "Backup created: {{path}}",

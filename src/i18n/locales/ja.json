@@ -2406,7 +2406,12 @@
     "editConfiguration": "設定を表示",
     "navigation": "メインナビゲーション",
     "localWorkspace": "ワークスペース",
-    "providerList": "保存済みプロバイダー"
+    "providerList": "保存済みプロバイダー",
+    "agents": "ワークスペース",
+    "profiles": "接続プロファイル",
+    "routes": "ルーティング",
+    "profilesTitle": "接続プロファイル",
+    "routesTitle": "ルーティング"
   },
   "openclaw": {
     "backupCreated": "バックアップを作成しました: {{path}}",
