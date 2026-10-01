@@ -236,7 +236,7 @@ export function AccessWorkbench(props: Props) {
                   <button
                     key={value}
                     onClick={() => setTab(value)}
-                    className="rounded-xl border border-border p-4 text-left hover:bg-muted/50"
+                    className="rounded-lg border border-border bg-card p-4 text-left transition-colors hover:bg-muted/50"
                   >
                     <p className="text-sm font-medium">{title} →</p>
                     <p className="mt-2 text-xs text-muted-foreground">{desc}</p>
@@ -1342,7 +1342,7 @@ function CostsPanel({
       {session && (
         <BillingReconciliation key={session.user.id} userId={session.user.id} />
       )}
-      <section className="rounded-xl border border-border p-3">
+      <section className="rounded-lg border border-border bg-card p-3">
         <div className="mb-3 flex items-center gap-2 px-2 text-sm font-semibold">
           <CheckCircle2 className="h-4 w-4" />
           {t("accessWorkbench.localRequestsAndEstimatedCosts", {

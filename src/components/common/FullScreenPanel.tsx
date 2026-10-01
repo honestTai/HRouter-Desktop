@@ -110,18 +110,18 @@ export const FullScreenPanel: React.FC<FullScreenPanelProps> = ({
 
           {/* Header - match App.tsx */}
           <div
-            className="flex-shrink-0 flex items-center"
+            className="flex-shrink-0 flex items-center border-b border-border bg-card"
             {...DRAG_REGION_ATTR}
             style={
               {
                 ...DRAG_REGION_STYLE,
-                backgroundColor: "hsl(var(--background))",
+                backgroundColor: "hsl(var(--card))",
                 height: HEADER_HEIGHT,
               } as React.CSSProperties
             }
           >
             <div
-              className="px-6 w-full flex items-center gap-4"
+              className="mx-auto w-full max-w-6xl px-6 lg:px-8 flex items-center gap-4"
               {...DRAG_REGION_ATTR}
               style={{ ...DRAG_REGION_STYLE } as React.CSSProperties}
             >
@@ -143,7 +143,12 @@ export const FullScreenPanel: React.FC<FullScreenPanelProps> = ({
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto scroll-overlay">
-            <div className={cn("px-6 py-6 space-y-6 w-full", contentClassName)}>
+            <div
+              className={cn(
+                "mx-auto w-full max-w-6xl px-6 py-7 lg:px-8 space-y-6",
+                contentClassName,
+              )}
+            >
               {children}
             </div>
           </div>
@@ -151,10 +156,10 @@ export const FullScreenPanel: React.FC<FullScreenPanelProps> = ({
           {/* Footer */}
           {footer && (
             <div
-              className="flex-shrink-0 py-4 border-t border-border-default"
+              className="flex-shrink-0 border-t border-border-default bg-card py-4"
               style={{ backgroundColor: "hsl(var(--background))" }}
             >
-              <div className="px-6 flex items-center justify-end gap-3">
+              <div className="mx-auto flex w-full max-w-6xl items-center justify-end gap-3 px-6 lg:px-8">
                 {footer}
               </div>
             </div>

@@ -112,7 +112,7 @@ export function SettingsPage({
   if (!open) return null;
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden px-4 pb-6 pt-5 sm:px-6">
+    <div className="flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden px-6 pb-8 pt-8 lg:px-8">
       {isBusy ? (
         <div className="flex flex-1 items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -123,17 +123,17 @@ export function SettingsPage({
           onValueChange={setActiveTab}
           className="flex h-full min-h-0 min-w-0 w-full flex-col"
         >
-          <TabsList className="mb-5 grid w-full max-w-80 shrink-0 grid-cols-2 rounded-md">
+          <TabsList className="mb-7 flex w-full max-w-80 shrink-0 rounded-none border-b border-border bg-transparent p-0">
             <TabsTrigger value="general">
               {t("settings.tabGeneral")}
             </TabsTrigger>
             <TabsTrigger value="about">{t("common.about")}</TabsTrigger>
           </TabsList>
 
-          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pr-2">
+          <div className="mx-auto min-h-0 min-w-0 w-full max-w-6xl flex-1 overflow-y-auto overflow-x-hidden pr-2">
             <TabsContent value="general" className="mt-0">
               {settings && (
-                <div className="w-full max-w-5xl divide-y divide-border-default">
+                <div className="w-full max-w-5xl divide-y divide-border-default rounded-lg border border-border bg-card px-6">
                   <div className="grid gap-8 py-5 lg:grid-cols-2">
                     <LanguageSettings
                       value={settings.language}
