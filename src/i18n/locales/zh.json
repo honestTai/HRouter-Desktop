@@ -59,7 +59,7 @@
     "step1Title": "选择 Agent",
     "step1Description": "在顶部切换 Claude、Codex、Gemini 等本机 Agent。",
     "step2Title": "导入或添加供应商",
-    "step2Description": "已有配置可直接导入为 default，也可以从模型广场新增供应商。",
+    "step2Description": "已有配置可导入为 default，也可以在配置中心添加供应商。",
     "step3Title": "一键切换并验证",
     "step3Description": "启用目标供应商后，HRouter 会写入对应配置并保留原配置备份。",
     "featureOverview": "功能一览",
@@ -86,13 +86,13 @@
     "agentsTitle": "Agent 安装与更新",
     "agentsDescription": "检测并安装 7 个 CLI Agent；Codex GUI 会识别当前系统并提供对应的离线安装包。",
     "updatesTitle": "HRouter 版本更新",
-    "updatesDescription": "从左侧菜单检查 HRouter 新版本，更新前可查看版本号、发布日期和完整更新内容。",
+    "updatesDescription": "从“设置 → 关于”检查 HRouter 新版本，并在更新前查看版本信息。",
     "supportTitle": "需要售后支持？",
     "supportDescription": "加入售后 QQ 群 {{group}} 获取使用帮助，可在本指南中一键复制群号。",
     "copyGroup": "复制群号",
     "groupCopied": "售后 QQ 群号已复制",
     "groupCopyFailed": "复制群号失败，请手动复制。",
-    "footerHint": "以后可从左侧“功能 FAQ”随时打开本指南。",
+    "footerHint": "以后可从“设置 → 功能 FAQ”随时打开本指南。",
     "start": "开始使用",
     "startTour": "开始功能导览",
     "tourProgress": "{{current}} / {{total}}",
@@ -468,7 +468,11 @@
         "apiKeyPlaceholder": "请输入 Gemini API Key"
       }
     },
-    "duplicateLiveIdsLoadFailed": "读取配置中的供应商标识失败，请先修复配置后再试"
+    "duplicateLiveIdsLoadFailed": "读取配置中的供应商标识失败，请先修复配置后再试",
+    "configuredModels": "{{count}} 个已配置模型",
+    "observedHealthy": "最近调用成功",
+    "observedFailures": "连续失败 {{count}} 次",
+    "noObservations": "暂无调用记录"
   },
   "claudeCode": {
     "needsRouting": "需要路由",
@@ -3614,5 +3618,49 @@
     "protectPromptFile": "不管理本机 {{file}}（独立于云端配置）",
     "protectAppConfiguration": "保护 {{app}} 的本地自定义配置",
     "convertedDifference": "按参考汇率 {{rate}} 换算，服务端实际扣费减去本机估算为 ¥{{difference}}。这不是多扣费判定。"
+  },
+  "accessPlans": {
+    "description": "按 Agent 保存供应商引用、MCP、Skills 与提示词选择。方案不保存密钥副本，也不备份历史会话；应用会写入对应客户端配置，不是跨应用的原子切换。",
+    "supported": "方案目前支持 Claude Code、Claude Desktop 和 Codex；不会修改其他 Agent。",
+    "snapshotHint": "保存当前选择；供应商内容后续修改也会影响引用它的方案。",
+    "createTitle": "保存当前接入状态",
+    "name": "方案名称",
+    "create": "创建方案",
+    "search": "搜索方案",
+    "loading": "正在读取方案…",
+    "noResults": "暂无匹配方案。可以先保存当前接入状态。",
+    "loadFailed": "无法读取方案",
+    "failed": "操作失败，请重试",
+    "retry": "重试",
+    "provider": "供应商",
+    "prompt": "提示词",
+    "unchanged": "保持原配置",
+    "empty": "清空启用项",
+    "noSnapshot": "当前 Agent 尚未保存快照",
+    "currentMarker": "最近应用（不代表配置未被手动修改）",
+    "apply": "预览并应用",
+    "snapshot": "更新快照",
+    "rename": "重命名",
+    "save": "保存",
+    "delete": "删除方案",
+    "clear": "解除方案标记",
+    "applyWarning": "将把“{{name}}”应用到 {{app}}。会自动保存原方案，关闭此 Agent 的本地接管，再更新供应商、MCP、Skills 和提示词。操作非原子事务，部分失败会列出警告。请先结束正在进行的请求。",
+    "snapshotWarning": "用 {{app}} 当前配置覆盖“{{name}}”的快照；其他 Agent 的快照保持不变。此操作不能撤销。",
+    "deleteWarning": "删除共享方案“{{name}}”及其所有 Agent 快照。不会删除供应商或会话文件。",
+    "clearWarning": "解除 {{app}} 的当前方案标记，不恢复或修改客户端配置。",
+    "partial": "方案部分应用，请检查以下警告",
+    "previewFailed": "无法读取当前供应商，已禁用应用操作。"
+  },
+  "routePolicies": {
+    "description": "管理现有本地代理的主备线路，不新增 Gateway。默认直接接入即可；只有需要自动故障切换时才开启对应 Agent 的本地接管。",
+    "supported": "现有故障转移支持 Claude Code、Codex、Gemini CLI 和 Grok Build。其他应用不显示不可用的开关。",
+    "boundary": "操作说明",
+    "hint": "开启接管会改写客户端配置；关闭时恢复备份。自动故障切换按队列顺序尝试，不承诺会话粘性或不同模型之间的上下文兼容。",
+    "queueHint": "优先级由供应商顺序决定；未启用接管时不会转发请求。",
+    "advanced": "重试与超时设置"
+  },
+  "agentAccess": {
+    "unavailable": "无法读取客户端配置",
+    "configCount": "{{count}} 个供应商配置"
   }
 }

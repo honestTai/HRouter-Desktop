@@ -3,7 +3,7 @@ import { DndContext, closestCenter } from "@dnd-kit/core";
 import {
   SortableContext,
   useSortable,
-  verticalListSortingStrategy,
+  rectSortingStrategy,
 } from "@dnd-kit/sortable";
 import {
   useEffect,
@@ -380,7 +380,7 @@ export function ProviderList({
     >
       <SortableContext
         items={filteredProviders.map((provider) => provider.id)}
-        strategy={verticalListSortingStrategy}
+        strategy={rectSortingStrategy}
       >
         <div className="grid gap-3 md:grid-cols-2">
           {filteredProviders.map((provider) => {
@@ -447,6 +447,17 @@ export function ProviderList({
 
   return (
     <div className="mt-4 space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-medium">{t("workspace.providerList")}</h2>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsSearchOpen(true)}
+        >
+          <Search className="h-3.5 w-3.5" />
+          {t("provider.searchAriaLabel", { defaultValue: "Search providers" })}
+        </Button>
+      </div>
       {claudeDesktopStatusMessages.length > 0 && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
           <div className="flex items-center gap-2 font-medium">

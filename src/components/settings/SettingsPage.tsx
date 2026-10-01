@@ -7,6 +7,10 @@ import { AppVisibilitySettings } from "@/components/settings/AppVisibilitySettin
 import { LanguageSettings } from "@/components/settings/LanguageSettings";
 import { ThemeSettings } from "@/components/settings/ThemeSettings";
 import { WindowSettings } from "@/components/settings/WindowSettings";
+import { AgentManagerButton } from "@/components/AgentManagerButton";
+import { HelpCenterButton } from "@/components/HelpCenterButton";
+import { SupportGroupButton } from "@/components/SupportGroupButton";
+import { UpdateBadge } from "@/components/UpdateBadge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -134,6 +138,11 @@ export function SettingsPage({
             <TabsContent value="general" className="mt-0">
               {settings && (
                 <div className="w-full max-w-5xl divide-y divide-border-default rounded-lg border border-border bg-card px-6">
+                  <div className="flex flex-wrap gap-3 py-5">
+                    <AgentManagerButton showLabel />
+                    <HelpCenterButton showLabel />
+                    <SupportGroupButton sidebar />
+                  </div>
                   <div className="grid gap-8 py-5 lg:grid-cols-2">
                     <LanguageSettings
                       value={settings.language}
@@ -172,6 +181,7 @@ export function SettingsPage({
                     </p>
                   </div>
                 </div>
+                <UpdateBadge className="my-4" />
                 <dl className="divide-y divide-border-default text-sm">
                   <div className="flex items-center justify-between gap-4 py-4">
                     <dt className="flex items-center gap-2 text-muted-foreground">

@@ -14,7 +14,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Provider } from "@/types";
+import type { Provider, VisibleApps } from "@/types";
 import { providersApi, type AppId } from "@/lib/api";
 import {
   accessApi,
@@ -33,7 +33,8 @@ import { EnvironmentTargets } from "./EnvironmentTargets";
 import { UsageRepair } from "./UsageRepair";
 import { QuotaSummary } from "./QuotaSummary";
 import { Button } from "@/components/ui/button";
-import { ProviderIcon } from "@/components/ProviderIcon";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { AgentAccessCard } from "./AgentAccessCard";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { extractErrorMessage } from "@/utils/errorUtils";
@@ -60,7 +61,10 @@ function ErrorMessage({ error }: { error: unknown }) {
 
 interface Props {
   onAdd: (mode: "general" | "hrouter", app: AppId) => void;
-  onProviders: () => void;
+  onProviders: (app?: AppId) => void;
+  activeApp?: AppId;
+  visibleApps?: VisibleApps;
+  onAppChange?: (app: AppId) => void;
   onHRouterUsage: () => void;
   onHRouterAccount: () => void;
 }
@@ -95,12 +99,26 @@ const AGENT_WORKSPACES: Array<{
     description: "Open model workspace",
     icon: "opencode",
   },
+  {
+    id: "claude-desktop",
+    name: "Claude Desktop",
+    description: "",
+    icon: "claude",
+  },
+  { id: "grokbuild", name: "Grok Build", description: "", icon: "grok" },
+  { id: "openclaw", name: "OpenClaw", description: "", icon: "openclaw" },
+  { id: "hermes", name: "Hermes", description: "", icon: "hermes" },
 ];
 
 export function AccessWorkbench(props: Props) {
   const { t } = useTranslation();
 
-  const [app, setApp] = useState<AppId>("claude");
+  const [localApp, setLocalApp] = useState<AppId>(props.activeApp ?? "claude");
+  const app = props.activeApp ?? localApp;
+  const setApp = (next: AppId) => {
+    setLocalApp(next);
+    props.onAppChange?.(next);
+  };
   const [tab, setTab] = useState("connect");
   return (
     <div className="h-full overflow-y-auto px-6 lg:px-8 pb-10 pt-8">
@@ -123,33 +141,19 @@ export function AccessWorkbench(props: Props) {
               )}
             </p>
           </div>
-          <div className="grid w-full gap-2 sm:grid-cols-2 lg:w-[34rem] lg:grid-cols-4">
-            {AGENT_WORKSPACES.map((workspace) => (
-              <button
+          <div className="grid w-full gap-2 sm:grid-cols-2 md:grid-cols-4">
+            {AGENT_WORKSPACES.filter(
+              (workspace) =>
+                !props.visibleApps || props.visibleApps[workspace.id],
+            ).map((workspace) => (
+              <AgentAccessCard
                 key={workspace.id}
-                type="button"
-                onClick={() => setApp(workspace.id)}
-                aria-pressed={app === workspace.id}
-                className={`group rounded-lg border px-3 py-3 text-left transition-colors ${
-                  app === workspace.id
-                    ? "border-primary bg-primary/5 shadow-sm"
-                    : "border-border bg-card hover:bg-muted/50"
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <ProviderIcon
-                    icon={workspace.icon}
-                    name={workspace.name}
-                    size={20}
-                  />
-                  <span className="min-w-0 truncate text-xs font-medium">
-                    {workspace.name}
-                  </span>
-                </span>
-                <span className="mt-2 block truncate text-[10px] text-muted-foreground">
-                  {workspace.description}
-                </span>
-              </button>
+                app={workspace.id}
+                name={workspace.name}
+                icon={workspace.icon}
+                selected={app === workspace.id}
+                onSelect={() => setApp(workspace.id)}
+              />
             ))}
           </div>
         </div>
@@ -204,7 +208,10 @@ export function AccessWorkbench(props: Props) {
                         defaultValue: "添加供应商",
                       })}
                     </Button>
-                    <Button variant="outline" onClick={props.onProviders}>
+                    <Button
+                      variant="outline"
+                      onClick={() => props.onProviders(app)}
+                    >
                       {t("accessWorkbench.providers", {
                         defaultValue: "配置中心",
                       })}
@@ -1107,7 +1114,26 @@ function ProtectionPanel({ app }: { app: AppId }) {
   );
 }
 
-function RoutesPanel({ app, onAdd }: { app: AppId; onAdd: () => void }) {
+export function RoutesPanel({ app, onAdd }: { app: AppId; onAdd: () => void }) {
+  const { t } = useTranslation();
+  if (!["claude", "codex", "gemini", "grokbuild"].includes(app))
+    return (
+      <p
+        role="status"
+        className="rounded-lg border p-5 text-sm text-muted-foreground"
+      >
+        {t("routePolicies.supported")}
+      </p>
+    );
+  return <SupportedRoutesPanel key={app} app={app} onAdd={onAdd} />;
+}
+function SupportedRoutesPanel({
+  app,
+  onAdd,
+}: {
+  app: AppId;
+  onAdd: () => void;
+}) {
   const { t } = useTranslation();
 
   const queryClient = useQueryClient();
@@ -1122,6 +1148,7 @@ function RoutesPanel({ app, onAdd }: { app: AppId; onAdd: () => void }) {
     refetchInterval: 5000,
   });
   const [busy, setBusy] = useState(false);
+  const [confirmRouting, setConfirmRouting] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const active = status.data?.active_targets?.find((t) => t.app_type === app);
   const toggle = async () => {
@@ -1129,6 +1156,7 @@ function RoutesPanel({ app, onAdd }: { app: AppId; onAdd: () => void }) {
     setError(null);
     try {
       await proxyApi.setProxyTakeoverForApp(app, !takeover.data?.[app]);
+      setConfirmRouting(false);
       await Promise.all([
         takeover.refetch(),
         status.refetch(),
@@ -1142,6 +1170,19 @@ function RoutesPanel({ app, onAdd }: { app: AppId; onAdd: () => void }) {
   };
   return (
     <div className="space-y-5">
+      {confirmRouting && (
+        <ConfirmDialog
+          isOpen
+          title={t("workspace.routesTitle")}
+          message={t("routePolicies.hint")}
+          error={error ? failure(error) : undefined}
+          pending={busy}
+          variant="info"
+          onConfirm={() => void toggle()}
+          onCancel={() => setConfirmRouting(false)}
+        />
+      )}
+
       <section className={panelClass}>
         <h2 className="flex items-center gap-2 font-semibold">
           <Waypoints className="h-4 w-4" />
@@ -1192,8 +1233,14 @@ function RoutesPanel({ app, onAdd }: { app: AppId; onAdd: () => void }) {
         </p>
         <div className="flex flex-wrap gap-2">
           <Button
-            disabled={busy || !takeover.data}
-            onClick={() => void toggle()}
+            disabled={
+              busy ||
+              !status.data ||
+              !takeover.data ||
+              takeover.isError ||
+              status.isError
+            }
+            onClick={() => setConfirmRouting(true)}
           >
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {takeover.data?.[app]
@@ -1227,7 +1274,12 @@ function RoutesPanel({ app, onAdd }: { app: AppId; onAdd: () => void }) {
             },
           )}
         </p>
-        <FailoverQueueManager appType={app} disabled={busy} />
+        <FailoverQueueManager
+          key={app}
+          appType={app}
+          canEnable={Boolean(status.data?.running && takeover.data?.[app])}
+          disabled={busy || status.isError || takeover.isError}
+        />
       </section>
       <p className="text-xs text-muted-foreground">
         {t("accessWorkbench.seeEachRequestSProviderActualModelStatusAnd", {

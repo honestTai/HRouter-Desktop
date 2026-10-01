@@ -6,7 +6,7 @@
  * - 队列顺序基于首页供应商列表的 sort_index
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Plus, Trash2, Loader2, Info, AlertTriangle } from "lucide-react";
@@ -35,17 +35,23 @@ import {
 interface FailoverQueueManagerProps {
   appType: AppId;
   disabled?: boolean;
+  canEnable?: boolean;
 }
 
 export function FailoverQueueManager({
   appType,
   disabled = false,
+  canEnable = true,
 }: FailoverQueueManagerProps) {
   const { t } = useTranslation();
   const [selectedProviderId, setSelectedProviderId] = useState<string>("");
 
   // 故障转移开关状态（每个应用独立）
-  const { data: isFailoverEnabled = false } = useAutoFailoverEnabled(appType);
+  const {
+    data: isFailoverEnabled = false,
+    isPending: isEnabledLoading,
+    error: enabledError,
+  } = useAutoFailoverEnabled(appType);
   const setFailoverEnabled = useSetAutoFailoverEnabled();
 
   // 查询数据
@@ -54,12 +60,23 @@ export function FailoverQueueManager({
     isLoading: isQueueLoading,
     error: queueError,
   } = useFailoverQueue(appType);
-  const { data: availableProviders, isLoading: isProvidersLoading } =
-    useAvailableProvidersForFailover(appType);
+  const {
+    data: availableProviders,
+    isLoading: isProvidersLoading,
+    error: providersError,
+  } = useAvailableProvidersForFailover(appType);
 
   // Mutations
   const addToQueue = useAddToFailoverQueue();
   const removeFromQueue = useRemoveFromFailoverQueue();
+
+  useEffect(() => setSelectedProviderId(""), [appType]);
+  const busy =
+    disabled ||
+    addToQueue.isPending ||
+    removeFromQueue.isPending ||
+    setFailoverEnabled.isPending ||
+    isEnabledLoading;
 
   // 切换故障转移开关
   const handleToggleFailover = (enabled: boolean) => {
@@ -68,7 +85,12 @@ export function FailoverQueueManager({
 
   // 添加供应商到队列
   const handleAddProvider = async () => {
-    if (!selectedProviderId) return;
+    if (
+      !selectedProviderId ||
+      busy ||
+      !availableProviders?.some((p) => p.id === selectedProviderId)
+    )
+      return;
 
     try {
       await addToQueue.mutateAsync({
@@ -112,11 +134,13 @@ export function FailoverQueueManager({
     );
   }
 
-  if (queueError) {
+  if (queueError || enabledError || providersError) {
     return (
       <Alert variant="destructive">
         <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>{String(queueError)}</AlertDescription>
+        <AlertDescription>
+          {String(queueError || enabledError || providersError)}
+        </AlertDescription>
       </Alert>
     );
   }
@@ -148,7 +172,12 @@ export function FailoverQueueManager({
         <Switch
           checked={isFailoverEnabled}
           onCheckedChange={handleToggleFailover}
-          disabled={disabled || setFailoverEnabled.isPending}
+          disabled={
+            busy || (!isFailoverEnabled && (!canEnable || !queue?.length))
+          }
+          aria-label={t("proxy.failover.autoSwitch", {
+            defaultValue: "自动故障转移",
+          })}
         />
       </div>
 
@@ -168,7 +197,7 @@ export function FailoverQueueManager({
         <Select
           value={selectedProviderId}
           onValueChange={setSelectedProviderId}
-          disabled={disabled || isProvidersLoading}
+          disabled={busy || isProvidersLoading}
         >
           <SelectTrigger className="flex-1">
             <SelectValue
@@ -201,7 +230,8 @@ export function FailoverQueueManager({
         </Select>
         <Button
           onClick={handleAddProvider}
-          disabled={disabled || !selectedProviderId || addToQueue.isPending}
+          aria-label={t("common.add")}
+          disabled={busy || !selectedProviderId || addToQueue.isPending}
           size="icon"
           variant="outline"
         >
@@ -230,7 +260,7 @@ export function FailoverQueueManager({
               key={item.providerId}
               item={item}
               index={index}
-              disabled={disabled}
+              disabled={busy}
               onRemove={handleRemoveProvider}
               isRemoving={removeFromQueue.isPending}
             />

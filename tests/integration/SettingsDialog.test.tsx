@@ -147,3 +147,17 @@ describe("SettingsPage integration", () => {
     expect(screen.queryByText("usage.title")).not.toBeInTheDocument();
   });
 });
+
+// Settings keeps these entry points; their independent dialogs have their own tests.
+vi.mock("@/components/AgentManagerButton", () => ({
+  AgentManagerButton: () => <button>agent-manager</button>,
+}));
+vi.mock("@/components/HelpCenterButton", () => ({
+  HelpCenterButton: () => <button>help-center</button>,
+}));
+vi.mock("@/components/SupportGroupButton", () => ({
+  SupportGroupButton: () => <button>support-group</button>,
+}));
+vi.mock("@/components/UpdateBadge", () => ({
+  UpdateBadge: () => <button>update-check</button>,
+}));

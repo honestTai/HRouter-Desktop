@@ -59,7 +59,7 @@
     "step1Title": "Agent を選択",
     "step1Description": "ヘッダーから Claude、Codex、Gemini などのローカル Agent を切り替えます。",
     "step2Title": "プロバイダーを追加",
-    "step2Description": "既存設定を default として取り込むか、モデル広場からプロバイダーを追加します。",
+    "step2Description": "既存の設定を default としてインポートするか、設定センターでプロバイダーを追加できます。",
     "step3Title": "切り替えて確認",
     "step3Description": "HRouter が選択した設定を書き込み、元の設定はバックアップとして保持します。",
     "featureOverview": "機能一覧",
@@ -86,13 +86,13 @@
     "agentsTitle": "Agent のインストールと更新",
     "agentsDescription": "7 種類の CLI Agent を検出・インストールします。Codex GUI は現在の OS を識別して対応するオフラインインストーラーを案内します。",
     "updatesTitle": "HRouter の更新",
-    "updatesDescription": "サイドバーから新しい HRouter を確認し、更新前にバージョン、公開日、更新内容を表示します。",
+    "updatesDescription": "設定 → このアプリについてで HRouter の更新を確認し、更新前にバージョン情報を確認できます。",
     "supportTitle": "サポートが必要ですか？",
     "supportDescription": "アフターサポート QQ グループ {{group}} に参加してください。このガイドからグループ番号をコピーできます。",
     "copyGroup": "グループ番号をコピー",
     "groupCopied": "アフターサポート QQ グループ番号をコピーしました",
     "groupCopyFailed": "グループ番号をコピーできませんでした。手動でコピーしてください。",
-    "footerHint": "このガイドはサイドバーの「機能 FAQ」からいつでも開けます。",
+    "footerHint": "このガイドは設定 → 機能 FAQ からいつでも開けます。",
     "start": "利用を開始",
     "startTour": "機能ツアーを開始",
     "tourProgress": "{{current}} / {{total}}",
@@ -468,7 +468,11 @@
         "apiKeyPlaceholder": "Gemini API Key を入力"
       }
     },
-    "duplicateLiveIdsLoadFailed": "設定内のプロバイダー識別子を読み込めませんでした。設定を修正してから再度お試しください"
+    "duplicateLiveIdsLoadFailed": "設定内のプロバイダー識別子を読み込めませんでした。設定を修正してから再度お試しください",
+    "configuredModels": "設定済みモデル {{count}} 件",
+    "observedHealthy": "直近の呼び出し成功",
+    "observedFailures": "失敗を検出",
+    "noObservations": "呼び出し記録なし"
   },
   "claudeCode": {
     "needsRouting": "ルーティングが必要",
@@ -3614,5 +3618,49 @@
     "protectPromptFile": "ローカルの {{file}} を管理しない（クラウド設定から独立）",
     "protectAppConfiguration": "{{app}} のローカルカスタム設定を保護",
     "convertedDifference": "参考レート {{rate}} で換算したサーバー実費とローカル推計の差額は ¥{{difference}} です。過剰請求の判定ではありません。"
+  },
+  "accessPlans": {
+    "description": "Agent ごとにプロバイダー参照、MCP、Skills、プロンプトの選択を保存します。キーや会話履歴のバックアップではありません。適用すると対象クライアントの設定を書き換えます。複数アプリの原子的な切替ではありません。",
+    "supported": "現在は Claude Code、Claude Desktop、Codex に対応しています。他の Agent は変更しません。",
+    "snapshotHint": "現在の選択を保存します。参照先プロバイダーの変更はこのプランにも反映されます。",
+    "createTitle": "現在の接続設定を保存",
+    "name": "プラン名",
+    "create": "プランを作成",
+    "search": "プランを検索",
+    "loading": "読み込み中…",
+    "noResults": "該当するプランがありません。現在の接続設定を保存できます。",
+    "loadFailed": "プランを読み込めません",
+    "failed": "操作に失敗しました。再試行してください",
+    "retry": "再試行",
+    "provider": "プロバイダー",
+    "prompt": "プロンプト",
+    "unchanged": "現在の設定を維持",
+    "empty": "有効な項目を解除",
+    "noSnapshot": "この Agent のスナップショットはまだありません",
+    "currentMarker": "最後に適用（手動変更は反映されません）",
+    "apply": "確認して適用",
+    "snapshot": "スナップショットを更新",
+    "rename": "名前を変更",
+    "save": "保存",
+    "delete": "プランを削除",
+    "clear": "適用済みマークを解除",
+    "applyWarning": "「{{name}}」を {{app}} に適用します。元のプランを自動保存し、この Agent のローカル接管を停止した後、プロバイダー、MCP、Skills、プロンプトを更新します。操作は原子的ではなく、部分的な失敗は警告に表示されます。実行中のリクエストを先に終了してください。",
+    "snapshotWarning": "「{{name}}」のスナップショットを {{app}} の現在の設定で上書きします。他の Agent は変更しません。この操作は取り消せません。",
+    "deleteWarning": "共有プラン「{{name}}」と全 Agent のスナップショットを削除します。プロバイダーや会話ファイルは削除しません。",
+    "clearWarning": "{{app}} の適用済みマークを解除します。クライアント設定の変更や復元は行いません。",
+    "partial": "一部のみ適用されました。警告を確認してください",
+    "previewFailed": "現在のプロバイダーを読み込めないため、適用を無効にしました。"
+  },
+  "routePolicies": {
+    "description": "既存のローカルプロキシの主系・待機系を管理します。Gateway は追加しません。通常は直接接続を使用し、自動フェイルオーバーが必要な場合のみ接管を有効にしてください。",
+    "supported": "Claude Code、Codex、Gemini CLI、Grok Build が対応しています。非対応アプリのスイッチは表示しません。",
+    "boundary": "操作について",
+    "hint": "接管を有効にするとクライアント設定を書き換え、解除するとバックアップを復元します。フェイルオーバーはキュー順に試行します。セッション固定やモデル間のコンテキスト互換性は保証しません。",
+    "queueHint": "優先度はプロバイダーの順序に従います。接管が無効な場合、リクエストは転送しません。",
+    "advanced": "リトライとタイムアウト"
+  },
+  "agentAccess": {
+    "unavailable": "クライアント設定を読み込めません",
+    "configCount": "{{count}} 件のプロバイダー設定"
   }
 }

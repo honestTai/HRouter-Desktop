@@ -12,6 +12,7 @@ import {
   Settings,
   UserRound,
 } from "lucide-react";
+import type { AppId } from "@/lib/api";
 import { useTranslation } from "react-i18next";
 import hrouterLogo from "@/assets/icons/hrouter.svg";
 import { Button } from "@/components/ui/button";
@@ -34,9 +35,20 @@ type PrimaryView =
   | "billing"
   | "orders"
   | "apiKeys"
-  | "announcements";
+  | "announcements"
+  | "sessions"
+  | "mcp"
+  | "skills"
+  | "prompts"
+  | "workspace"
+  | "openclawEnv"
+  | "openclawTools"
+  | "openclawAgents"
+  | "hermesMemory";
 
 interface Props {
+  activeApp: AppId;
+  onHermesWebUI: () => void;
   currentView: string;
   onNavigate: (view: PrimaryView) => void;
   onSettings: () => void;
@@ -45,9 +57,11 @@ interface Props {
 }
 
 const navItemClass =
-  "inline-flex h-9 items-center gap-2 rounded-md px-3 text-[13px] font-medium transition-colors";
+  "inline-flex h-9 shrink-0 whitespace-nowrap items-center gap-2 rounded-md px-3 text-[13px] font-medium transition-colors";
 
 export function MagpieTopNav({
+  activeApp,
+  onHermesWebUI,
   currentView,
   onNavigate,
   onSettings,
@@ -66,7 +80,7 @@ export function MagpieTopNav({
 
   return (
     <div
-      className="flex h-14 w-full items-center gap-6 border-b border-border bg-card px-5 lg:px-8"
+      className="flex h-14 w-full items-center gap-2 sm:gap-4 border-b border-border bg-card px-3 sm:px-5 lg:px-8"
       {...({ "data-tauri-drag-region": true } as any)}
     >
       <div
@@ -76,7 +90,7 @@ export function MagpieTopNav({
         <img src={hrouterLogo} alt="HRouter" className="h-7 w-7 rounded-md" />
         <div className="hidden min-[760px]:block">
           <div className="text-sm font-semibold leading-tight">HRouter</div>
-          <div className="text-[10px] text-muted-foreground">
+          <div className="hidden xl:block text-[10px] text-muted-foreground">
             AI routing workspace
           </div>
         </div>
@@ -89,6 +103,7 @@ export function MagpieTopNav({
       >
         <button
           type="button"
+          aria-current={currentView === "workbench" ? "page" : undefined}
           className={item("workbench")}
           onClick={() => onNavigate("workbench")}
         >
@@ -97,6 +112,7 @@ export function MagpieTopNav({
         </button>
         <button
           type="button"
+          aria-current={currentView === "providers" ? "page" : undefined}
           className={item("providers")}
           onClick={() => onNavigate("providers")}
         >
@@ -105,6 +121,7 @@ export function MagpieTopNav({
         </button>
         <button
           type="button"
+          aria-current={currentView === "profiles" ? "page" : undefined}
           className={item("profiles")}
           onClick={() => onNavigate("profiles")}
         >
@@ -113,6 +130,7 @@ export function MagpieTopNav({
         </button>
         <button
           type="button"
+          aria-current={currentView === "routes" ? "page" : undefined}
           className={item("routes")}
           onClick={() => onNavigate("routes")}
         >
@@ -121,6 +139,7 @@ export function MagpieTopNav({
         </button>
         <button
           type="button"
+          aria-current={currentView === "dashboard" ? "page" : undefined}
           className={item("dashboard")}
           onClick={() => onNavigate("dashboard")}
         >
@@ -129,6 +148,7 @@ export function MagpieTopNav({
         </button>
         <button
           type="button"
+          aria-current={currentView === "usage" ? "page" : undefined}
           className={item("usage")}
           onClick={() => onNavigate("usage")}
         >
@@ -168,6 +188,50 @@ export function MagpieTopNav({
               <Megaphone className="h-4 w-4" />
               {t("navigation.announcements", { defaultValue: "公告与服务" })}
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onNavigate("sessions")}>
+              {t("sessionManager.title")}
+            </DropdownMenuItem>
+            {activeApp === "openclaw" ? (
+              <>
+                <DropdownMenuItem onSelect={() => onNavigate("workspace")}>
+                  {t("workspace.manage")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onNavigate("openclawEnv")}>
+                  {t("openclaw.env.title")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onNavigate("openclawTools")}>
+                  {t("openclaw.tools.title")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onNavigate("openclawAgents")}>
+                  {t("openclaw.agents.title")}
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <>
+                <DropdownMenuItem onSelect={() => onNavigate("mcp")}>
+                  {t("mcp.title")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onNavigate("skills")}>
+                  {t("skills.manage")}
+                </DropdownMenuItem>
+                {activeApp === "hermes" ? (
+                  <>
+                    <DropdownMenuItem
+                      onSelect={() => onNavigate("hermesMemory")}
+                    >
+                      {t("hermes.memory.title")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={onHermesWebUI}>
+                      {t("hermes.webui.open")}
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <DropdownMenuItem onSelect={() => onNavigate("prompts")}>
+                    {t("prompts.manage")}
+                  </DropdownMenuItem>
+                )}
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </nav>
@@ -180,7 +244,7 @@ export function MagpieTopNav({
           variant="ghost"
           size="sm"
           onClick={onFrontend}
-          className="hidden lg:inline-flex"
+          className="hidden 2xl:inline-flex"
         >
           <ExternalLink className="h-3.5 w-3.5" />
           {t("hrouterPlatform.openFrontend", { defaultValue: "前台" })}
@@ -190,9 +254,14 @@ export function MagpieTopNav({
           size="sm"
           onClick={onProfile}
           className="max-w-40"
+          aria-label={
+            session
+              ? session.user.username || session.user.email
+              : t("hrouterAccount.welcome")
+          }
         >
           <UserRound className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">
+          <span className="hidden xl:inline truncate">
             {session
               ? session.user.username || session.user.email
               : t("hrouterAccount.welcome", { defaultValue: "登录 HRouter" })}

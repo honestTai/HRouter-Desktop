@@ -14,6 +14,7 @@ import type {
 } from "@dnd-kit/core";
 import type { Provider } from "@/types";
 import type { AppId } from "@/lib/api";
+import { configuredModels } from "@/utils/providerModels";
 import { cn } from "@/lib/utils";
 import { ProviderActions } from "@/components/providers/ProviderActions";
 import { ProviderIcon } from "@/components/ProviderIcon";
@@ -121,18 +122,6 @@ const APP_LABELS: Record<AppId, string> = {
   hermes: "Hermes",
 };
 
-function getConfiguredModelCount(settingsConfig: unknown): number {
-  if (!settingsConfig || typeof settingsConfig !== "object") return 0;
-  const config = settingsConfig as Record<string, unknown>;
-  const candidates = [config.models, config.availableModels, config.model_list];
-  for (const candidate of candidates) {
-    if (Array.isArray(candidate)) return candidate.length;
-    if (candidate && typeof candidate === "object")
-      return Object.keys(candidate).length;
-  }
-  return typeof config.model === "string" && config.model.trim() ? 1 : 0;
-}
-
 const extractApiUrl = (provider: Provider, fallbackText: string) => {
   if (provider.notes?.trim()) {
     return provider.notes.trim();
@@ -203,7 +192,14 @@ export function ProviderCard({
   const isAdditiveMode = appId === "opencode" && !isAnyOmo;
 
   const { data: health } = useProviderHealth(provider.id, appId);
-  const configuredModelCount = getConfiguredModelCount(provider.settingsConfig);
+  const configuredModelCount = configuredModels(provider.settingsConfig).length;
+  const lastCallSucceeded = Boolean(
+    health?.last_success_at &&
+      health.consecutive_failures === 0 &&
+      (!health.last_failure_at ||
+        Date.parse(health.last_success_at) >=
+          Date.parse(health.last_failure_at)),
+  );
 
   const fallbackUrlText = t("provider.notConfigured", {
     defaultValue: "未配置接口地址",
@@ -351,7 +347,7 @@ export function ProviderCard({
             : "opacity-0",
         )}
       />
-      <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative flex flex-col gap-4">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <button
             type="button"
@@ -453,12 +449,15 @@ export function ProviderCard({
                   </span>
                 )}
 
-              {isProxyRunning && isInFailoverQueue && health && (
-                <ProviderHealthBadge
-                  consecutiveFailures={health.consecutive_failures}
-                  isHealthy={health.is_healthy}
-                />
-              )}
+              {isProxyRunning &&
+                isInFailoverQueue &&
+                health &&
+                (health.last_success_at || health.last_failure_at) && (
+                  <ProviderHealthBadge
+                    consecutiveFailures={health.consecutive_failures}
+                    isHealthy={health.is_healthy}
+                  />
+                )}
 
               {isAutoFailoverEnabled &&
                 isInFailoverQueue &&
@@ -515,33 +514,40 @@ export function ProviderCard({
               </span>
               {configuredModelCount > 0 && (
                 <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5">
-                  <Boxes className="h-3 w-3" /> {configuredModelCount} 个模型
+                  <Boxes className="h-3 w-3" />{" "}
+                  {t("provider.configuredModels", {
+                    count: configuredModelCount,
+                  })}
                 </span>
               )}
-              {isInFailoverQueue && health && (
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded px-1.5 py-0.5",
-                    health.is_healthy
-                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                      : "bg-amber-500/10 text-amber-700 dark:text-amber-300",
-                  )}
-                >
-                  {health.is_healthy ? (
-                    <CircleCheck className="h-3 w-3" />
-                  ) : (
-                    <CircleAlert className="h-3 w-3" />
-                  )}
-                  {health.is_healthy
-                    ? "线路正常"
-                    : `${health.consecutive_failures} 次失败`}
-                </span>
-              )}
+              {isInFailoverQueue &&
+                health &&
+                (health.last_success_at || health.last_failure_at) && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded px-1.5 py-0.5",
+                      lastCallSucceeded
+                        ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                        : "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+                    )}
+                  >
+                    {lastCallSucceeded ? (
+                      <CircleCheck className="h-3 w-3" />
+                    ) : (
+                      <CircleAlert className="h-3 w-3" />
+                    )}
+                    {lastCallSucceeded
+                      ? t("provider.observedHealthy")
+                      : t("provider.observedFailures", {
+                          count: health.consecutive_failures,
+                        })}
+                  </span>
+                )}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center ml-auto min-w-0 gap-3">
+        <div className="flex flex-wrap items-center justify-between min-w-0 gap-3">
           <div className="ml-auto">
             <div className="flex items-center gap-1">
               {isCopilot ? (
@@ -616,7 +622,7 @@ export function ProviderCard({
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 flex-shrink-0 opacity-0 pointer-events-none group-hover:opacity-100 group-focus-within:opacity-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto transition-opacity duration-200">
+          <div className="flex flex-wrap items-center gap-1.5">
             <ProviderActions
               appId={appId}
               isCurrent={isCurrent}

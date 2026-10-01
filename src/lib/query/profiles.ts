@@ -17,6 +17,7 @@ export const useProfilesQuery = () => {
   return useQuery({
     queryKey: ["profiles"],
     queryFn: () => profilesApi.list(),
+    retry: false,
   });
 };
 
@@ -129,6 +130,13 @@ export const useApplyProfileMutation = () => {
       await queryClient.invalidateQueries({ queryKey: ["providers", "codex"] });
       await queryClient.invalidateQueries({ queryKey: ["mcp", "all"] });
       await queryClient.invalidateQueries({ queryKey: ["skills"] });
+      await queryClient.invalidateQueries({ queryKey: ["prompts"] });
+      await queryClient.invalidateQueries({ queryKey: ["proxy"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["access-route-status"],
+      });
+      await queryClient.invalidateQueries({ queryKey: ["profile-preview"] });
+      await queryClient.invalidateQueries({ queryKey: ["agent-access"] });
       await updateTrayMenuSafely();
 
       if (warnings.length > 0) {

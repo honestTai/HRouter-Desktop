@@ -194,6 +194,7 @@ describe("App integration with MSW", () => {
     skillsPanelMocks.checkUpdates.mockReset();
     skillsPanelMocks.openDiscovery.mockReset();
     localStorage.removeItem("cc-switch-last-view");
+    localStorage.removeItem("hrouter-last-app");
     localStorage.setItem("hrouter-last-view", "providers");
   });
 
@@ -403,9 +404,9 @@ describe("App integration with MSW", () => {
     const { default: App } = await import("@/App");
     renderApp(App);
 
-    expect(
-      (await screen.findAllByText("登录 HRouter")).length,
-    ).toBeGreaterThan(0);
+    expect((await screen.findAllByText("登录 HRouter")).length).toBeGreaterThan(
+      0,
+    );
     expect(
       screen.queryByTestId("unified-skills-panel"),
     ).not.toBeInTheDocument();

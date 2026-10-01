@@ -24,6 +24,7 @@ interface ConfirmDialogProps {
   checkboxLabel?: string;
   checkboxDefaultChecked?: boolean;
   pending?: boolean;
+  error?: string;
   onConfirm: (checkboxChecked: boolean) => void;
   onCancel: () => void;
 }
@@ -39,6 +40,7 @@ export function ConfirmDialog({
   checkboxLabel,
   checkboxDefaultChecked = false,
   pending = false,
+  error,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -87,6 +89,11 @@ export function ConfirmDialog({
             <span className="text-sm leading-relaxed">{checkboxLabel}</span>
           </label>
         ) : null}
+        {error && (
+          <p role="alert" className="px-6 text-sm text-destructive">
+            {error}
+          </p>
+        )}
         <DialogFooter className="flex gap-2 border-t-0 bg-transparent pt-2 sm:justify-end">
           <Button variant="outline" onClick={onCancel} disabled={pending}>
             {cancelText || t("common.cancel")}

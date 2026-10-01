@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
-import { Check, FolderOpen, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { AppId } from "@/lib/api";
-import type { ProfileScope } from "@/lib/api/profiles";
+import { providersApi } from "@/lib/api";
+import type { Profile, ProfileScope } from "@/lib/api/profiles";
 import {
   useApplyProfileMutation,
   useClearProfileMutation,
@@ -14,232 +15,376 @@ import {
 import { APP_PROFILE_SCOPE, hasScopeSnapshot } from "./scope";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { cn } from "@/lib/utils";
+import { extractErrorMessage } from "@/utils/errorUtils";
 
-const SCOPES: Array<{ id: ProfileScope; label: string; description: string }> =
-  [
-    {
-      id: "claude",
-      label: "Claude Code",
-      description: "供应商、MCP、Skills 和提示词",
-    },
-    {
-      id: "claude-desktop",
-      label: "Claude Desktop",
-      description: "桌面端独立接入方案",
-    },
-    { id: "codex", label: "Codex", description: "Codex 供应商和历史配置" },
-  ];
+type Action = {
+  kind: "apply" | "snapshot" | "delete" | "clear";
+  profile: Profile;
+  scope: ProfileScope;
+};
+const SCOPES: ProfileScope[] = ["claude", "claude-desktop", "codex"];
+const LABELS = {
+  claude: "Claude Code",
+  "claude-desktop": "Claude Desktop",
+  codex: "Codex",
+};
 
 export function ProfilesPage({ activeApp }: { activeApp: AppId }) {
   const { t } = useTranslation();
-  const initialScope = APP_PROFILE_SCOPE[activeApp] ?? "claude";
-  const [scope, setScope] = useState<ProfileScope>(initialScope);
-  const [newName, setNewName] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
-  const { data, isLoading } = useProfilesQuery();
-  const createMutation = useCreateProfileMutation();
-  const applyMutation = useApplyProfileMutation();
-  const updateMutation = useUpdateProfileMutation();
-  const deleteMutation = useDeleteProfileMutation();
-  const clearMutation = useClearProfileMutation();
-  const currentId = useMemo(() => {
-    if (!data) return null;
-    return scope === "claude-desktop"
-      ? data.currentIds.claudeDesktop
-      : data.currentIds[scope];
-  }, [data, scope]);
-  const profiles = data?.profiles ?? [];
-
-  const create = () => {
-    const name = newName.trim();
-    if (!name) return;
-    createMutation.mutate({ name, scope }, { onSuccess: () => setNewName("") });
+  const [scope, setScope] = useState<ProfileScope>(
+    APP_PROFILE_SCOPE[activeApp] ?? "claude",
+  );
+  const [name, setName] = useState("");
+  const [search, setSearch] = useState("");
+  const [action, setAction] = useState<Action | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [rename, setRename] = useState("");
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [failure, setFailure] = useState("");
+  const list = useProfilesQuery();
+  // Do not swallow errors or reuse another Agent's data in the change preview.
+  const live = useQuery({
+    queryKey: ["profile-preview", scope],
+    queryFn: async () => ({
+      providers: await providersApi.getAll(scope),
+      current: await providersApi.getCurrent(scope),
+    }),
+  });
+  const create = useCreateProfileMutation();
+  const apply = useApplyProfileMutation();
+  const update = useUpdateProfileMutation();
+  const remove = useDeleteProfileMutation();
+  const clear = useClearProfileMutation();
+  const busy =
+    create.isPending ||
+    apply.isPending ||
+    update.isPending ||
+    remove.isPending ||
+    clear.isPending;
+  const disabled = busy || list.isPending || list.isError;
+  const profiles = list.data?.profiles ?? [];
+  const currentId =
+    list.data?.currentIds?.[
+      scope === "claude-desktop" ? "claudeDesktop" : scope
+    ];
+  const label = (id: string | null | undefined) =>
+    id ? (live.data?.providers[id]?.name ?? id) : t("accessPlans.unchanged");
+  const report = (error: unknown) =>
+    setFailure(extractErrorMessage(error) || t("accessPlans.failed"));
+  const save = () => {
+    if (disabled || !name.trim()) return;
+    setFailure("");
+    create.mutate(
+      { name: name.trim(), scope },
+      { onSuccess: () => setName(""), onError: report },
+    );
   };
+  const confirm = () => {
+    if (!action || busy) return;
+    const { profile, scope: targetScope, kind } = action;
+    const options = { onSuccess: () => setAction(null), onError: report };
+    setFailure("");
+    if (kind === "delete") remove.mutate(profile.id, options);
+    if (kind === "clear") clear.mutate(targetScope, options);
+    if (kind === "snapshot")
+      update.mutate(
+        { id: profile.id, resnapshot: true, scope: targetScope },
+        options,
+      );
+    if (kind === "apply")
+      apply.mutate(
+        { id: profile.id, scope: targetScope },
+        {
+          ...options,
+          onSuccess: (result) => {
+            setWarnings(result);
+            setAction(null);
+            void live.refetch();
+          },
+        },
+      );
+  };
+  const preview = action
+    ? [
+        t(`accessPlans.${action.kind}Warning`, {
+          name: action.profile.name,
+          app: LABELS[action.scope],
+        }),
+        ...(action.kind === "apply"
+          ? [
+              `${t("accessPlans.provider")}: ${label(live.data?.current)} → ${label(action.profile.payload.providers[action.scope])}`,
+              `MCP: ${action.profile.payload.mcp[action.scope]?.join(", ") || (action.profile.payload.mcp[action.scope] === null ? t("accessPlans.unchanged") : t("accessPlans.empty"))}`,
+              `Skills: ${action.profile.payload.skills[action.scope]?.join(", ") || (action.profile.payload.skills[action.scope] === null ? t("accessPlans.unchanged") : t("accessPlans.empty"))}`,
+              `${t("accessPlans.prompt")}: ${action.profile.payload.prompts[action.scope] || t("accessPlans.unchanged")}`,
+            ]
+          : []),
+      ].join("\n")
+    : "";
 
   return (
-    <div className="h-full overflow-y-auto px-6 pb-12 pt-8 lg:px-8">
-      <div className="mx-auto max-w-6xl space-y-7">
-        <div>
-          <p className="workspace-eyebrow">HROUTER WORKSPACES</p>
-          <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
-                {t("workspace.profilesTitle", { defaultValue: "接入方案" })}
-              </h1>
-              <p className="mt-2 text-sm text-muted-foreground">
-                保存一整套 Agent 接入配置，切换方案时不会改变历史会话。
-              </p>
-            </div>
-            <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
-              <FolderOpen className="h-4 w-4" /> {profiles.length} 个方案
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-2 md:grid-cols-3">
-          {SCOPES.map((item) => (
+    <div className="h-full overflow-y-auto px-6 py-8 lg:px-8">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <header>
+          <p className="workspace-eyebrow">HROUTER / PROFILES</p>
+          <h1 className="mt-2 text-2xl font-semibold">
+            {t("workspace.profilesTitle")}
+          </h1>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+            {t("accessPlans.description")}
+          </p>
+        </header>
+        {!APP_PROFILE_SCOPE[activeApp] && (
+          <p className="text-sm text-muted-foreground">
+            {t("accessPlans.supported")}
+          </p>
+        )}
+        <div className="grid gap-2 sm:grid-cols-3">
+          {SCOPES.map((id) => (
             <button
-              key={item.id}
+              key={id}
               type="button"
-              onClick={() => setScope(item.id)}
+              disabled={busy || !!action}
+              aria-pressed={scope === id}
+              onClick={() => {
+                setScope(id);
+                setFailure("");
+                setWarnings([]);
+              }}
               className={cn(
-                "rounded-lg border p-4 text-left transition-colors",
-                scope === item.id
+                "rounded-lg border p-4 text-left text-sm font-medium disabled:opacity-50",
+                scope === id
                   ? "border-primary bg-primary/5"
-                  : "border-border bg-card hover:bg-muted/50",
+                  : "border-border bg-card",
               )}
             >
-              <span className="flex items-center justify-between gap-2 text-sm font-medium">
-                {item.label}
-                {scope === item.id && (
-                  <Check className="h-4 w-4 text-primary" />
-                )}
-              </span>
-              <span className="mt-1 block text-xs text-muted-foreground">
-                {item.description}
-              </span>
+              {LABELS[id]}
             </button>
           ))}
         </div>
-
-        <section className="rounded-lg border border-border bg-card p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="font-medium">创建当前配置方案</h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                会保存当前 Agent 的供应商配置，不会上传 API Key。
-              </p>
-            </div>
-            <div className="flex w-full gap-2 sm:w-auto">
-              <Input
-                value={newName}
-                onChange={(event) => setNewName(event.target.value)}
-                onKeyDown={(event) => event.key === "Enter" && create()}
-                placeholder="例如：日常开发"
-                className="h-9 sm:w-56"
-              />
-              <Button
-                size="sm"
-                onClick={create}
-                disabled={!newName.trim() || createMutation.isPending}
-              >
-                <Plus className="h-4 w-4" /> 创建方案
-              </Button>
-            </div>
-          </div>
-        </section>
-
-        {isLoading ? (
-          <div className="rounded-lg border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-            正在读取方案…
-          </div>
-        ) : profiles.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-            还没有接入方案，先在上方保存一套当前配置。
-          </div>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            {profiles.map((profile) => {
-              const captured = hasScopeSnapshot(profile, scope);
-              const active = profile.id === currentId;
-              return (
-                <article
-                  key={profile.id}
-                  className={cn(
-                    "rounded-lg border bg-card p-5 transition-colors",
-                    active
-                      ? "border-primary/50 bg-primary/[0.03]"
-                      : "border-border",
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="truncate font-medium">{profile.name}</h3>
-                        {active && (
-                          <span className="rounded bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                            当前使用
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {captured
-                          ? "已保存当前 Agent 的完整接入状态"
-                          : "这个方案还没有保存当前 Agent 的配置"}
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      title="删除方案"
-                      onClick={() => deleteMutation.mutate(profile.id)}
-                      disabled={deleteMutation.isPending}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        applyMutation.mutate({ id: profile.id, scope })
-                      }
-                      disabled={!captured || active || applyMutation.isPending}
-                    >
-                      {active ? <Check className="h-3.5 w-3.5" /> : null}
-                      {active ? "已应用" : "应用方案"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        updateMutation.mutate({
-                          id: profile.id,
-                          resnapshot: true,
-                          scope,
-                        })
-                      }
-                      disabled={updateMutation.isPending}
-                    >
-                      <RefreshCw className="h-3.5 w-3.5" /> 更新当前配置
-                    </Button>
-                    {active && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => clearMutation.mutate(scope)}
-                        disabled={clearMutation.isPending}
-                      >
-                        取消当前方案
-                      </Button>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
+        {list.isError && (
+          <div
+            role="alert"
+            className="rounded-lg border border-destructive p-4"
+          >
+            <p>
+              {t("accessPlans.loadFailed")}: {extractErrorMessage(list.error)}
+            </p>
+            <Button variant="outline" onClick={() => void list.refetch()}>
+              {t("accessPlans.retry")}
+            </Button>
           </div>
         )}
-      </div>
-      {deleteTarget && (
-        <ConfirmDialog
-          isOpen
-          title="删除接入方案？"
-          message={`将删除“${deleteTarget.name}”，不会删除供应商或历史会话。`}
-          confirmText="删除"
-          variant="destructive"
-          onConfirm={() => {
-            deleteMutation.mutate(deleteTarget.id);
-            setDeleteTarget(null);
-          }}
-          onCancel={() => setDeleteTarget(null)}
+        {failure && (
+          <p role="alert" className="text-sm text-destructive">
+            {failure}
+          </p>
+        )}
+        {warnings.length > 0 && (
+          <div role="alert" className="rounded-lg border border-amber-500 p-4">
+            <h2 className="font-medium">{t("accessPlans.partial")}</h2>
+            <ul className="mt-2 list-inside list-disc text-sm">
+              {warnings.map((warning, index) => (
+                <li key={index}>{warning}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-5">
+          <div>
+            <h2 className="font-medium">{t("accessPlans.createTitle")}</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("accessPlans.snapshotHint")}
+            </p>
+          </div>
+          <form
+            className="flex flex-wrap gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              save();
+            }}
+          >
+            <Input
+              aria-label={t("accessPlans.name")}
+              placeholder={t("accessPlans.name")}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={disabled}
+              maxLength={100}
+              className="w-56"
+            />
+            <Button disabled={disabled || !name.trim()} type="submit">
+              {t("accessPlans.create")}
+            </Button>
+          </form>
+        </section>
+        <Input
+          aria-label={t("accessPlans.search")}
+          placeholder={t("accessPlans.search")}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-sm"
         />
-      )}
+        {list.isPending && <p role="status">{t("accessPlans.loading")}</p>}
+        {!list.isPending &&
+          !list.isError &&
+          profiles.filter((p) =>
+            p.name.toLowerCase().includes(search.toLowerCase()),
+          ).length === 0 && (
+            <p className="rounded-lg border border-dashed p-10 text-center text-muted-foreground">
+              {t("accessPlans.noResults")}
+            </p>
+          )}
+        <div className="grid gap-4 md:grid-cols-2">
+          {profiles
+            .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
+            .map((profile) => (
+              <article
+                key={profile.id}
+                className={cn(
+                  "space-y-4 rounded-lg border bg-card p-5",
+                  currentId === profile.id
+                    ? "border-primary/50"
+                    : "border-border",
+                )}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="break-all font-semibold">{profile.name}</h2>
+                  {currentId === profile.id && (
+                    <span className="text-xs text-primary">
+                      {t("accessPlans.currentMarker")}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {hasScopeSnapshot(profile, scope)
+                    ? `${t("accessPlans.provider")}: ${label(profile.payload.providers[scope])}`
+                    : t("accessPlans.noSnapshot")}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  MCP: {profile.payload.mcp[scope]?.length ?? "—"} · Skills:{" "}
+                  {profile.payload.skills[scope]?.length ?? "—"}
+                </p>
+                {renaming === profile.id && (
+                  <form
+                    className="flex gap-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!rename.trim() || busy) return;
+                      update.mutate(
+                        { id: profile.id, name: rename.trim() },
+                        { onSuccess: () => setRenaming(null), onError: report },
+                      );
+                    }}
+                  >
+                    <Input
+                      aria-label={t("accessPlans.rename")}
+                      value={rename}
+                      onChange={(e) => setRename(e.target.value)}
+                      disabled={busy}
+                    />
+                    <Button disabled={busy || !rename.trim()}>
+                      {t("accessPlans.save")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => setRenaming(null)}
+                    >
+                      {t("common.cancel")}
+                    </Button>
+                  </form>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    disabled={
+                      disabled ||
+                      !hasScopeSnapshot(profile, scope) ||
+                      !live.data ||
+                      live.isFetching ||
+                      live.isError
+                    }
+                    onClick={() => {
+                      setWarnings([]);
+                      setAction({ kind: "apply", profile, scope });
+                    }}
+                  >
+                    {t("accessPlans.apply")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={disabled}
+                    onClick={() =>
+                      setAction({ kind: "snapshot", profile, scope })
+                    }
+                  >
+                    {t("accessPlans.snapshot")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={disabled}
+                    onClick={() => {
+                      setRenaming(profile.id);
+                      setRename(profile.name);
+                    }}
+                  >
+                    {t("accessPlans.rename")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={disabled}
+                    onClick={() =>
+                      setAction({ kind: "delete", profile, scope })
+                    }
+                  >
+                    {t("accessPlans.delete")}
+                  </Button>
+                  {currentId === profile.id && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={disabled}
+                      onClick={() =>
+                        setAction({ kind: "clear", profile, scope })
+                      }
+                    >
+                      {t("accessPlans.clear")}
+                    </Button>
+                  )}
+                </div>
+              </article>
+            ))}
+        </div>
+        {live.isError && (
+          <p role="alert" className="text-sm text-destructive">
+            {t("accessPlans.previewFailed")}{" "}
+            <Button variant="ghost" onClick={() => void live.refetch()}>
+              {t("accessPlans.retry")}
+            </Button>
+          </p>
+        )}
+        {action && (
+          <ConfirmDialog
+            isOpen
+            title={t(`accessPlans.${action.kind}`)}
+            message={preview}
+            pending={busy}
+            error={failure}
+            variant={action.kind === "delete" ? "destructive" : "info"}
+            confirmText={t("common.confirm")}
+            onConfirm={confirm}
+            onCancel={() => {
+              if (!busy) setAction(null);
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

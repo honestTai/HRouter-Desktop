@@ -59,7 +59,7 @@
     "step1Title": "Choose an Agent",
     "step1Description": "Switch between local Agents such as Claude, Codex, and Gemini from the header.",
     "step2Title": "Import or add a provider",
-    "step2Description": "Import an existing setup as default, or add a provider from the model plaza.",
+    "step2Description": "Import an existing setup as default, or add a provider in Configuration Center.",
     "step3Title": "Switch and verify",
     "step3Description": "HRouter writes the selected configuration and keeps a backup of the original setup.",
     "featureOverview": "Feature overview",
@@ -86,13 +86,13 @@
     "agentsTitle": "Agent installation and updates",
     "agentsDescription": "Detect and install seven CLI agents. Codex GUI identifies the current OS and provides the matching offline installer.",
     "updatesTitle": "HRouter updates",
-    "updatesDescription": "Check for HRouter releases from the sidebar and review the version, release date, and full release notes before updating.",
+    "updatesDescription": "Check for HRouter releases in Settings → About and review version information before updating.",
     "supportTitle": "Need after-sales support?",
     "supportDescription": "Join QQ group {{group}} for help. You can copy the group number from this guide.",
     "copyGroup": "Copy group number",
     "groupCopied": "After-sales QQ group number copied",
     "groupCopyFailed": "Could not copy the group number. Please copy it manually.",
-    "footerHint": "Open this guide anytime from Feature FAQ in the sidebar.",
+    "footerHint": "Open this guide anytime from Settings → Feature FAQ.",
     "start": "Start using HRouter",
     "startTour": "Start feature tour",
     "tourProgress": "{{current}} / {{total}}",
@@ -468,7 +468,11 @@
         "apiKeyPlaceholder": "Enter Gemini API Key"
       }
     },
-    "duplicateLiveIdsLoadFailed": "Failed to read provider identifiers from config, please fix the config and try again"
+    "duplicateLiveIdsLoadFailed": "Failed to read provider identifiers from config, please fix the config and try again",
+    "configuredModels": "{{count}} configured models",
+    "observedHealthy": "Last observed call succeeded",
+    "observedFailures": "{{count}} consecutive failures",
+    "noObservations": "No observed calls"
   },
   "claudeCode": {
     "needsRouting": "Needs Routing",
@@ -3614,5 +3618,49 @@
     "protectPromptFile": "Do not manage local {{file}} (independent of cloud settings)",
     "protectAppConfiguration": "Protect local custom configuration for {{app}}",
     "convertedDifference": "At reference rate {{rate}}, actual server charges minus the local estimate are ¥{{difference}}. This does not establish overcharging."
+  },
+  "accessPlans": {
+    "description": "Save provider references, MCP, Skills and prompt selections per Agent. Profiles contain no key copies or conversation backups. Applying writes client configuration; it is not an atomic cross-app switch.",
+    "supported": "Profiles support Claude Code, Claude Desktop and Codex only. Other Agents are not modified.",
+    "snapshotHint": "Saves selections. Later edits to a provider also affect profiles referencing it.",
+    "createTitle": "Save current access setup",
+    "name": "Profile name",
+    "create": "Create profile",
+    "search": "Search profiles",
+    "loading": "Loading profiles…",
+    "noResults": "No matching profiles. Save your current setup to get started.",
+    "loadFailed": "Unable to load profiles",
+    "failed": "Operation failed. Please retry.",
+    "retry": "Retry",
+    "provider": "Provider",
+    "prompt": "Prompt",
+    "unchanged": "Keep current configuration",
+    "empty": "Disable all",
+    "noSnapshot": "No snapshot for this Agent",
+    "currentMarker": "Last applied (may have been edited manually)",
+    "apply": "Preview and apply",
+    "snapshot": "Update snapshot",
+    "rename": "Rename",
+    "save": "Save",
+    "delete": "Delete profile",
+    "clear": "Clear profile marker",
+    "applyWarning": "Apply “{{name}}” to {{app}}. This autosaves the previous profile, disables local takeover for this Agent, then updates provider, MCP, Skills and prompts. Changes are not atomic; partial failures are listed as warnings. Finish active requests first.",
+    "snapshotWarning": "Replace the {{app}} snapshot in “{{name}}” with current configuration. Other Agent snapshots are unchanged. This cannot be undone.",
+    "deleteWarning": "Delete the shared profile “{{name}}” and all of its Agent snapshots. Providers and conversation files are not deleted.",
+    "clearWarning": "Clear the current profile marker for {{app}} without restoring or changing client configuration.",
+    "partial": "Profile partially applied — review warnings",
+    "previewFailed": "Current providers could not be loaded. Applying is disabled."
+  },
+  "routePolicies": {
+    "description": "Manage primary and backup routes using the existing local proxy, without a new Gateway. Direct access is the default; enable takeover only when automatic failover is needed.",
+    "supported": "Existing failover supports Claude Code, Codex, Gemini CLI and Grok Build. Unsupported apps have no routing controls.",
+    "boundary": "Before changing routes",
+    "hint": "Takeover rewrites client configuration; disabling restores its backup. Failover tries providers in queue order. Session stickiness and cross-model context compatibility are not guaranteed.",
+    "queueHint": "Priority follows provider order. Requests are not forwarded without takeover.",
+    "advanced": "Retry and timeout settings"
+  },
+  "agentAccess": {
+    "unavailable": "Client configuration unavailable",
+    "configCount": "{{count}} provider configurations"
   }
 }
