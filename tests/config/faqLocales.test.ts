@@ -17,12 +17,10 @@ const requiredKeys = [
   "step3Title",
   "step3Description",
   "featureOverview",
-  "portalTitle",
-  "portalDescription",
+  "quickKeyTitle",
+  "quickKeyDescription",
   "providersTitle",
   "providersDescription",
-  "modelPlazaTitle",
-  "modelPlazaDescription",
   "contextTitle",
   "contextDescription",
   "usageTitle",
@@ -72,35 +70,6 @@ describe("FAQ locale coverage", () => {
           interpolationVariables(en.faq[key]),
         );
       }
-    },
-  );
-});
-
-const announcementKeys = [
-  "title",
-  "description",
-  "loading",
-  "unavailableTitle",
-  "unavailableDescription",
-  "emptyTitle",
-  "emptyDescription",
-] as const;
-
-describe("HRouter announcement locale coverage", () => {
-  it.each([
-    ["en", en.hrouterAnnouncements],
-    ["ja", ja.hrouterAnnouncements],
-    ["zh", zh.hrouterAnnouncements],
-    ["zh-TW", zhTW.hrouterAnnouncements],
-  ] as const)(
-    "defines every announcement key in %s",
-    (_locale, announcements) => {
-      expect(
-        announcementKeys.filter(
-          (key) =>
-            !announcements[key] || announcements[key].trim().length === 0,
-        ),
-      ).toEqual([]);
     },
   );
 });

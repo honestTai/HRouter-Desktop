@@ -15,7 +15,6 @@ import { RoutesPage } from "@/components/proxy/RoutesPage";
 import { proxyApi } from "@/lib/api/proxy";
 import { failoverApi } from "@/lib/api/failover";
 import type { ProxyStatus, ProxyTakeoverStatus } from "@/types/proxy";
-vi.mock("@/hooks/useHRouterSession", () => ({ useHRouterSession: () => null }));
 let running: boolean;
 let takeover: ProxyTakeoverStatus;
 const onAdd = vi.fn();

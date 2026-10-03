@@ -194,7 +194,7 @@ pub(crate) fn parse_mcp_apps(apps_str: &str) -> Result<McpApps, AppError> {
 fn merge_mcp_apps(existing: &McpApps, target: &McpApps) -> McpApps {
     let mut merged = existing.clone();
     for app in target.enabled_apps() {
-        merged.set_enabled_for(&app, true);
+        merged.set_enabled_for(app, true);
     }
     merged
 }

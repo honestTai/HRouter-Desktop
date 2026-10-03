@@ -213,11 +213,17 @@ pub(crate) fn get_mcp_config_path() -> Result<PathBuf, AppError> {
     #[cfg(windows)]
     let paths = if std::env::var_os("CC_SWITCH_TEST_HOME").is_some() {
         windows_paths_from_local_app_data(&get_home_dir().join("AppData/Local"))
-    } else { current_platform_paths()? };
+    } else {
+        current_platform_paths()?
+    };
     #[cfg(not(windows))]
     let paths = current_platform_paths()?;
     let config = read_json_or_empty(&paths.normal_config_path)?;
-    Ok(if config["deploymentMode"] == "3p" { paths.threep_config_path } else { paths.normal_config_path })
+    Ok(if config["deploymentMode"] == "3p" {
+        paths.threep_config_path
+    } else {
+        paths.normal_config_path
+    })
 }
 
 pub fn get_config_library_path() -> Result<PathBuf, AppError> {

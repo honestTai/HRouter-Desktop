@@ -17,19 +17,13 @@ import { useTranslation } from "react-i18next";
 import hrouterLogo from "@/assets/icons/hrouter.svg";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useHRouterAccess } from "@/hooks/useHRouterAccess";
 
 type PrimaryView =
-  | "hrouter"
   | "workbench"
   | "providers"
   | "profiles"
   | "routes"
   | "usage"
-  | "billing"
-  | "orders"
-  | "apiKeys"
-  | "announcements"
   | "sessions"
   | "mcp"
   | "skills"
@@ -45,8 +39,6 @@ interface Props {
   currentView: string;
   onNavigate: (view: PrimaryView) => void;
   onSettings: () => void;
-  onProfile: () => void;
-  onFrontend: () => void;
 }
 
 const navItemClass =
@@ -60,7 +52,6 @@ export function MagpieTopNav({
   onSettings,
 }: Props) {
   const { t } = useTranslation();
-  const { connected } = useHRouterAccess();
   const item = (view: PrimaryView) =>
     cn(
       navItemClass,
@@ -235,19 +226,6 @@ export function MagpieTopNav({
             <Sparkles className="h-3.5 w-3.5" />
             {t("skills.manage")}
           </Button>
-          {connected && (
-            <Button
-              variant="ghost"
-              size="auto"
-              type="button"
-              className={item("hrouter")}
-              aria-current={currentView === "hrouter" ? "page" : undefined}
-              onClick={() => onNavigate("hrouter")}
-            >
-              <img src={hrouterLogo} alt="" className="size-4" />
-              HRouter
-            </Button>
-          )}
           {activeApp === "hermes" ? (
             <>
               <Button

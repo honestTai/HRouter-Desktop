@@ -326,14 +326,14 @@ impl ProfileService {
             *payload.mcp.for_scope_mut(scope) = Some(
                 mcp_servers
                     .values()
-                    .filter(|server| server.apps.is_enabled_for(&target))
+                    .filter(|server| server.apps.is_enabled_for(target))
                     .map(|server| server.id.clone())
                     .collect(),
             );
             *payload.skills.for_scope_mut(scope) = Some(
                 skills
                     .values()
-                    .filter(|skill| skill.apps.is_enabled_for(&target))
+                    .filter(|skill| skill.apps.is_enabled_for(target))
                     .map(|skill| skill.id.clone())
                     .collect(),
             );
@@ -517,7 +517,7 @@ impl ProfileService {
                 let servers = state.db.get_all_mcp_servers()?;
                 let current = servers
                     .values()
-                    .map(|s| (s.id.clone(), s.apps.is_enabled_for(&target)))
+                    .map(|s| (s.id.clone(), s.apps.is_enabled_for(target)))
                     .collect::<Vec<_>>();
                 let (toggles, dangling) = plan_toggles(&current, ids);
                 for id in dangling {
@@ -533,7 +533,7 @@ impl ProfileService {
                 let skills = state.db.get_all_installed_skills()?;
                 let current = skills
                     .values()
-                    .map(|s| (s.id.clone(), s.apps.is_enabled_for(&target)))
+                    .map(|s| (s.id.clone(), s.apps.is_enabled_for(target)))
                     .collect::<Vec<_>>();
                 let (toggles, dangling) = plan_toggles(&current, ids);
                 for id in dangling {
@@ -543,7 +543,7 @@ impl ProfileService {
                     ));
                 }
                 for (id, enabled) in toggles {
-                    if let Err(error) = SkillService::toggle_app(&state.db, &id, &target, enabled) {
+                    if let Err(error) = SkillService::toggle_app(&state.db, &id, target, enabled) {
                         warnings.push(format!("[{}] {error}", scope.as_str()));
                     }
                 }

@@ -356,6 +356,11 @@ requires_openai_auth = true
         .get("model_providers")
         .and_then(|v| v.as_table())
         .expect("model_providers table exists");
+    assert_eq!(
+        model_providers.get("cc-switch-official"),
+        model_providers.get("rightcode"),
+        "legacy official-proxy thread ids must resolve to the current route"
+    );
     assert!(
         model_providers.get("private-relay").is_none(),
         "the live route uses the shared bucket"
@@ -418,6 +423,10 @@ requires_openai_auth = true
         toml::from_str(&std::fs::read_to_string(cc_switch_lib::get_codex_config_path()).unwrap())
             .unwrap();
     assert_eq!(config["model_provider"].as_str(), Some("rightcode"));
+    assert_eq!(
+        config["model_providers"]["cc-switch-official"],
+        config["model_providers"]["rightcode"]
+    );
     assert_eq!(
         config["model_providers"]["rightcode"]["base_url"].as_str(),
         Some("https://rightcode.example/v1")

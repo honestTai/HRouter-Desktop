@@ -126,10 +126,7 @@ fn validate(input: &PiConnection) -> Result<(), String> {
         "env"
             if key.chars().enumerate().all(|(i, c)| {
                 c == '_' || c.is_ascii_alphabetic() || (i > 0 && c.is_ascii_digit())
-            }) =>
-        {
-            ()
-        }
+            }) => {}
         "literal" if !key.starts_with('!') && !key.contains('$') => (),
         _ => {
             return Err(

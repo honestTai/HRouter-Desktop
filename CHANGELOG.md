@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0 — 2026-10-03
+
+- Promotes the redesigned Agent workbench to the main branch, with unified providers, profiles, route policies, usage, sessions, MCP, and Skills.
+- Removes the embedded HRouter account portal, payments, orders, announcements, cloud billing, pricing sync, and account-balance polling. Keeps sign-in-free HRouter API-key quick setup and local Agent tools.
+- Retains local usage, provider-level usage queries, and Agent widgets; retires legacy account-balance widget payloads.
+- Adds lightweight provider workflows for Pi Agent, DeepSeek Harness, and WorkBuddy.
+- Preserves Codex legacy provider aliases at runtime so existing official-proxy sessions can resume after switching providers, without rewriting chat history.
+- Refreshes repository documentation and privacy-reviewed native desktop screenshots.
+- Publishes the release only after Windows x64 and signed/notarized macOS Universal installers and updater entries have been validated.
+
 ## 0.2.15
 
 - Recommended GPT-5.5, all three GPT-5.6 tiers (Luna, Terra, and Sol), and GPT-6 Astra separately instead of collapsing GPT-5.6 into one entry.

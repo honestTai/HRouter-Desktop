@@ -47,6 +47,10 @@ describe("HelpCenterButton", () => {
     expect(screen.getByText("faq.providersTitle")).toBeInTheDocument();
     expect(screen.getByText("faq.agentsTitle")).toBeInTheDocument();
     expect(screen.getByText("faq.supportTitle")).toBeInTheDocument();
+    expect(screen.getByText("faq.quickKeyTitle")).toBeInTheDocument();
+    for (const key of ["portal", "billing", "orders", "apiKeys", "profile"]) {
+      expect(screen.queryByText(`faq.${key}Title`)).toBeNull();
+    }
   });
 
   it("opens automatically once and persists first-run acknowledgement", async () => {

@@ -938,7 +938,7 @@ impl SkillService {
 
                 // 从所有应用目录删除
                 for app in AppType::skill_targets() {
-                    let _ = Self::remove_from_app(&directory, &app);
+                    let _ = Self::remove_from_app(&directory, app);
                 }
 
                 // 从 SSOT 删除
@@ -1298,7 +1298,7 @@ impl SkillService {
 
         // 同步到所有已启用的应用目录
         for app in updated_skill.apps.enabled_apps() {
-            if let Err(e) = Self::sync_to_app_dir(&updated_skill.directory, &app) {
+            if let Err(e) = Self::sync_to_app_dir(&updated_skill.directory, app) {
                 log::warn!("同步更新后的 skill 到 {:?} 失败: {e}", app);
             }
         }
@@ -1422,7 +1422,7 @@ impl SkillService {
 
         // 4. 刷新所有应用目录的 symlink（指向新 SSOT）
         for app in AppType::skill_targets() {
-            let _ = Self::sync_to_app(db, &app);
+            let _ = Self::sync_to_app(db, app);
         }
 
         log::info!(
@@ -1614,7 +1614,7 @@ impl SkillService {
         // 收集所有待扫描的目录及其来源标签
         let mut scan_sources: Vec<(PathBuf, String)> = Vec::new();
         for app in AppType::skill_targets() {
-            if let Ok(d) = Self::get_app_skills_dir(&app) {
+            if let Ok(d) = Self::get_app_skills_dir(app) {
                 scan_sources.push((d, app.as_str().to_string()));
             }
         }
@@ -1686,7 +1686,7 @@ impl SkillService {
         // 收集所有候选搜索目录
         let mut search_sources: Vec<(PathBuf, String)> = Vec::new();
         for app in AppType::skill_targets() {
-            if let Ok(d) = Self::get_app_skills_dir(&app) {
+            if let Ok(d) = Self::get_app_skills_dir(app) {
                 search_sources.push((d, app.as_str().to_string()));
             }
         }
@@ -2948,7 +2948,7 @@ impl SkillService {
         }
 
         for app in AppType::skill_targets() {
-            let app_dir = match Self::get_app_skills_dir(&app) {
+            let app_dir = match Self::get_app_skills_dir(app) {
                 Ok(dir) => dir,
                 Err(_) => continue,
             };
@@ -3675,14 +3675,14 @@ pub fn migrate_skills_to_ssot(db: &Arc<Database>) -> Result<usize> {
                 discovered
                     .entry(row.directory.clone())
                     .or_default()
-                    .set_enabled_for(&app, true);
+                    .set_enabled_for(app, true);
             }
         }
     }
 
     // 扫描各应用目录
     for app in AppType::skill_targets() {
-        let app_dir = match SkillService::get_app_skills_dir(&app) {
+        let app_dir = match SkillService::get_app_skills_dir(app) {
             Ok(d) => d,
             Err(_) => continue,
         };
@@ -3719,7 +3719,7 @@ pub fn migrate_skills_to_ssot(db: &Arc<Database>) -> Result<usize> {
                 discovered
                     .entry(dir_name)
                     .or_default()
-                    .set_enabled_for(&app, true);
+                    .set_enabled_for(app, true);
             }
         }
     }

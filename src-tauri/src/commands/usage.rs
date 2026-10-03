@@ -4,12 +4,7 @@ use crate::error::AppError;
 use crate::services::model_pricing::{ModelPricingInfo, ModelsDevSyncConfig, ModelsDevSyncState};
 use crate::services::usage_stats::*;
 use crate::store::AppState;
-use serde_json::Value;
-use std::time::Duration;
 use tauri::State;
-
-const HROUTER_MODEL_PLAZA_URL: &str = "https://hrouter.net/api/v1/model-plaza";
-const HROUTER_ANNOUNCEMENTS_URL: &str = "https://hrouter.net/api/v1/announcements";
 
 /// 获取使用量汇总
 #[tauri::command]
@@ -122,74 +117,6 @@ pub fn get_request_detail(
     request_id: String,
 ) -> Result<Option<RequestLogDetail>, AppError> {
     state.db.get_request_detail(&request_id)
-}
-
-/// 通过桌面端网络层读取 HRouter 模型广场，避免 WebView 的跨域限制。
-#[tauri::command]
-pub async fn fetch_hrouter_model_plaza() -> Result<Value, String> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(15))
-        .build()
-        .map_err(|error| format!("创建模型广场请求失败: {error}"))?;
-    let response = client
-        .get(HROUTER_MODEL_PLAZA_URL)
-        .header(reqwest::header::ACCEPT, "application/json")
-        .header(
-            reqwest::header::USER_AGENT,
-            concat!("HRouter-Desktop/", env!("CARGO_PKG_VERSION")),
-        )
-        .send()
-        .await
-        .map_err(|error| format!("读取模型广场失败: {error}"))?;
-
-    let status = response.status();
-    if !status.is_success() {
-        let body = response.text().await.unwrap_or_default();
-        return Err(format!(
-            "模型广场返回 HTTP {}: {}",
-            status.as_u16(),
-            body.chars().take(200).collect::<String>()
-        ));
-    }
-
-    response
-        .json::<Value>()
-        .await
-        .map_err(|error| format!("解析模型广场数据失败: {error}"))
-}
-
-/// 直接读取 HRouter.net 公告接口。公告是平台公共信息，不附带本地 Provider Key。
-#[tauri::command]
-pub async fn fetch_hrouter_announcements() -> Result<Value, String> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(15))
-        .build()
-        .map_err(|error| format!("创建公告请求失败: {error}"))?;
-    let response = client
-        .get(HROUTER_ANNOUNCEMENTS_URL)
-        .header(reqwest::header::ACCEPT, "application/json")
-        .header(
-            reqwest::header::USER_AGENT,
-            concat!("HRouter-Desktop/", env!("CARGO_PKG_VERSION")),
-        )
-        .send()
-        .await
-        .map_err(|error| format!("读取 HRouter 公告失败: {error}"))?;
-
-    let status = response.status();
-    if !status.is_success() {
-        let body = response.text().await.unwrap_or_default();
-        return Err(format!(
-            "HRouter 公告接口返回 HTTP {}: {}",
-            status.as_u16(),
-            body.chars().take(200).collect::<String>()
-        ));
-    }
-
-    response
-        .json::<Value>()
-        .await
-        .map_err(|error| format!("解析 HRouter 公告失败: {error}"))
 }
 
 /// 获取模型定价列表

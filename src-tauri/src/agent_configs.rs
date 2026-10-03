@@ -109,9 +109,9 @@ fn workbuddy(
     };
     row.insert("url".into(), json!(endpoint));
     if input.credential_mode == "keep" {
-        if !row
+        if row
             .get("apiKey")
-            .is_some_and(|v| v.as_str().is_some_and(|s| !s.is_empty()))
+            .is_none_or(|v| v.as_str().is_none_or(|s| s.is_empty()))
         {
             return Err("This model has no saved API key; enter a key".into());
         }
@@ -303,11 +303,13 @@ pub(super) fn build(
         _ => Err("Unsupported agent".into()),
     }
 }
+type ReviewedConfiguration = (PiPreview, Vec<u8>, Option<Vec<u8>>);
+
 pub(super) fn review(
     agent: &str,
     path: &Path,
     input: &PiConnection,
-) -> Result<(PiPreview, Vec<u8>, Option<Vec<u8>>), String> {
+) -> Result<ReviewedConfiguration, String> {
     let before = pi::read(path)?;
     let (after, updating_provider, model_count) = build(agent, input, before.as_deref())?;
     let mut hash = Sha256::new();

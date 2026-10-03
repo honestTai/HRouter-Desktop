@@ -817,14 +817,18 @@ mod tests {
 
 #[tauri::command]
 pub fn get_access_protection(app: String) -> Result<bool, String> {
-    if crate::file_provider_service::supports(&app) { return Ok(true); }
+    if crate::file_provider_service::supports(&app) {
+        return Ok(true);
+    }
     Ok(crate::access_protection::enabled(
         &AppType::from_str(&app).map_err(|e| e.to_string())?,
     ))
 }
 #[tauri::command]
 pub fn get_prompt_protection(app: String) -> Result<bool, String> {
-    if crate::file_provider_service::supports(&app) { return Ok(true); }
+    if crate::file_provider_service::supports(&app) {
+        return Ok(true);
+    }
     Ok(crate::access_protection::prompts_protected(
         &AppType::from_str(&app).map_err(|e| e.to_string())?,
     ))
@@ -940,7 +944,9 @@ pub fn preview_access_switch(
     app: String,
     id: String,
 ) -> Result<crate::access_protection::SwitchPreview, String> {
-    if crate::file_provider_service::supports(&app) { return crate::file_provider_service::preview(state.inner(), &app, &id); }
+    if crate::file_provider_service::supports(&app) {
+        return crate::file_provider_service::preview(state.inner(), &app, &id);
+    }
     crate::access_protection::preview(
         &state.db,
         &AppType::from_str(&app).map_err(|e| e.to_string())?,

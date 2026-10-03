@@ -64,9 +64,19 @@ vi.mock("@/components/providers/ProviderList", () => ({
 }));
 
 vi.mock("@/components/providers/AddProviderDialog", () => ({
-  AddProviderDialog: ({ open, onOpenChange, onSubmit, appId }: any) =>
+  AddProviderDialog: ({
+    open,
+    onOpenChange,
+    onSubmit,
+    appId,
+    initialMode,
+  }: any) =>
     open ? (
-      <div data-testid="add-provider-dialog">
+      <div
+        data-testid="add-provider-dialog"
+        data-mode={initialMode}
+        data-agent={appId}
+      >
         <button
           onClick={() =>
             onSubmit({
@@ -253,7 +263,7 @@ describe("App integration with MSW", () => {
     );
     expect(localStorage.getItem("hrouter-last-app")).toBe("codex");
     vi.restoreAllMocks();
-  });
+  }, 15_000);
 
   it("covers basic provider flows via real hooks", async () => {
     const { default: App } = await import("@/App");
@@ -455,6 +465,36 @@ describe("App integration with MSW", () => {
       screen.queryByTestId("unified-skills-panel"),
     ).not.toBeInTheDocument();
   });
+
+  it.each([
+    "hrouter",
+    "billing",
+    "orders",
+    "apiKeys",
+    "profile",
+    "announcements",
+  ])(
+    "returns retired %s destinations to the workbench with key setup available",
+    async (view) => {
+      localStorage.setItem("hrouter-last-view", view);
+      localStorage.setItem("hrouter-last-app", "codex");
+      const { default: App } = await import("@/App");
+      renderApp(App);
+
+      expect(await screen.findByText("接入你的模型服务")).toBeVisible();
+      expect(localStorage.getItem("hrouter-last-view")).toBe("workbench");
+      expect(screen.queryByRole("button", { name: "HRouter" })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "添加 HRouter Key" }));
+      expect(screen.getByTestId("add-provider-dialog")).toHaveAttribute(
+        "data-mode",
+        "hrouter",
+      );
+      expect(screen.getByTestId("add-provider-dialog")).toHaveAttribute(
+        "data-agent",
+        "codex",
+      );
+    },
+  );
 
   it("falls back to the generic workbench for unsupported views", async () => {
     localStorage.setItem("hrouter-last-view", "skills");

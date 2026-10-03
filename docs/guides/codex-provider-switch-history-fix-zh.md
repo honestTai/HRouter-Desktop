@@ -42,3 +42,23 @@ cargo test --manifest-path src-tauri/Cargo.toml --test provider_service --no-def
 ```
 
 这些测试使用隔离的临时配置目录，不应以用户正在使用的 Codex 会话目录作为测试数据。
+
+## 补充：对话可见但无法编辑或继续（2026-10-03）
+
+本机复现日志中，`thread/turns/list` 成功，但紧接着的 `thread/resume` 返回：
+
+```text
+failed to load configuration: Model provider `cc-switch-official` not found
+```
+
+旧的官方代理会话仍携带 `cc-switch-official`。只保留列表的会话标识不够：切换后若删掉这个 provider 表，会话虽能展示，却无法恢复，编辑消息也会失败。先前的 HTTP 502 与这个配置加载错误应分别诊断。
+
+修复在普通供应商写入、代理热切换和备份恢复的最终配置中，补充一个 **live-only 旧标识兼容表**：
+
+- 指向当前选择的 provider，复制最终的端点、认证和协议字段；关闭代理时不保留已经停用的本地端点或占位 token。
+- 不改变顶层 `model_provider`，不修改 JSONL / SQLite，不自动开启统一历史设置。
+- 使用注释区分兼容表和官方代理接管标记，避免错误触发官方路由清理；重新接管官方路由时仍使用真正的接管标记。
+- 回填供应商数据库前移除生成的兼容表，不把旧供应商凭据永久存进新模板。
+- 不覆盖显式存在且没有 HRouter 兼容标记的用户自定义同名表。
+
+已受影响的安装需要再次应用修复后的配置。只更新源代码并不会修改正在运行的安装；恢复后重新打开对话验证编辑/继续操作，不用删除对话或迁移消息。

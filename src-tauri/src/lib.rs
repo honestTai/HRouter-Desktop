@@ -1,6 +1,7 @@
 mod resource_target;
 pub use resource_target::ResourceTarget;
 mod access_protection;
+mod agent_configs;
 mod app_config;
 mod app_store;
 mod auto_launch;
@@ -17,7 +18,6 @@ mod deeplink;
 mod environment_targets;
 mod error;
 mod external_agents;
-mod agent_configs;
 mod file_provider_service;
 mod gemini_config;
 mod gemini_mcp;
@@ -317,18 +317,6 @@ async fn update_tray_menu(
             Ok(false)
         }
     }
-}
-
-#[tauri::command]
-async fn update_hrouter_tray_summary(
-    app: tauri::AppHandle,
-    summary: Option<tray::HRouterTraySummary>,
-) -> Result<bool, String> {
-    #[cfg(target_os = "macos")]
-    if let Err(error) = macos_widget::sync_summary(summary) {
-        log::warn!("同步 macOS 小组件数据失败: {error}");
-    }
-    tray::update_hrouter_tray_summary(&app, summary)
 }
 
 #[cfg(target_os = "macos")]
@@ -1509,7 +1497,6 @@ pub fn run() {
             commands::import_from_deeplink,
             commands::import_from_deeplink_unified,
             update_tray_menu,
-            update_hrouter_tray_summary,
             // Environment variable management
             commands::check_env_conflicts,
             commands::delete_env_vars,
@@ -1586,9 +1573,6 @@ pub fn run() {
             commands::get_model_stats,
             commands::get_request_logs,
             commands::get_request_detail,
-            commands::fetch_hrouter_model_plaza,
-            commands::fetch_hrouter_announcements,
-            commands::hrouter_platform_request,
             commands::open_usage_widget,
             commands::get_usage_widget_snapshot,
             commands::get_usage_widget_finance,

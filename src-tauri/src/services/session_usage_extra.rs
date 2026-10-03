@@ -391,8 +391,8 @@ pub(crate) fn session_files(app: &str, root: &Path) -> Vec<PathBuf> {
         let mut generations: BTreeMap<PathBuf, (u64, PathBuf)> = BTreeMap::new();
         for f in files {
             let name = f.file_name().unwrap_or_default().to_string_lossy();
-            let ver = if name.starts_with("session.v") {
-                name[9..]
+            let ver = if let Some(generation) = name.strip_prefix("session.v") {
+                generation
                     .split('.')
                     .next()
                     .and_then(|n| n.parse::<u64>().ok())

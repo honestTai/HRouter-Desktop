@@ -44,7 +44,7 @@ pub fn scan_sessions() -> Vec<SessionMeta> {
             }
             if let Some(meta) = parse_session(&path) {
                 sessions.push(SessionMeta {
-        read_only: None,
+                    read_only: None,
                     project_dir: project_dir.clone(),
                     ..meta
                 });

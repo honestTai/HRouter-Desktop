@@ -48,7 +48,6 @@ fn row_to_mcp_server(row: &Row<'_>) -> rusqlite::Result<(String, McpServer)> {
                 deepseek_harness: row.get(15)?,
                 workbuddy: row.get(16)?,
                 pi: row.get(17)?,
-                ..Default::default()
             },
             description,
             homepage,

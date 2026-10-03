@@ -2954,6 +2954,8 @@ impl ProxyService {
                 )
                 .map_err(|e| format!("写入 Codex 配置失败: {e}"))?
             };
+            let live_config = crate::codex_config::prepare_codex_legacy_resume_alias(&live_config)
+                .map_err(|e| format!("生成 Codex 会话恢复兼容配置失败: {e}"))?;
             crate::codex_config::write_codex_live_config_atomic(Some(&live_config))
                 .map_err(|e| format!("写入 Codex 配置失败: {e}"))?;
             return Ok(());
@@ -2994,6 +2996,7 @@ impl ProxyService {
                     cfg,
                     crate::codex_config::CodexCatalogToolProfile::ProxyChat,
                 )
+                .and_then(|cfg| crate::codex_config::prepare_codex_legacy_resume_alias(&cfg))
             })
             .transpose()
             .map_err(|e| format!("写入 Codex 配置失败: {e}"))?;
@@ -4212,6 +4215,12 @@ wire_api = "responses"
             std::fs::read_to_string(crate::codex_config::get_codex_config_path())
                 .expect("read third-party takeover config");
         assert!(third_party_live.contains(PROXY_TOKEN_PLACEHOLDER));
+        let parsed: toml::Value = toml::from_str(&third_party_live).unwrap();
+        let active = parsed["model_provider"].as_str().unwrap();
+        assert_eq!(
+            parsed["model_providers"]["cc-switch-official"], parsed["model_providers"][active],
+            "existing official-proxy threads must resume with the newly selected route and token"
+        );
         assert!(!crate::codex_config::codex_config_has_official_proxy_route(
             &third_party_live
         ));
@@ -4237,6 +4246,18 @@ wire_api = "responses"
             .await
             .expect("disable takeover");
         assert_eq!(read_auth(), oauth_auth);
+        let restored = crate::codex_config::read_codex_config_text().unwrap();
+        let parsed: toml::Value = toml::from_str(&restored).unwrap();
+        let legacy = &parsed["model_providers"]["cc-switch-official"];
+        assert!(
+            legacy.get("base_url").is_none(),
+            "resume must not use the stopped proxy"
+        );
+        assert!(legacy.get("experimental_bearer_token").is_none());
+        assert_eq!(legacy["requires_openai_auth"].as_bool(), Some(true));
+        assert!(!crate::codex_config::codex_config_has_official_proxy_route(
+            &restored
+        ));
     }
 
     #[test]

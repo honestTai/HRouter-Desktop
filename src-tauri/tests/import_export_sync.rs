@@ -212,7 +212,7 @@ experimental_bearer_token = "stored-bearer-key"
 }
 
 #[test]
-fn sync_codex_provider_preserves_user_model_provider_id_after_migration() {
+fn sync_codex_provider_preserves_live_history_id_and_stored_provider_id() {
     let _guard = test_mutex().lock().expect("acquire test mutex");
     reset_test_fs();
 
@@ -266,8 +266,8 @@ requires_openai_auth = true
 
     assert_eq!(
         parsed.get("model_provider").and_then(|v| v.as_str()),
-        Some("aihubmix"),
-        "ConfigService sync should preserve user-editable model_provider after the one-time migration"
+        Some("rightcode"),
+        "ConfigService sync should retain the existing live identity so Codex history stays reachable"
     );
 
     let model_providers = parsed
@@ -280,10 +280,15 @@ requires_openai_auth = true
     );
     assert_eq!(
         model_providers
-            .get("aihubmix")
+            .get("rightcode")
             .and_then(|v| v.get("base_url"))
             .and_then(|v| v.as_str()),
         Some("https://aihubmix.example/v1")
+    );
+
+    assert_eq!(
+        model_providers.get("cc-switch-official"),
+        model_providers.get("rightcode")
     );
 
     let synced_cfg = config

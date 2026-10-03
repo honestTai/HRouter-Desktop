@@ -3,14 +3,6 @@ import SwiftUI
 import WidgetKit
 
 private let appGroupIdentifier = "QA2AVNA553.com.hrouter.desktop"
-private let summaryRelativePath = "Library/Application Support/HRouter/widget-summary.json"
-
-private struct UsageSummary: Decodable {
-    let available: Bool
-    let todayUsage: Double
-    let balance: Double
-    let updatedAt: TimeInterval
-}
 
 private struct AgentSummary: Decodable {
     let app: String
@@ -43,7 +35,6 @@ private struct AgentFinance: Decodable {
 
 private struct UsageEntry: TimelineEntry {
     let date: Date
-    let summary: UsageSummary?
     var agent: AgentSummary? = nil
     var finance: AgentFinance? = nil
 }
@@ -65,41 +56,17 @@ private enum SummaryStore {
                 finance = nil
             }
         }
-        return UsageEntry(date: now, summary: load(), agent: agent, finance: finance)
-    }
-
-    static func load() -> UsageSummary? {
-        guard
-            let container = FileManager.default.containerURL(
-                forSecurityApplicationGroupIdentifier: appGroupIdentifier
-            )
-        else {
-            return nil
-        }
-
-        let url = container.appendingPathComponent(summaryRelativePath)
-        guard
-            let data = try? Data(contentsOf: url),
-            let summary = try? JSONDecoder().decode(UsageSummary.self, from: data),
-            summary.available
-        else {
-            return nil
-        }
-        return summary
+        return UsageEntry(date: now, agent: agent, finance: finance)
     }
 }
 
 private struct UsageProvider: TimelineProvider {
     func placeholder(in context: Context) -> UsageEntry {
-        UsageEntry(
-            date: Date(),
-            summary: UsageSummary(
-                available: true,
-                todayUsage: 1.28,
-                balance: 608.62,
-                updatedAt: Date().timeIntervalSince1970
-            )
-        )
+        UsageEntry(date: Date(), agent: AgentSummary(
+            app: "codex", providerId: nil, revision: nil,
+            tokens: 12500, cacheRate: 0.65, speed: 42,
+            updatedAt: Date().timeIntervalSince1970
+        ))
     }
 
     func getSnapshot(in context: Context, completion: @escaping (UsageEntry) -> Void) {
@@ -116,8 +83,6 @@ private struct UsageProvider: TimelineProvider {
 }
 
 private struct WidgetCopy {
-    let today: String
-    let balance: String
     let updated: String
     let unavailable: String
     let openApp: String
@@ -126,16 +91,12 @@ private struct WidgetCopy {
         let language = Locale.preferredLanguages.first ?? "en"
         if language.hasPrefix("zh") {
             return WidgetCopy(
-                today: "今日用量",
-                balance: "剩余余额",
                 updated: "更新于",
                 unavailable: "暂无用量数据",
                 openApp: "打开 HRouter 后自动同步"
             )
         }
         return WidgetCopy(
-            today: "Today",
-            balance: "Balance",
             updated: "Updated",
             unavailable: "No usage data",
             openApp: "Open HRouter to sync"
@@ -156,31 +117,6 @@ private struct BrandMark: View {
     }
 }
 
-private struct AmountView: View {
-    let label: String
-    let amount: Double
-    let prominent: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            Text(amount, format: .currency(code: "CNY").precision(.fractionLength(2)))
-                .font(
-                    .system(
-                        size: prominent ? 24 : 19,
-                        weight: .semibold,
-                        design: .rounded
-                    )
-                )
-                .lineLimit(1)
-                .minimumScaleFactor(0.68)
-                .privacySensitive()
-        }
-    }
-}
-
 private struct WidgetContent: View {
     @Environment(\.widgetFamily) private var family
     let entry: UsageEntry
@@ -192,12 +128,6 @@ private struct WidgetContent: View {
             if let agent = entry.agent {
                 if family == .systemMedium { mediumAgentContent(agent) }
                 else { agentContent(agent) }
-            } else if let summary = entry.summary {
-                if family == .systemMedium {
-                    mediumContent(summary)
-                } else {
-                    smallContent(summary)
-                }
             } else {
                 unavailableContent
             }
@@ -294,49 +224,6 @@ private struct WidgetContent: View {
             Text(label).font(.caption2).foregroundStyle(.secondary)
             Text("\(amount, specifier: "%.2f") \(unit ?? "")").font(.caption.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7).privacySensitive()
         }.frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func smallContent(_ summary: UsageSummary) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                BrandMark()
-                Text("HRouter")
-                    .font(.subheadline.weight(.semibold))
-                Spacer(minLength: 0)
-            }
-            Spacer(minLength: 10)
-            AmountView(label: copy.today, amount: summary.todayUsage, prominent: true)
-            Spacer(minLength: 8)
-            Divider()
-            Spacer(minLength: 8)
-            AmountView(label: copy.balance, amount: summary.balance, prominent: false)
-        }
-        .padding(14)
-    }
-
-    private func mediumContent(_ summary: UsageSummary) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                BrandMark()
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("HRouter")
-                        .font(.subheadline.weight(.semibold))
-                    Text(updatedText(summary.updatedAt))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 0)
-            }
-            Spacer(minLength: 16)
-            HStack(alignment: .top, spacing: 22) {
-                AmountView(label: copy.today, amount: summary.todayUsage, prominent: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Divider()
-                AmountView(label: copy.balance, amount: summary.balance, prominent: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .padding(16)
     }
 
     private var unavailableContent: some View {

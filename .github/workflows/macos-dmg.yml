@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: macos-dmg-${{ inputs.tag }}
@@ -197,6 +198,34 @@ jobs:
           spctl --assess --type open --context context:primary-signature --verbose=4 "$dmg_path"
           xcrun stapler validate "$dmg_path"
 
+      - name: Wait for Windows artifacts and main-branch checks
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          for workflow in release.yml ci.yml; do
+            ready=false
+            for attempt in $(seq 1 60); do
+              result="$(gh run list --workflow "$workflow" --commit "$sha" --event push --limit 1 --json status,conclusion --jq '.[0] | [.status, .conclusion] | join(" ")')"
+              if [ "$result" = "completed success" ]; then
+                ready=true
+                break
+              fi
+              if [[ "$result" == completed* ]]; then
+                echo "$workflow did not succeed: $result" >&2
+                exit 1
+              fi
+              echo "Waiting for $workflow at $sha ($attempt/60): $result"
+              sleep 30
+            done
+            if [ "$ready" != true ]; then
+              echo "Timed out waiting for $workflow" >&2
+              exit 1
+            fi
+          done
+
       - name: Upload macOS artifacts and update manifest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -250,7 +279,7 @@ jobs:
           )
           gh release upload $tag $manifestPath --clobber
 
-      - name: Validate published macOS updater entries
+      - name: Validate both desktop platforms and publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
@@ -263,7 +292,7 @@ jobs:
           $manifest = Get-Content (Join-Path $manifestDir "latest.json") -Raw | ConvertFrom-Json
           $expectedPrefix = "https://github.com/${{ github.repository }}/releases/download/$tag/"
 
-          foreach ($platformName in @("darwin-aarch64", "darwin-x86_64")) {
+          foreach ($platformName in @("windows-x86_64", "darwin-aarch64", "darwin-x86_64")) {
             $platform = $manifest.platforms.PSObject.Properties[$platformName].Value
             if ($null -eq $platform) {
               throw "Missing updater platform: $platformName"
@@ -275,3 +304,18 @@ jobs:
               throw "Missing updater signature for $platformName"
             }
           }
+
+          if ($manifest.version -ne $tag.Substring(1)) {
+            throw "Unexpected updater version: $($manifest.version)"
+          }
+          $expectedNotes = (Get-Content -LiteralPath ".github/release-notes/$tag.md" -Raw).Trim()
+          if ($manifest.notes.Trim() -ne $expectedNotes) {
+            throw "Updater notes do not match the release notes"
+          }
+          $release = gh release view $tag --json assets | ConvertFrom-Json
+          foreach ($asset in @("HRouter_$($manifest.version)_x64-setup.exe", "HRouter_$($manifest.version)_universal.dmg")) {
+            if (@($release.assets | Where-Object name -eq $asset).Count -ne 1) {
+              throw "Missing desktop installer: $asset"
+            }
+          }
+          gh release edit $tag --draft=false --latest

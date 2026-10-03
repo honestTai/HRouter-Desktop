@@ -75,10 +75,10 @@ fn native_spec(app: &str, id: &str, spec: &Value) -> Result<Value, AppError> {
         return Err(error("Unknown MCP transport"));
     }
     if transport == "stdio"
-        && !object
+        && object
             .get("command")
             .and_then(Value::as_str)
-            .is_some_and(|s| !s.trim().is_empty())
+            .is_none_or(|s| s.trim().is_empty())
     {
         return Err(error("Stdio MCP requires an executable"));
     }

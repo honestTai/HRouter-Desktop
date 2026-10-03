@@ -7,15 +7,11 @@ import {
   Bot,
   CircleHelp,
   Copy,
-  Globe2,
   Headphones,
   Route,
   ShieldCheck,
-  CircleDollarSign,
   KeyRound,
   MousePointerClick,
-  ReceiptText,
-  UserRound,
   X,
 } from "lucide-react";
 import { SUPPORT_QQ_GROUP } from "@/config/brand";
@@ -34,20 +30,8 @@ import {
 } from "@/components/ui/dialog";
 
 const FEATURES = [
-  {
-    key: "portal",
-    icon: Globe2,
-    tone: "text-sky-600 bg-sky-500/10",
-  },
+  { key: "quickKey", icon: KeyRound, tone: "text-sky-600 bg-sky-500/10" },
   { key: "usage", icon: BarChart3, tone: "text-violet-600 bg-violet-500/10" },
-  {
-    key: "billing",
-    icon: CircleDollarSign,
-    tone: "text-orange-600 bg-orange-500/10",
-  },
-  { key: "orders", icon: ReceiptText, tone: "text-amber-600 bg-amber-500/10" },
-  { key: "apiKeys", icon: KeyRound, tone: "text-sky-600 bg-sky-500/10" },
-  { key: "profile", icon: UserRound, tone: "text-rose-600 bg-rose-500/10" },
   { key: "providers", icon: Route, tone: "text-blue-600 bg-blue-500/10" },
   { key: "agents", icon: Bot, tone: "text-emerald-600 bg-emerald-500/10" },
 ] as const;

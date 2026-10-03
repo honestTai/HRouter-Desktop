@@ -69,22 +69,42 @@ describe("shared React UI boundaries", () => {
     expect(violations).toEqual([]);
   });
 
-  it("keeps the wallet aligned with current sub2api and prevents horizontal amount-card overflow", () => {
-    const page = fs.readFileSync(
-      path.resolve("src/components/hrouter/HRouterBillingPage.tsx"),
+  it("removes the platform implementation while retaining API-key quick setup", () => {
+    for (const file of [
+      "src/components/hrouter/HRouterWorkspace.tsx",
+      "src/lib/api/hrouterPlatform.ts",
+      "src/hooks/useHRouterSession.ts",
+      "src/hooks/useHRouterTraySummary.ts",
+      "src-tauri/src/commands/hrouter_platform.rs",
+    ])
+      expect(fs.existsSync(path.resolve(file))).toBe(false);
+
+    const app = fs.readFileSync(path.resolve("src/App.tsx"), "utf8");
+    for (const view of [
+      "hrouter",
+      "billing",
+      "orders",
+      "apiKeys",
+      "profile",
+      "announcements",
+    ])
+      expect(app).not.toContain(`case "${view}"`);
+    const backend = fs.readFileSync(
+      path.resolve("src-tauri/src/lib.rs"),
       "utf8",
     );
-    for (const obsolete of [
-      "estimateRecharge",
-      "CACHE_SHARE",
-      "referenceModel",
-      "tokenEstimate",
-      "officialValueEstimate",
+    for (const command of [
+      "hrouter_platform_request",
+      "fetch_hrouter_model_plaza",
+      "fetch_hrouter_announcements",
+      "update_hrouter_tray_summary",
     ])
-      expect(page).not.toContain(obsolete);
-    expect(page).toContain("flex-col gap-1 whitespace-normal");
-    expect(page).toContain("aria-pressed={numericAmount === value}");
-    expect(page).toContain('t("hrouterWallet.summary")');
+      expect(backend).not.toContain(command);
+    expect(
+      fs.existsSync(
+        path.resolve("src/components/providers/forms/HRouterProviderForm.tsx"),
+      ),
+    ).toBe(true);
   });
 
   it("removes prompt management routes and a duplicate dashboard destination", () => {

@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
-import { useHRouterAccess } from "@/hooks/useHRouterAccess";
 import { isTauri } from "@tauri-apps/api/core";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   Table,
@@ -23,13 +21,9 @@ import {
 } from "@/components/ui/select";
 import { useModelPricing } from "@/lib/query/usage";
 import { isNonNegativeDecimalString } from "@/types/usage";
-import { Database, Loader2, RefreshCw } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { proxyApi } from "@/lib/api/proxy";
-import {
-  HROUTER_MODEL_PLAZA_QUERY_KEY,
-  syncHRouterModelPlazaPricing,
-} from "@/lib/hrouterModelPlazaPricing";
 
 const PRICING_APPS = ["claude", "codex", "gemini", "grokbuild"] as const;
 type PricingApp = (typeof PRICING_APPS)[number];
@@ -43,23 +37,9 @@ interface AppConfig {
 type AppConfigState = Record<PricingApp, AppConfig>;
 
 export function PricingConfigPanel() {
-  const { connected } = useHRouterAccess();
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const localPricingQuery = useModelPricing();
-  const plazaPricingQuery = useQuery({
-    queryKey: HROUTER_MODEL_PLAZA_QUERY_KEY,
-    queryFn: syncHRouterModelPlazaPricing,
-    enabled: connected,
-    staleTime: 10 * 60 * 1000,
-    retry: 1,
-  });
-  const pricing =
-    (connected ? plazaPricingQuery.data?.pricing : undefined) ??
-    localPricingQuery.data ??
-    [];
-  const isUsingLocalFallback =
-    !plazaPricingQuery.data && (localPricingQuery.data?.length ?? 0) > 0;
+  const pricing = localPricingQuery.data ?? [];
 
   // 三个应用的配置状态
   const [appConfigs, setAppConfigs] = useState<AppConfigState>({
@@ -196,35 +176,11 @@ export function PricingConfigPanel() {
     }
   };
 
-  const handleRefreshPlazaPricing = async () => {
-    const result = await plazaPricingQuery.refetch();
-    if (result.data) {
-      await queryClient.invalidateQueries({ queryKey: ["usage"] });
-      toast.success(
-        t("usage.modelPlazaSyncSuccess", {
-          count: result.data.pricing.length,
-        }),
-      );
-      return;
-    }
-    toast.error(t("usage.modelPlazaSyncFailed"));
-  };
-
   if (localPricingQuery.isLoading) {
     return (
       <div className="flex items-center justify-center p-4">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
-    );
-  }
-
-  if (connected && pricing.length === 0 && plazaPricingQuery.error) {
-    return (
-      <Alert variant="destructive">
-        <AlertDescription>
-          {t("usage.loadPricingError")}: {String(plazaPricingQuery.error)}
-        </AlertDescription>
-      </Alert>
     );
   }
 
@@ -352,38 +308,6 @@ export function PricingConfigPanel() {
 
       {/* 模型定价配置 */}
       <div className="space-y-4">
-        {connected && (
-          <div className="flex flex-col gap-3 rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-start gap-2.5">
-              <Database className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-              <div className="min-w-0">
-                <h4 className="text-sm font-medium">
-                  {t("usage.modelPlazaPricingTitle")}
-                </h4>
-                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  {isUsingLocalFallback
-                    ? t("usage.modelPlazaPricingFallback")
-                    : t("usage.modelPlazaPricingDescription")}
-                </p>
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="shrink-0 gap-1.5"
-              disabled={plazaPricingQuery.isFetching}
-              onClick={() => void handleRefreshPlazaPricing()}
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${
-                  plazaPricingQuery.isFetching ? "animate-spin" : ""
-                }`}
-              />
-              {t("common.refresh")}
-            </Button>
-          </div>
-        )}
         <h4 className="text-sm font-medium text-muted-foreground">
           {t("usage.modelPricingDesc")} {t("usage.perMillion")}
         </h4>

@@ -35,11 +35,11 @@ impl McpService {
             AppType::DeepseekHarness,
             AppType::Workbuddy,
         ] {
-            if prev_apps.is_enabled_for(&app) || server.apps.is_enabled_for(&app) {
+            if prev_apps.is_enabled_for(app) || server.apps.is_enabled_for(app) {
                 crate::mcp::extra::preflight(
                     app.as_str(),
                     &server.id,
-                    server.apps.is_enabled_for(&app).then_some(&server.server),
+                    server.apps.is_enabled_for(app).then_some(&server.server),
                 )?;
             }
         }
@@ -70,7 +70,7 @@ impl McpService {
             AppType::DeepseekHarness,
             AppType::Pi,
         ] {
-            if prev_apps.is_enabled_for(&app) && !server.apps.is_enabled_for(&app) {
+            if prev_apps.is_enabled_for(app) && !server.apps.is_enabled_for(app) {
                 Self::remove_server_from_app(state, &server.id, &app)?;
             }
         }
@@ -118,7 +118,7 @@ impl McpService {
         }
         state
             .db
-            .update_mcp_server_app_enabled(server_id, &app, enabled)?;
+            .update_mcp_server_app_enabled(server_id, app, enabled)?;
 
         Ok(())
     }
@@ -300,7 +300,7 @@ impl McpService {
         let mut result = HashMap::new();
 
         for (id, server) in all_servers {
-            if server.apps.is_enabled_for(&app) {
+            if server.apps.is_enabled_for(app) {
                 result.insert(id, server.server);
             }
         }
@@ -328,7 +328,7 @@ impl McpService {
         let servers = Self::get_all_servers(state)?;
 
         for server in servers.values() {
-            if server.apps.is_enabled_for(&app) {
+            if server.apps.is_enabled_for(app) {
                 Self::sync_server_to_app(state, server, &app)?;
             }
         }
@@ -624,10 +624,10 @@ impl McpService {
                 if canonical != spec {
                     return Err(AppError::Config(format!("{} has a different MCP definition named '{id}'; rename it before importing",app.as_str())));
                 }
-                state.db.update_mcp_server_app_enabled(&id, &app, enabled)?;
+                state.db.update_mcp_server_app_enabled(&id, app, enabled)?;
             } else {
                 let mut apps = crate::McpApps::default();
-                apps.set_enabled_for(&app, enabled);
+                apps.set_enabled_for(app, enabled);
                 state.db.save_mcp_server(&McpServer {
                     id: id.clone(),
                     name: id,

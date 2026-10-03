@@ -1,128 +1,150 @@
 <div align="center">
 
+<img src="src-tauri/icons/128x128.png" width="88" alt="HRouter Desktop">
+
 # HRouter Desktop
 
-<img src="src-tauri/icons/128x128.png" width="96" alt="HRouter Desktop">
+**专注 AI 编程工具接入，保持工具干净。**
 
-**接入你选择的模型服务，配得好、切得稳、费用看得清。**
+一个本地优先的桌面配置工作台，集中管理供应商、API Key、模型和线路。
+支持你选择的模型服务；HRouter 仅作为可选的 Key 快捷配置保留。
 
-**Connect your AI coding tools to the providers you choose.**
-
-[Windows 下载](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.3.1/HRouter_0.3.1_x64-setup.exe) · [macOS 下载](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.3.1/HRouter_0.3.1_universal.dmg) · [所有版本 / Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest) · [HRouter](https://hrouter.net/home)
+[下载最新版](https://github.com/honestTai/HRouter-Desktop/releases/latest) · [快速开始](#快速开始) · [界面预览](#界面预览) · [更新记录](CHANGELOG.md) · [English](#english)
 
 </div>
 
-把模型识别、路由配置和用量查询放进一个桌面客户端，减少在不同工具的配置文件之间来回切换。
+![HRouter Desktop 接入工作台](assets/screenshots/workbench-zh.png)
 
-Discover models, configure routing, and track usage in one desktop app instead of juggling configuration files.
+## 下载
 
-**适合谁 / Who it’s for**  
-同时使用多个 AI 编程工具，希望集中配置模型与查看用量的开发者。  
-Developers who use multiple AI coding tools and want a central place for model configuration and usage.
+**当前版本：v0.4.0**
 
-> Based on [CC Switch](https://github.com/farion1231/cc-switch), licensed under MIT. 原作者版权与许可证声明保留。
+| 平台 | 安装包 | 说明 |
+| --- | --- | --- |
+| macOS | [下载 Universal DMG](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.4.0/HRouter_0.4.0_universal.dmg) | Apple Silicon / Intel，macOS 12+ |
+| Windows | [下载 x64 EXE](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.4.0/HRouter_0.4.0_x64-setup.exe) | NSIS 安装程序 |
 
-## 下载与接入 · Download & connect
+[全部版本与附件](https://github.com/honestTai/HRouter-Desktop/releases) · [v0.4.0 发布说明](.github/release-notes/v0.4.0.md)
 
-**v0.3.1** 为接入工作台界面修正版，安装包及各平台发布状态以 [Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest) 为准。
+macOS 正式安装包通过 Developer ID 签名与 Apple 公证。应用内更新使用带签名的更新包；**更新包签名不等同于 Windows Authenticode 签名**。详见[签名政策](CODE_SIGNING_POLICY.md)。
 
-| 平台 / Platform | 安装包 / Installer |
+## 这个工具做什么
+
+不再把模型服务网站装进桌面应用。**没有内置平台登录、充值、订单、账户管理或云端账单模块**，核心流程是：
+
+**选择 Agent → 添加供应商或粘贴已有 Key → 配置模型 → 按需启用线路与配置保护。**
+
+| 能力 | 用途 |
 | --- | --- |
-| Windows x64 | [下载 EXE / Download EXE](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.3.1/HRouter_0.3.1_x64-setup.exe) |
-| macOS Universal | [下载 DMG / Download DMG](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.3.1/HRouter_0.3.1_universal.dmg) |
+| 统一接入 | 管理官方预设、自建端点和兼容 API 服务；一个 Agent 可保存多套供应商配置。 |
+| HRouter Key 快捷配置 | 无需平台登录，填写已有 Key、发现可用模型、调整映射并保存。 |
+| 接入方案 | 保存并切换 Agent 的接入配置，以及相关 MCP / Skills 设置。 |
+| 线路策略 | 配置主备线路、按模型匹配与自动故障转移；不会自动加入未选择的渠道。 |
+| 配置保护 | Claude Code / Codex 可预览变更、保存快照并检查恢复冲突；另有 Lite 模式和提示词保护。 |
+| 本地用量 | 查看请求、Token、趋势与费用估算；可查询供应商配置的用量接口。 |
+| 日常工具 | 管理会话、MCP、Skills；使用桌面用量窗口和 macOS Agent 小组件。 |
+| 配置迁移 | 只读预览 CC Switch 数据库，再导入选中的供应商，不修改源数据库。 |
 
-**当前源码：打开接入工作台 → 添加任意供应商或导入 CC Switch 配置 → 检查接入 → 按需开启配置保护和主备线路。**
+> **边界说明：**本地费用按配置价格估算，不是服务商的实际账单。模型能力、协议、自动接管和保护范围因 Agent 而异；保存成功不代表所有上游模型都兼容。真实请求体检可能产生费用，需主动选择执行。
 
-**Current source: open the workbench → add or import providers → check compatibility → configure protection and failover.**
+## 支持的 Agent
 
-> v0.3.0 包含接入工作台。功能范围和使用说明见 [接入工作台](docs/access-workbench.md)。
+Claude Code · Claude Desktop · Codex · Gemini CLI · Grok Build · OpenCode · OpenClaw · Hermes · Pi Agent · DeepSeek Harness · WorkBuddy
 
-## 功能
+各工具保留独立的配置适配逻辑，不要求它们提供完全相同的功能。具体行为和限制见[接入工作台说明](docs/access-workbench.md)与[修复及验收清单](docs/issue-remediation.md)。
 
-- 支持官方预设和自定义供应商；通用功能无需 HRouter 账号。
-- 可只读预览并导入 CC Switch 供应商，不自动启用、不覆盖原数据库。
-- Claude Code / Codex 接入体检：模型目录、普通响应、流式响应和工具调用；真实请求由用户主动勾选执行。
-- 可选本机配置保护：字段差异预览、切换快照、检测冲突后恢复。
-- 主备线路工作台、本地估算和 HRouter 服务端账单核对、页面余额提醒。
-- 同一个 Agent 可以保存多个 HRouter Key 配置并快速切换。
-- 使用当前 Key 实时获取可用模型。
-- 自动预填默认模型和模型映射，保存前仍可手动调整。
-- 支持 Claude Code、Claude Desktop、Codex、Gemini CLI、Grok Build、OpenCode、OpenClaw 和 Hermes。
-- 自动查询近 30 天用量：订阅 Key 显示总额度、已用和剩余；按量 Key 显示消费与余额。
-- 提供按模型统计的请求量、Token 和费用信息。
+## 界面预览
+
+以下为在 macOS 上直接操作真实桌面应用拍摄的截图，不是网页效果图。涉及凭据、个人路径或账户信息的区域在提交前已检查并遮盖。
+
+### 工作台：先选工具，再选接入方式
+
+顶部切换 Agent，直接添加任意供应商，或使用 HRouter Key 快捷配置。
+
+![接入工作台](assets/screenshots/workbench-zh.png)
+
+### HRouter Key：只配置，不登录
+
+填写已有 Key，按需发现模型；也可以手动调整模型映射。不会创建账户、充值或开通付费订单。
+
+![HRouter Key 快捷配置](assets/screenshots/key-setup-zh.png)
+
+### 线路策略：主备与模型路由集中管理
+
+明确选择线路和故障转移顺序，配置前可先进行接入体检。
+
+![线路策略](assets/screenshots/routes-zh.png)
 
 ## 快速开始
 
-1. 安装 v0.3.1 或从源码启动，进入“接入工作台”。
-2. 选择 Claude Code 或 Codex，添加官方预设、自定义 API 服务，或迁移 CC Switch 供应商。其他 Agent 在配置中心选择。
-3. 如使用 HRouter，选择“HRouter 快捷接入”，填写 Key 并识别模型；没有 Key 可自行前往 [HRouter](https://hrouter.net/) 注册。
-4. 在“接入体检”中查询目录，按需勾选真实请求测试。
-5. 在“配置保护”中主动开启保护，预览后切换；按客户端要求重启以加载配置。
-6. 按需配置主备线路，查看本地估算或登录 HRouter 查询服务端账单。
+1. 从上方下载并安装，打开 HRouter Desktop 的**工作台**。
+2. 选择要配置的 Agent。
+3. 点击**添加供应商**，选择预设或填写兼容服务的地址与 Key。已有 HRouter Key 则点击**添加 HRouter Key**；没有 Key 可自行在 [HRouter 网站](https://hrouter.net/)管理，不需要在桌面端登录。
+4. 检查模型和配置后保存，再启用目标供应商。按 Agent 要求重启或刷新客户端。
+5. 如需线路切换、配置保护或用量查询，再按需开启。首次接入建议先查模型目录，确认后再执行可能计费的真实请求测试。
 
-> GitHub Releases 提供 Windows x64 和 macOS Universal 安装包；开发者也可以按照下面的说明从源码运行。
+从旧版升级：**无需删除现有 Key、供应商或配置目录**。旧平台页面会自动返回工作台；平台账户业务请在网站操作。
 
-## 从源码运行
+### Codex 历史会话
 
-需要 Node.js 20、pnpm、Rust 1.85+，以及当前系统对应的 [Tauri 2 开发依赖](https://v2.tauri.app/start/prerequisites/)。
+当前版本为旧代理 provider 标识提供运行时兼容配置，改善切换供应商后会话可见但无法恢复的问题；不重写历史消息、不删除会话。已受影响的配置可能需要重新应用供应商并重启客户端，详见[故障说明](docs/guides/codex-provider-switch-history-fix-zh.md)。
+
+## 隐私与安全
+
+- API Key 和客户端配置保存在本机；查询模型、使用量或发起请求时，凭据会发送到所选择的服务端。
+- 同步、技能发现、更新检查等功能只在启用或调用时访问对应服务。
+- 配置快照和备份可能包含凭据；分享日志、截图和数据库前请先脱敏。
+- 本项目不内置广告、行为分析或向维护者上传的遥测。
+- 安全问题请通过 [GitHub Security Advisories](https://github.com/honestTai/HRouter-Desktop/security/advisories/new) 私下报告，不要公开提交真实 Key。
+
+[隐私政策](PRIVACY.md) · [安全政策](SECURITY.md) · [macOS 签名与发布](docs/macos-signing.md)
+
+## 本地开发
+
+使用仓库声明的 Node.js / pnpm 版本，以及 `rust-toolchain.toml` 指定的 Rust 工具链。还需要当前系统的 [Tauri 2 构建依赖](https://v2.tauri.app/start/prerequisites/)。
 
 ```bash
 git clone https://github.com/honestTai/HRouter-Desktop.git
 cd HRouter-Desktop
-corepack enable
 pnpm install --frozen-lockfile
 pnpm dev
 ```
-
-常用检查命令：
 
 ```bash
 pnpm typecheck
 pnpm format:check
 pnpm test:unit
+pnpm build:renderer
+cargo fmt --check --manifest-path src-tauri/Cargo.toml
+cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-## 安全
+`pnpm build` 构建当前平台安装包。macOS 正式包还需要签名与公证配置；Windows 包在 Windows 构建环境生成。发布流程会等待两端安装包和自动更新清单验证完成，再公开新版本。
 
-- 用户 Key 是运行时配置，不应提交到 Git 仓库、Issue、日志或截图中。
-- 报告安全问题时请使用 [GitHub Security Advisories](https://github.com/honestTai/HRouter-Desktop/security/advisories/new)，不要公开提交包含凭据的 Issue。
+## 上游与许可证
 
-## Code signing policy
+HRouter Desktop 基于 [CC Switch](https://github.com/farion1231/cc-switch)，沿用 MIT 许可证，并保留原作者版权与归属声明。它是独立发行版，不承诺与上游功能或发布节奏一致。
 
-For releases approved under this policy, free code signing is provided by
-[SignPath.io](https://signpath.io/), with a certificate provided by the
-[SignPath Foundation](https://signpath.org/). The application is pending; the
-v0.2.1 Windows installer is not Authenticode-signed.
+部分 `cc-switch` 内部标识用于兼容原配置、迁移和历史会话，不代表产品品牌。
 
-See the full [code signing policy](CODE_SIGNING_POLICY.md) and
-[privacy policy](PRIVACY.md). The Apple Developer ID setup and release checks
-are documented in [docs/macos-signing.md](docs/macos-signing.md).
-
-## 与 CC Switch 上游的关系
-
-- 上游仓库：<https://github.com/farion1231/cc-switch>
-- 上游许可证：MIT
-- HRouter 会按需参考上游更新，不保证与 CC Switch 功能或发布节奏一致。
-- 代码中保留的部分 `cc-switch` 内部标识用于兼容配置、迁移和历史数据，不代表产品品牌。
-
-详细归属说明见 [NOTICE.md](NOTICE.md)，完整许可条款见 [LICENSE](LICENSE)。
-
----
+[LICENSE](LICENSE) · [NOTICE](NOTICE.md) · [参与贡献](CONTRIBUTING.md)
 
 ## English
 
-HRouter Desktop is an independent distribution based on [CC Switch](https://github.com/farion1231/cc-switch). The current source adds an account-free provider workbench, read-only CC Switch provider import, opt-in diagnostic requests, configuration protection for Claude Code and Codex, failover controls, and local/server billing comparison. HRouter remains an optional integration. The workbench is included from v0.3.0.
+**A focused, local-first configuration workbench for AI coding agents.**
 
-The source also includes Lite mode, provider-only sync, per-model failover routes, explicit Windows/WSL configuration targets, and usage-accounting corrections. See the [issue remediation and acceptance checklist](docs/issue-remediation.md) for verified behavior and remaining real-client validation; compatibility options are not a guarantee for every provider or historical session.
+Manage providers, API keys, models, routing, profiles, and local usage in one desktop app. Use official providers, compatible gateways, or your own endpoints. HRouter is an optional API-key quick setup path—not a required account.
 
-Install the app, create a key in HRouter, select an agent, and choose “Add HRouter.” Enter the key, discover the available models, review the mappings, then save and enable the configuration. See the sections above for development commands.
+Version 0.4.0 promotes the redesigned workbench to the main branch and removes the embedded account portal, payments, orders, announcements, and cloud billing. Existing provider configurations and keys do not need to be deleted.
 
-For signing controls and data handling, see the [code signing policy](CODE_SIGNING_POLICY.md) and [privacy policy](PRIVACY.md).
+- Select an agent, add a provider or paste an existing HRouter key, review models, and enable the configuration.
+- Opt into configuration protection, failover routes, usage queries, MCP, Skills, and session tools as needed.
+- Local costs are estimates, not provider invoices. Compatibility and configuration-write behavior vary by agent.
+- Download Windows x64 or the signed and notarized macOS Universal installer above. Updater signatures are separate from Windows Authenticode signing.
 
-## 作者与服务 · Author & services
+Based on CC Switch and licensed under MIT. See the privacy, security, attribution, and contribution documents linked above.
 
-由 [honestTai](https://github.com/honestTai) 维护，配合 [HRouter](https://hrouter.net/home) 使用。项目反馈欢迎提交到 Issues，使用帮助与模型服务请访问 HRouter。  
-Maintained by honestTai for HRouter users. Share app feedback in Issues; visit HRouter for model access and service help.
+---
 
-[HRouter](https://hrouter.net/home) · [问题反馈 / Issues](https://github.com/honestTai/HRouter-Desktop/issues) · [更多项目 / More projects](https://github.com/honestTai)
+Maintained by [honestTai](https://github.com/honestTai). [反馈问题](https://github.com/honestTai/HRouter-Desktop/issues) · [模型服务](https://hrouter.net/)

@@ -4,7 +4,7 @@ pub mod terminal;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-use providers::{file_agents, claude, codex, gemini, grokbuild, hermes, openclaw, opencode};
+use providers::{claude, codex, file_agents, gemini, grokbuild, hermes, openclaw, opencode};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -164,7 +164,12 @@ fn delete_session_with_roots(
         let validated_root = canonicalize_existing_path(root, "session root")?;
         if validated_source.starts_with(&validated_root) {
             return match provider_id {
-                "pi" | "workbuddy" | "deepseek-harness" => file_agents::delete_session(provider_id, &validated_root, &validated_source, session_id),
+                "pi" | "workbuddy" | "deepseek-harness" => file_agents::delete_session(
+                    provider_id,
+                    &validated_root,
+                    &validated_source,
+                    session_id,
+                ),
                 "codex" => codex::delete_session(&validated_root, &validated_source, session_id),
                 "claude" => claude::delete_session(&validated_root, &validated_source, session_id),
                 "opencode" => {

@@ -25,14 +25,22 @@ pub fn get_providers(
     state: State<'_, AppState>,
     app: String,
 ) -> Result<IndexMap<String, Provider>, String> {
-    if crate::file_provider_service::supports(&app) { return state.db.get_all_providers(&app).map_err(|e| e.to_string()); }
+    if crate::file_provider_service::supports(&app) {
+        return state.db.get_all_providers(&app).map_err(|e| e.to_string());
+    }
     let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
     ProviderService::list(state.inner(), app_type).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn get_current_provider(state: State<'_, AppState>, app: String) -> Result<String, String> {
-    if crate::file_provider_service::supports(&app) { return state.db.get_current_provider(&app).map(|v| v.unwrap_or_default()).map_err(|e| e.to_string()); }
+    if crate::file_provider_service::supports(&app) {
+        return state
+            .db
+            .get_current_provider(&app)
+            .map(|v| v.unwrap_or_default())
+            .map_err(|e| e.to_string());
+    }
     let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
     ProviderService::current(state.inner(), app_type).map_err(|e| e.to_string())
 }
@@ -44,7 +52,9 @@ pub fn add_provider(
     provider: Provider,
     #[allow(non_snake_case)] addToLive: Option<bool>,
 ) -> Result<bool, String> {
-    if crate::file_provider_service::supports(&app) { return crate::file_provider_service::save(state.inner(), &app, provider, true); }
+    if crate::file_provider_service::supports(&app) {
+        return crate::file_provider_service::save(state.inner(), &app, provider, true);
+    }
     let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
     ProviderService::add(state.inner(), app_type, provider, addToLive.unwrap_or(true))
         .map_err(|e| e.to_string())
@@ -57,7 +67,12 @@ pub fn update_provider(
     provider: Provider,
     #[allow(non_snake_case)] originalId: Option<String>,
 ) -> Result<bool, String> {
-    if crate::file_provider_service::supports(&app) { if originalId.as_deref().is_some_and(|id| id != provider.id) { return Err("Changing a provider ID is not supported".into()); } return crate::file_provider_service::save(state.inner(), &app, provider, false); }
+    if crate::file_provider_service::supports(&app) {
+        if originalId.as_deref().is_some_and(|id| id != provider.id) {
+            return Err("Changing a provider ID is not supported".into());
+        }
+        return crate::file_provider_service::save(state.inner(), &app, provider, false);
+    }
     let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
     ProviderService::update(state.inner(), app_type, originalId.as_deref(), provider)
         .map_err(|e| e.to_string())
@@ -69,7 +84,9 @@ pub fn delete_provider(
     app: String,
     id: String,
 ) -> Result<bool, String> {
-    if crate::file_provider_service::supports(&app) { return crate::file_provider_service::delete(state.inner(), &app, &id); }
+    if crate::file_provider_service::supports(&app) {
+        return crate::file_provider_service::delete(state.inner(), &app, &id);
+    }
     let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
     ProviderService::delete(state.inner(), app_type, &id)
         .map(|_| true)
@@ -115,10 +132,20 @@ pub async fn switch_provider(
     if crate::file_provider_service::supports(&app) {
         return tauri::async_runtime::spawn_blocking(move || {
             let state = app_handle.try_state::<AppState>().ok_or("应用状态不可用")?;
-            let result = crate::file_provider_service::switch(state.inner(), &app, &id, expected_fingerprint.as_deref())?;
-            let _ = app_handle.emit("provider-switched", serde_json::json!({"appType":app,"providerId":id}));
+            let result = crate::file_provider_service::switch(
+                state.inner(),
+                &app,
+                &id,
+                expected_fingerprint.as_deref(),
+            )?;
+            let _ = app_handle.emit(
+                "provider-switched",
+                serde_json::json!({"appType":app,"providerId":id}),
+            );
             Ok(result)
-        }).await.map_err(|e| e.to_string())?;
+        })
+        .await
+        .map_err(|e| e.to_string())?;
     }
     let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -215,7 +242,9 @@ pub fn import_default_config_test_hook(
 
 #[tauri::command]
 pub fn import_default_config(state: State<'_, AppState>, app: String) -> Result<bool, String> {
-    if crate::file_provider_service::supports(&app) { return crate::file_provider_service::import(state.inner(), &app); }
+    if crate::file_provider_service::supports(&app) {
+        return crate::file_provider_service::import(state.inner(), &app);
+    }
     let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
     import_default_config_internal(&state, app_type).map_err(Into::into)
 }
@@ -870,7 +899,21 @@ pub fn update_providers_sort_order(
     app: String,
     updates: Vec<ProviderSortUpdate>,
 ) -> Result<bool, String> {
-    if crate::file_provider_service::supports(&app) { for update in updates { let mut p = state.db.get_provider_by_id(&update.id, &app).map_err(|e| e.to_string())?.ok_or("Provider not found")?; p.sort_index = Some(update.sort_index); state.db.save_provider(&app, &p).map_err(|e| e.to_string())?; } return Ok(true); }
+    if crate::file_provider_service::supports(&app) {
+        for update in updates {
+            let mut p = state
+                .db
+                .get_provider_by_id(&update.id, &app)
+                .map_err(|e| e.to_string())?
+                .ok_or("Provider not found")?;
+            p.sort_index = Some(update.sort_index);
+            state
+                .db
+                .save_provider(&app, &p)
+                .map_err(|e| e.to_string())?;
+        }
+        return Ok(true);
+    }
     let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
     ProviderService::update_sort_order(state.inner(), app_type, updates).map_err(|e| e.to_string())
 }

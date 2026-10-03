@@ -1,6 +1,5 @@
 import { NativeWidgetSync } from "@/components/widget/NativeWidgetSync";
 import { emitTo } from "@tauri-apps/api/event";
-import { HRouterWorkspace } from "@/components/hrouter/HRouterWorkspace";
 import {
   invalidateAgentContext,
   invalidateAllAgentContexts,
@@ -49,7 +48,6 @@ import { hermesKeys, useOpenHermesWebUI } from "@/hooks/useHermes";
 import { hermesApi } from "@/lib/api/hermes";
 import { useProxyStatus } from "@/hooks/useProxyStatus";
 import { useUsageCacheBridge } from "@/hooks/useUsageCacheBridge";
-import { useHRouterTraySummary } from "@/hooks/useHRouterTraySummary";
 import { useTauriEvent } from "@/hooks/useTauriEvent";
 import { useLastValidValue } from "@/hooks/useLastValidValue";
 import { useScanUnmanagedSkills } from "@/hooks/useSkills";
@@ -72,12 +70,7 @@ import { AccessWorkbench } from "@/components/access/AccessWorkbench";
 import { EditProviderDialog } from "@/components/providers/EditProviderDialog";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SettingsPage } from "@/components/settings/SettingsPage";
-import { HRouterAnnouncements } from "@/components/HRouterAnnouncements";
-import {
-  AnalyticsPage,
-  type AnalyticsSource,
-} from "@/components/usage/AnalyticsPage";
-import { useHRouterAccess } from "@/hooks/useHRouterAccess";
+import { AnalyticsPage } from "@/components/usage/AnalyticsPage";
 import { FeatureTour } from "@/components/FeatureTour";
 import { MagpieTopNav } from "@/components/layout/MagpieTopNav";
 import { ProfilesPage } from "@/components/profiles/ProfilesPage";
@@ -114,13 +107,8 @@ import OpenClawHealthBanner from "@/components/openclaw/OpenClawHealthBanner";
 import HermesMemoryPanel from "@/components/hermes/HermesMemoryPanel";
 
 type View =
-  | "hrouter"
   | "workbench"
   | "usage"
-  | "billing"
-  | "orders"
-  | "apiKeys"
-  | "profile"
   | "providers"
   | "profiles"
   | "routes"
@@ -135,8 +123,7 @@ type View =
   | "openclawEnv"
   | "openclawTools"
   | "openclawAgents"
-  | "hermesMemory"
-  | "announcements";
+  | "hermesMemory";
 
 interface SyncStatusUpdatedPayload {
   source?: string;
@@ -172,17 +159,11 @@ const getInitialApp = (): AppId => {
 
 const VIEW_STORAGE_KEY = "hrouter-last-view";
 const VALID_VIEWS: View[] = [
-  "hrouter",
   "workbench",
   "usage",
-  "billing",
-  "orders",
-  "apiKeys",
-  "profile",
   "providers",
   "profiles",
   "routes",
-  "announcements",
   "settings",
 ];
 
@@ -207,29 +188,6 @@ function MainApp() {
     );
   }, [activeApp]);
   const [currentView, setCurrentView] = useState<View>(getInitialView);
-  const [analyticsSource, setAnalyticsSource] =
-    useState<AnalyticsSource>("local");
-  const {
-    connected: hrouterConnected,
-    cloudEnabled: hrouterCloudEnabled,
-    isLoading: hrouterAccessLoading,
-  } = useHRouterAccess();
-  useEffect(() => {
-    if (hrouterAccessLoading) return;
-    if (
-      (!hrouterConnected &&
-        ["hrouter", "profile", "announcements"].includes(currentView)) ||
-      (!hrouterCloudEnabled &&
-        ["billing", "orders", "apiKeys"].includes(currentView))
-    ) {
-      setCurrentView("usage");
-    }
-  }, [
-    currentView,
-    hrouterConnected,
-    hrouterCloudEnabled,
-    hrouterAccessLoading,
-  ]);
   const [skillsDiscoverySource, setSkillsDiscoverySource] =
     useState<SkillsPageSource>("repos");
   const [settingsDefaultTab, setSettingsDefaultTab] = useState("general");
@@ -253,12 +211,9 @@ function MainApp() {
   const useAppWindowControls =
     isLinux() && (settingsData?.useAppWindowControls ?? false);
   const dragBarHeight = useAppWindowControls ? 32 : DEFAULT_DRAG_BAR_HEIGHT;
-  const hasContextToolbar = ![
-    "workbench",
-    "profiles",
-    "routes",
-    "hrouter",
-  ].includes(currentView);
+  const hasContextToolbar = !["workbench", "profiles", "routes"].includes(
+    currentView,
+  );
   const headerHeight = hasContextToolbar ? 112 : 56;
   const contentTopOffset = dragBarHeight + headerHeight;
   const visibleApps: VisibleApps = settingsData?.visibleApps ?? {
@@ -297,7 +252,6 @@ function MainApp() {
   const effectiveUsageProvider = useLastValidValue(usageProvider);
 
   useUsageCacheBridge();
-  useHRouterTraySummary();
 
   const mcpPanelRef = useRef<any>(null);
   const skillsPageRef = useRef<any>(null);
@@ -946,31 +900,9 @@ function MainApp() {
 
   const renderContent = () => {
     const content = (() => {
-      if (
-        (["hrouter", "profile", "announcements"].includes(currentView) &&
-          !hrouterConnected) ||
-        (["billing", "orders", "apiKeys"].includes(currentView) &&
-          !hrouterCloudEnabled)
-      ) {
-        return (
-          <AnalyticsPage
-            activeApp={activeApp}
-            source="local"
-            onSourceChange={setAnalyticsSource}
-            onLogin={() => setCurrentView("hrouter")}
-          />
-        );
-      }
       switch (currentView) {
         case "usage":
-          return (
-            <AnalyticsPage
-              activeApp={activeApp}
-              source={analyticsSource}
-              onSourceChange={setAnalyticsSource}
-              onLogin={() => setCurrentView("hrouter")}
-            />
-          );
+          return <AnalyticsPage activeApp={activeApp} />;
         case "workbench":
           return (
             <AccessWorkbench
@@ -986,10 +918,6 @@ function MainApp() {
                 if (app) setActiveApp(app);
                 setCurrentView("providers");
               }}
-              onHRouterUsage={() => {
-                setCurrentView("hrouter");
-              }}
-              onHRouterAccount={() => setCurrentView("hrouter")}
             />
           );
 
@@ -1009,12 +937,6 @@ function MainApp() {
               }}
             />
           );
-        case "hrouter":
-        case "billing":
-        case "orders":
-        case "apiKeys":
-        case "profile":
-          return <HRouterWorkspace />;
         case "settings":
           return (
             <SettingsPage
@@ -1026,8 +948,6 @@ function MainApp() {
           );
         case "hermesMemory":
           return <HermesMemoryPanel />;
-        case "announcements":
-          return <HRouterAnnouncements />;
         case "skills":
           return (
             <UnifiedSkillsPanel
@@ -1190,14 +1110,9 @@ function MainApp() {
   const isPrimaryNavigationView =
     currentView === "workbench" ||
     currentView === "usage" ||
-    currentView === "billing" ||
-    currentView === "orders" ||
-    currentView === "apiKeys" ||
-    currentView === "profile" ||
     currentView === "providers" ||
     currentView === "profiles" ||
     currentView === "routes" ||
-    currentView === "announcements" ||
     currentView === "settings";
 
   return (
@@ -1302,8 +1217,6 @@ function MainApp() {
           onHermesWebUI={() => void openHermesWebUI()}
           currentView={currentView}
           onNavigate={(view) => setCurrentView(view)}
-          onProfile={() => setCurrentView("hrouter")}
-          onFrontend={() => void handleOpenWebsite("https://hrouter.net/home")}
           onSettings={() => {
             setSettingsDefaultTab("general");
             setCurrentView("settings");
@@ -1363,54 +1276,22 @@ function MainApp() {
                   <h1 className="truncate text-base font-semibold">
                     {currentView === "workbench" && "接入工作台"}
                     {currentView === "usage" && t("workspaceUi.analyticsTitle")}
-                    {currentView === "billing" &&
-                      t("navigation.billing", { defaultValue: "充值支付" })}
-                    {currentView === "orders" &&
-                      t("navigation.orders", { defaultValue: "个人订单" })}
-                    {currentView === "apiKeys" &&
-                      t("navigation.apiKeys", { defaultValue: "API 密钥" })}
-                    {currentView === "profile" &&
-                      t("navigation.profile", { defaultValue: "个人中心" })}
                     {currentView === "providers" &&
                       t("navigation.providers", { defaultValue: "配置中心" })}
                     {currentView === "profiles" &&
                       t("workspace.profiles", { defaultValue: "接入方案" })}
                     {currentView === "routes" &&
                       t("workspace.routes", { defaultValue: "线路策略" })}
-                    {currentView === "announcements" &&
-                      t("navigation.announcements", {
-                        defaultValue: "公告与服务",
-                      })}
                     {currentView === "settings" && t("settings.title")}
                   </h1>
                   <p className="truncate text-[11px] text-muted-foreground">
                     {currentView === "usage" && t("localAnalytics.usageHint")}
-                    {currentView === "billing" &&
-                      t("navigation.billingHint", {
-                        defaultValue: "充值账户余额并管理邀请返利",
-                      })}
-                    {currentView === "orders" &&
-                      t("navigation.ordersHint", {
-                        defaultValue: "单独查看和管理个人充值订单",
-                      })}
-                    {currentView === "apiKeys" &&
-                      t("navigation.apiKeysHint", {
-                        defaultValue: "创建并管理 HRouter 调用密钥",
-                      })}
-                    {currentView === "profile" &&
-                      t("navigation.profileHint", {
-                        defaultValue: "管理个人资料与账户密码",
-                      })}
                     {currentView === "providers" &&
                       t("localAnalytics.providersHint")}
                     {currentView === "profiles" &&
                       "保存和切换 Agent 接入配置、MCP 与 Skills"}
                     {currentView === "routes" &&
                       "管理主线路、备用线路和自动故障切换"}
-                    {currentView === "announcements" &&
-                      t("navigation.announcementsHint", {
-                        defaultValue: "查看 HRouter.net 公告与平台服务",
-                      })}
                   </p>
                 </div>
               )}
@@ -1866,8 +1747,6 @@ function MainApp() {
       />
 
       <FeatureTour
-        hrouterConnected={hrouterConnected}
-        hrouterCloudEnabled={hrouterCloudEnabled}
         onNavigate={(view) => {
           const nextView = view as View;
           if (VALID_VIEWS.includes(nextView)) setCurrentView(nextView);

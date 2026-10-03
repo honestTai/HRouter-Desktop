@@ -81,7 +81,7 @@ pub fn restore_skill_backup(
     app_state: State<'_, AppState>,
 ) -> Result<InstalledSkill, String> {
     let app_type = parse_app_type(&current_app)?;
-    SkillService::restore_from_backup(&app_state.db, &backup_id, &app_type)
+    SkillService::restore_from_backup(&app_state.db, &backup_id, app_type)
         .map_err(|e| e.to_string())
 }
 
@@ -94,7 +94,7 @@ pub fn toggle_skill_app(
     app_state: State<'_, AppState>,
 ) -> Result<bool, String> {
     let app_type = parse_app_type(&app)?;
-    SkillService::toggle_app(&app_state.db, &id, &app_type, enabled).map_err(|e| e.to_string())?;
+    SkillService::toggle_app(&app_state.db, &id, app_type, enabled).map_err(|e| e.to_string())?;
     Ok(true)
 }
 
@@ -337,7 +337,7 @@ pub fn install_skills_from_zip(
     let app_type = parse_app_type(&current_app)?;
     let path = std::path::Path::new(&file_path);
 
-    SkillService::install_from_zip(&app_state.db, path, &app_type).map_err(|e| e.to_string())
+    SkillService::install_from_zip(&app_state.db, path, app_type).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

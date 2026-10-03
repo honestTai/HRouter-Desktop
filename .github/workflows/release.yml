@@ -141,7 +141,7 @@ jobs:
           )
           gh release upload $tag $manifestPath --clobber
 
-      - name: Validate updater manifest and publish release
+      - name: Validate Windows updater manifest (keep release draft)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
@@ -174,4 +174,4 @@ jobs:
             }
           }
 
-          gh release edit $tag --draft=false
+          # macos-dmg.yml publishes only after both desktop platforms are ready.

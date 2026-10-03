@@ -91,12 +91,12 @@ pub async fn upsert_mcp_server_in_config(
     let mut new_server = if let Some(mut existing) = existing_server {
         // 更新现有服务器
         existing.server = spec.clone();
-        existing.apps.set_enabled_for(&app_ty, true);
+        existing.apps.set_enabled_for(app_ty, true);
         existing
     } else {
         // 创建新服务器
         let mut apps = crate::app_config::McpApps::default();
-        apps.set_enabled_for(&app_ty, true);
+        apps.set_enabled_for(app_ty, true);
 
         // 尝试从 spec 中提取 name，否则使用 id
         let name = spec

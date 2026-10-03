@@ -1309,7 +1309,7 @@ pub fn sync_current_to_live(state: &AppState) -> Result<(), AppError> {
 
     // Resource destinations also include file-backed Agents, independently of provider enums.
     for app_type in crate::ResourceTarget::skill_targets() {
-        if let Err(e) = crate::services::skill::SkillService::sync_to_app(&state.db, &app_type) {
+        if let Err(e) = crate::services::skill::SkillService::sync_to_app(&state.db, app_type) {
             log::warn!("同步 Skill 到 {app_type:?} 失败: {e}");
             // Continue syncing other apps, don't abort
         }

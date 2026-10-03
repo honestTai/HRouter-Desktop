@@ -20,13 +20,6 @@ export default defineConfig(({ command }) => ({
   server: {
     port: 3000,
     strictPort: true,
-    proxy: {
-      "/hrouter-api": {
-        target: "https://hrouter.net",
-        changeOrigin: true,
-        rewrite: (requestPath) => requestPath.replace(/^\/hrouter-api/, "/api"),
-      },
-    },
   },
   resolve: {
     alias: {

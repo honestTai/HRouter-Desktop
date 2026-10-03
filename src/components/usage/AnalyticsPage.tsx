@@ -1,12 +1,8 @@
 import type { AppId } from "@/lib/api/types";
 import { UsageDashboard } from "./UsageDashboard";
 import { LocalUsageSync } from "./LocalUsageSync";
-export type AnalyticsSource = "local" | "hrouter";
 interface Props {
   activeApp?: AppId;
-  source: AnalyticsSource;
-  onSourceChange: (source: AnalyticsSource) => void;
-  onLogin: () => void;
 }
 export function AnalyticsPage({ activeApp = "claude" }: Props) {
   return (

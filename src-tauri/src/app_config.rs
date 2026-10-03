@@ -174,7 +174,7 @@ impl SkillApps {
         let mut apps = Self::default();
         for label in labels {
             if let Ok(app) = label.parse::<crate::resource_target::ResourceTarget>() {
-                apps.set_enabled_for(&app, true);
+                apps.set_enabled_for(app, true);
             }
         }
         apps

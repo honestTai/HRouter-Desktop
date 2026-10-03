@@ -2096,9 +2096,118 @@ fn apply_codex_official_proxy_route_with_history(
     Ok(doc.to_string())
 }
 
+// A rollout can retain this old provider id even after its messages become
+// visible under another configuration. Keep a live-only alias so thread/resume
+// can resolve it without rewriting rollouts or the state database. The comment
+// distinguishes this alias from the official takeover ownership marker.
+const CODEX_LEGACY_RESUME_ALIAS_MARKER: &str =
+    "# HRouter legacy resume alias (not an official takeover marker)";
+
+fn is_codex_legacy_resume_alias(item: &toml_edit::Item) -> bool {
+    item.as_table()
+        .and_then(|table| table.decor().prefix())
+        .and_then(|prefix| prefix.as_str())
+        .is_some_and(|prefix| prefix.contains(CODEX_LEGACY_RESUME_ALIAS_MARKER))
+}
+
+pub(crate) fn prepare_codex_legacy_resume_alias(config_text: &str) -> Result<String, AppError> {
+    let mut doc = config_text
+        .parse::<DocumentMut>()
+        .map_err(|e| AppError::Message(format!("Invalid Codex config.toml: {e}")))?;
+    let active = active_codex_model_provider_id(&doc).unwrap_or_else(|| "openai".into());
+    if active == CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID
+        || codex_config_has_official_proxy_route(config_text)
+    {
+        return Ok(config_text.to_string());
+    }
+    let existing = doc
+        .get("model_providers")
+        .and_then(|p| p.as_table_like())
+        .and_then(|p| p.get(CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID));
+    // Never replace an explicitly configured, unowned provider.
+    if existing.is_some_and(|item| !is_codex_legacy_resume_alias(item)) {
+        return Ok(config_text.to_string());
+    }
+    let mut route = match doc
+        .get("model_providers")
+        .and_then(|p| p.as_table_like())
+        .and_then(|p| p.get(&active))
+    {
+        Some(toml_edit::Item::Table(table)) => table.clone(),
+        Some(toml_edit::Item::Value(toml_edit::Value::InlineTable(table))) => {
+            table.clone().into_table()
+        }
+        None if active == "openai" => codex_unified_official_provider_table(),
+        _ => return Ok(config_text.to_string()),
+    };
+    route
+        .decor_mut()
+        .set_prefix(format!("\n{CODEX_LEGACY_RESUME_ALIAS_MARKER}\n"));
+    // Normalize an inline parent before adding the annotated table.
+    if let Some(toml_edit::Item::Value(toml_edit::Value::InlineTable(parent))) =
+        doc.get("model_providers")
+    {
+        doc["model_providers"] = toml_edit::Item::Table(parent.clone().into_table());
+    }
+    if doc.get("model_providers").is_none() {
+        let mut parent = toml_edit::Table::new();
+        parent.set_implicit(true);
+        doc["model_providers"] = toml_edit::Item::Table(parent);
+    }
+    let providers = doc["model_providers"].as_table_mut().ok_or_else(|| {
+        AppError::Message("Invalid Codex config.toml: model_providers must be a table".into())
+    })?;
+    providers.insert(
+        CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID,
+        toml_edit::Item::Table(route),
+    );
+    Ok(doc.to_string())
+}
+
+fn strip_codex_legacy_resume_alias(config_text: &str) -> Result<String, AppError> {
+    let mut doc = config_text
+        .parse::<DocumentMut>()
+        .map_err(|e| AppError::Message(format!("Invalid Codex config.toml: {e}")))?;
+    if active_codex_model_provider_id(&doc).as_deref()
+        == Some(CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID)
+    {
+        return Ok(config_text.to_string());
+    }
+    if let Some(providers) = doc
+        .get_mut("model_providers")
+        .and_then(|p| p.as_table_like_mut())
+    {
+        if providers
+            .get(CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID)
+            .is_some_and(is_codex_legacy_resume_alias)
+        {
+            providers.remove(CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID);
+            if providers.is_empty() {
+                doc.as_table_mut().remove("model_providers");
+            }
+            return Ok(doc.to_string());
+        }
+    }
+    Ok(config_text.to_string())
+}
+
 /// Whether a live Codex config is the official route projected by HRouter.
 pub fn codex_config_has_official_proxy_route(config_text: &str) -> bool {
     if !config_text.contains(CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID) {
+        return false;
+    }
+    if config_text
+        .parse::<DocumentMut>()
+        .ok()
+        .and_then(|doc| {
+            doc.get("model_providers")?
+                .as_table_like()?
+                .get(CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID)
+                .cloned()
+        })
+        .as_ref()
+        .is_some_and(is_codex_legacy_resume_alias)
+    {
         return false;
     }
     let Ok(doc) = config_text.parse::<toml::Value>() else {
@@ -2387,9 +2496,11 @@ pub fn write_codex_live_for_provider(
             && !crate::settings::preserve_codex_official_auth_on_switch());
 
     if should_write_auth {
-        write_codex_live_atomic(auth, config_text)
+        let live_config = prepare_codex_legacy_resume_alias(config_text.unwrap_or(""))?;
+        write_codex_live_atomic(auth, Some(&live_config))
     } else {
         let live_config = prepare_codex_provider_live_config(auth, config_text.unwrap_or(""))?;
+        let live_config = prepare_codex_legacy_resume_alias(&live_config)?;
         write_codex_live_config_atomic(Some(&live_config))
     }
 }
@@ -2460,6 +2571,9 @@ pub fn restore_codex_settings_for_backfill(
     template_settings: &Value,
     restore_provider_token: bool,
 ) -> Result<(), AppError> {
+    if let Some(config) = settings.get("config").and_then(Value::as_str) {
+        settings["config"] = Value::String(strip_codex_legacy_resume_alias(config)?);
+    }
     // The stable session key is a live projection, not the supplier's stored
     // identity. Reverse it before backfill (including matching profiles), so
     // exporting/editing a provider never inherits another supplier's key.
@@ -2762,6 +2876,100 @@ model_provider = "custom"
             doc["profiles"]["other"]["model_provider"].as_str(),
             Some("relay")
         );
+    }
+
+    #[test]
+    fn legacy_resume_alias_follows_route_and_auth_without_changing_session_identity() {
+        let input = r#"model_provider = "custom"
+model = "test-model"
+[model_providers.custom]
+name = "OpenAI"
+base_url = "https://relay.example/v1"
+wire_api = "responses"
+experimental_bearer_token = "new-token"
+requires_openai_auth = false
+"#;
+        let output = prepare_codex_legacy_resume_alias(input).unwrap();
+        let doc: toml::Value = toml::from_str(&output).unwrap();
+        assert_eq!(doc["model_provider"].as_str(), Some("custom"));
+        assert_eq!(
+            doc["model_providers"][CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID],
+            doc["model_providers"]["custom"]
+        );
+        assert!(!codex_config_has_official_proxy_route(&output));
+        assert_eq!(remove_codex_official_proxy_route(&output).unwrap(), output);
+        assert_eq!(prepare_codex_legacy_resume_alias(&output).unwrap(), output);
+
+        // Update only the active route, as a provider switch/proxy rewrite does.
+        let mut changed = output.parse::<DocumentMut>().unwrap();
+        changed["model_providers"]["custom"]["base_url"] =
+            toml_edit::value("https://next.example/v1");
+        changed["model_providers"]["custom"]["experimental_bearer_token"] =
+            toml_edit::value("next-token");
+        let updated = prepare_codex_legacy_resume_alias(&changed.to_string()).unwrap();
+        let doc: toml::Value = toml::from_str(&updated).unwrap();
+        assert_eq!(
+            doc["model_providers"][CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID],
+            doc["model_providers"]["custom"]
+        );
+        let mut settings = json!({"config": updated});
+        restore_codex_settings_for_backfill(&mut settings, &json!({"config": input}), false)
+            .unwrap();
+        let stored: toml::Value = toml::from_str(settings["config"].as_str().unwrap()).unwrap();
+        assert!(stored["model_providers"]
+            .get(CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID)
+            .is_none());
+    }
+
+    #[test]
+    fn legacy_resume_alias_preserves_official_auth_and_user_owned_routes() {
+        let output = prepare_codex_legacy_resume_alias("model = \"test-model\"\n").unwrap();
+        let doc: toml::Value = toml::from_str(&output).unwrap();
+        assert!(doc.get("model_provider").is_none());
+        let alias = &doc["model_providers"][CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID];
+        assert_eq!(alias["requires_openai_auth"].as_bool(), Some(true));
+        assert!(alias.get("base_url").is_none());
+        assert!(alias.get("experimental_bearer_token").is_none());
+        assert!(!codex_config_has_official_proxy_route(&output));
+        for unified in [false, true] {
+            let takeover = apply_codex_official_proxy_route_with_history(
+                "",
+                "http://127.0.0.1:15721/v1",
+                unified,
+            )
+            .unwrap();
+            assert_eq!(
+                prepare_codex_legacy_resume_alias(&takeover).unwrap(),
+                takeover
+            );
+            assert!(codex_config_has_official_proxy_route(&takeover));
+        }
+        let user_owned = r#"model_provider = "custom"
+[model_providers.custom]
+name = "Current"
+[model_providers.cc-switch-official]
+name = "User owned"
+base_url = "https://user.example/v1"
+"#;
+        assert_eq!(
+            prepare_codex_legacy_resume_alias(user_owned).unwrap(),
+            user_owned
+        );
+        assert!(prepare_codex_legacy_resume_alias("invalid = [").is_err());
+    }
+
+    #[test]
+    fn legacy_resume_alias_supports_inline_provider_tables() {
+        let input = r#"model_provider = "relay"
+model_providers = { relay = { name = "Relay", base_url = "https://relay.example/v1", http_headers = { "X-Test" = "value" } } }
+"#;
+        let output = prepare_codex_legacy_resume_alias(input).unwrap();
+        let doc: toml::Value = toml::from_str(&output).unwrap();
+        assert_eq!(
+            doc["model_providers"]["relay"],
+            doc["model_providers"][CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID]
+        );
+        assert_eq!(prepare_codex_legacy_resume_alias(&output).unwrap(), output);
     }
 
     #[test]

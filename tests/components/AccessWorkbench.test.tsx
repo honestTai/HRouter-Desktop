@@ -18,9 +18,7 @@ import { accessApi } from "@/lib/api/access";
 import { providersApi } from "@/lib/api";
 import { proxyApi } from "@/lib/api/proxy";
 import { open } from "@tauri-apps/plugin-dialog";
-import { reconciliationRange } from "@/components/access/BillingReconciliation";
 
-vi.mock("@/hooks/useHRouterSession", () => ({ useHRouterSession: () => null }));
 vi.mock("@/components/usage/UsageDashboard", () => ({
   UsageDashboard: () => <div>本地统计可用</div>,
 }));
@@ -31,8 +29,6 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 const actions = {
   onAdd: vi.fn(),
   onProviders: vi.fn(),
-  onHRouterUsage: vi.fn(),
-  onHRouterAccount: vi.fn(),
 };
 function show() {
   const client = new QueryClient({
@@ -78,7 +74,11 @@ describe("AccessWorkbench", () => {
     show();
     fireEvent.click(screen.getByRole("button", { name: "添加供应商" }));
     expect(actions.onAdd).toHaveBeenCalledWith("general", "claude");
-    expect(actions.onHRouterAccount).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "添加 HRouter Key" }));
+    expect(actions.onAdd).toHaveBeenCalledWith("hrouter", "claude");
+    expect(
+      screen.queryByRole("button", { name: "了解 / 登录 HRouter" }),
+    ).toBeNull();
   });
   it("previews imports and submits only the selected nonexisting items", async () => {
     vi.mocked(open).mockResolvedValue("C:/migration/cc-switch.db");
@@ -162,7 +162,7 @@ describe("AccessWorkbench", () => {
   it("does not gate local usage on account login", async () => {
     const user = userEvent.setup();
     show();
-    await user.click(screen.getByRole("tab", { name: "费用与账单" }));
+    await user.click(screen.getByRole("tab", { name: "费用与用量" }));
     expect(screen.getByText("本地统计可用")).toBeVisible();
     expect(
       screen.queryByRole("button", { name: "了解 / 登录 HRouter" }),
@@ -187,20 +187,6 @@ describe("AccessWorkbench", () => {
     }
   });
 });
-describe("billing date scope", () => {
-  it("uses complete local calendar days", () => {
-    const range = reconciliationRange("2026-09-01", "2026-09-01");
-    expect(new Date(range.startDate * 1000).getHours()).toBe(0);
-    expect(new Date(range.endDate * 1000).getHours()).toBe(23);
-    expect(new Date(range.endDate * 1000).getSeconds()).toBe(59);
-  });
-  it("rejects reversed or excessive ranges", () => {
-    expect(() => reconciliationRange("2026-09-02", "2026-09-01")).toThrow();
-    expect(() => reconciliationRange("2026-01-01", "2026-09-01")).toThrow();
-    expect(() => reconciliationRange("invalid", "2026-09-01")).toThrow();
-  });
-});
-
 it("routes all eleven agents through the same provider workspace and add action", async () => {
   show();
   const user = userEvent.setup();
@@ -219,6 +205,8 @@ it("routes all eleven agents through the same provider workspace and add action"
     ).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "添加供应商" }));
     expect(actions.onAdd).toHaveBeenLastCalledWith("general", id);
+    await user.click(screen.getByRole("button", { name: "添加 HRouter Key" }));
+    expect(actions.onAdd).toHaveBeenLastCalledWith("hrouter", id);
     await user.click(screen.getByRole("button", { name: "配置中心" }));
     expect(actions.onProviders).toHaveBeenLastCalledWith(id);
   }

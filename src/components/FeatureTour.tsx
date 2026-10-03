@@ -5,8 +5,6 @@ import { Button } from "@/components/ui/button";
 
 interface FeatureTourProps {
   onNavigate: (view: string) => void;
-  hrouterConnected?: boolean;
-  hrouterCloudEnabled?: boolean;
 }
 
 interface TourRect {
@@ -16,30 +14,12 @@ interface TourRect {
   height: number;
 }
 
-const allSteps = [
+const steps = [
   { target: "usage", view: "usage" },
-  { target: "billing", view: "billing" },
-  { target: "orders", view: "orders" },
-  { target: "apiKeys", view: "apiKeys" },
-  { target: "profile", view: "profile" },
   { target: "providers", view: "providers" },
 ] as const;
 
-export function FeatureTour({
-  onNavigate,
-  hrouterConnected = false,
-  hrouterCloudEnabled = false,
-}: FeatureTourProps) {
-  const steps = useMemo(
-    () =>
-      allSteps.filter((step) => {
-        if (step.view === "profile") return hrouterConnected;
-        if (["billing", "orders", "apiKeys"].includes(step.view))
-          return hrouterCloudEnabled;
-        return true;
-      }),
-    [hrouterConnected, hrouterCloudEnabled],
-  );
+export function FeatureTour({ onNavigate }: FeatureTourProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
