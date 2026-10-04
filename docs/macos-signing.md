@@ -46,8 +46,8 @@ certificate file extensions as a second line of defense.
 
 ## Release and verification
 
-Run the **macOS Signed Universal Release** workflow for an existing release tag.
-It builds universal `app` and `dmg` bundles, lets Tauri sign and notarize them,
+Run the **macOS Signed Apple Silicon Release** workflow for an existing release tag.
+It builds arm64-only `app` and `dmg` bundles for Apple Silicon (M-series) Macs, lets Tauri sign and notarize them,
 and refuses to upload artifacts unless all of these checks pass:
 
 ```bash
@@ -58,6 +58,17 @@ spctl --assess --type open --context context:primary-signature --verbose=4 HRout
 xcrun stapler validate HRouter.dmg
 ```
 
-The workflow uploads the DMG, the universal Tauri updater archive, and its
-signature. It then adds both `darwin-aarch64` and `darwin-x86_64` entries to the
-existing `latest.json` without replacing Windows entries.
+The workflow verifies that both the app and WidgetKit extension contain only
+`arm64` executables, then uploads the `HRouter_<version>_aarch64.dmg`, Tauri
+updater archive, and its signature. It adds `darwin-aarch64` to `latest.json`
+without replacing Windows entries, removes any `darwin-x86_64` entry, and
+removes obsolete Intel/universal DMGs for that same release. Intel Macs are not
+supported starting with v0.4.0.
+
+Application sources are checked out from the release tag. Release notes are
+read from the workflow dispatch revision, so draft notes can be corrected
+without moving the tag; the GitHub release body and updater notes are kept in sync.
+
+Leave the `publish` input at its default `false` while testing. The workflow
+validates both desktop platforms but keeps a draft unpublished unless `publish`
+is explicitly enabled. A successful build alone does not approve public release.

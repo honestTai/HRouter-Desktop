@@ -174,4 +174,4 @@ jobs:
             }
           }
 
-          # macos-dmg.yml publishes only after both desktop platforms are ready.
+          # macos-dmg.yml validates both platforms and publishes only when explicitly requested.

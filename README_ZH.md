@@ -36,12 +36,12 @@
 
 ## 下载
 
-| 平台        | 安装包                                                                                            | 架构                                         |
-| ----------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| **macOS**   | [前往 Releases 下载](https://github.com/honestTai/HRouter-Desktop/releases/latest) · `.dmg`       | Universal：Apple Silicon + Intel · macOS 12+ |
-| **Windows** | [前往 Releases 下载](https://github.com/honestTai/HRouter-Desktop/releases/latest) · `-setup.exe` | x64                                          |
+| 平台        | 安装包                                                                                            | 架构                                  |
+| ----------- | ------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| **macOS**   | [前往 Releases 下载](https://github.com/honestTai/HRouter-Desktop/releases/latest) · `.dmg`       | 仅 Apple Silicon（M 系列）· macOS 12+ |
+| **Windows** | [前往 Releases 下载](https://github.com/honestTai/HRouter-Desktop/releases/latest) · `-setup.exe` | x64                                   |
 
-> **v0.4.0 预览：**本文介绍 `main` 分支上重做后的工作台。v0.4.0 尚未公开发布，下载链接目前指向 v0.3.1。可用安装包以 [Releases](https://github.com/honestTai/HRouter-Desktop/releases) 为准。
+> **v0.4.0 预览：**本文介绍 `main` 分支上重做后的工作台。v0.4.0 尚未公开发布，下载链接目前指向 v0.3.1。可用安装包以 [Releases](https://github.com/honestTai/HRouter-Desktop/releases) 为准。从 v0.4.0 起，macOS 安装包仅支持 M 系列 Mac，不支持 Intel Mac。
 
 [更新记录](CHANGELOG.md) · [代码签名政策](CODE_SIGNING_POLICY.md)
 

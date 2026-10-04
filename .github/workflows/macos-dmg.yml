@@ -1,4 +1,4 @@
-name: macOS Signed Universal Release
+name: macOS Signed Apple Silicon Release
 
 on:
   workflow_dispatch:
@@ -21,8 +21,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  universal-release:
-    name: macOS Signed Universal Release
+  apple-silicon-release:
+    name: macOS Signed Apple Silicon Release
     runs-on: macos-latest
     timeout-minutes: 60
 
@@ -31,6 +31,16 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ inputs.tag }}
+
+      # Build app sources from the immutable tag, but allow draft release notes
+      # to be corrected on the revision used to dispatch this workflow.
+      - name: Checkout release metadata
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: .release-metadata
+          sparse-checkout: .github/release-notes
+          persist-credentials: false
 
       - name: Verify release version
         shell: pwsh
@@ -49,7 +59,7 @@ jobs:
             throw "Release versions do not match: tag=$tagVersion package=$packageVersion tauri=$tauriVersion cargo=$cargoVersion"
           }
 
-          $notesPath = ".github/release-notes/$tag.md"
+          $notesPath = ".release-metadata/.github/release-notes/$tag.md"
           if (-not (Test-Path -LiteralPath $notesPath -PathType Leaf)) {
             throw "Missing release notes: $notesPath"
           }
@@ -83,8 +93,8 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install macOS Rust targets
-        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - name: Install Apple Silicon Rust target
+        run: rustup target add aarch64-apple-darwin
 
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
@@ -117,7 +127,7 @@ jobs:
             exit 1
           fi
 
-      - name: Build, sign, and notarize universal macOS bundles
+      - name: Build, sign, and notarize Apple Silicon macOS bundles
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -126,7 +136,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: pnpm tauri build --target universal-apple-darwin --bundles app,dmg
+        run: pnpm tauri build --target aarch64-apple-darwin --bundles app,dmg
 
       - name: Notarize and staple macOS disk image
         shell: bash
@@ -136,7 +146,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
-          bundle_root="src-tauri/target/universal-apple-darwin/release/bundle"
+          bundle_root="src-tauri/target/aarch64-apple-darwin/release/bundle"
           shopt -s nullglob
           dmg_files=("$bundle_root"/dmg/*.dmg)
 
@@ -159,7 +169,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
-          bundle_root="src-tauri/target/universal-apple-darwin/release/bundle"
+          bundle_root="src-tauri/target/aarch64-apple-darwin/release/bundle"
           app_path=$(find "$bundle_root/macos" -maxdepth 1 -name '*.app' -type d -print -quit)
           dmg_path=$(find "$bundle_root/dmg" -maxdepth 1 -name '*.dmg' -type f -print -quit)
 
@@ -173,6 +183,16 @@ jobs:
             echo "Missing WidgetKit extension: $widget_path" >&2
             exit 1
           fi
+
+          # Both executables must be arm64-only, not Intel or universal binaries.
+          for bundle in "$app_path" "$widget_path"; do
+            executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$bundle/Contents/Info.plist")
+            architectures=$(lipo -archs "$bundle/Contents/MacOS/$executable")
+            if [ "$architectures" != "arm64" ]; then
+              echo "Expected arm64-only executable in $bundle, found: $architectures" >&2
+              exit 1
+            fi
+          done
 
           codesign --verify --deep --strict --verbose=2 "$app_path"
           signing_details=$(codesign -dv --verbose=4 "$app_path" 2>&1)
@@ -238,14 +258,14 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $tag = "${{ inputs.tag }}"
-          $bundleRoot = "src-tauri/target/universal-apple-darwin/release/bundle"
-          $dmgFiles = @(Get-ChildItem "src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg")
+          $bundleRoot = "src-tauri/target/aarch64-apple-darwin/release/bundle"
+          $dmgFiles = @(Get-ChildItem "src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg")
           if ($dmgFiles.Count -ne 1) {
-            throw "Expected exactly one universal DMG, found $($dmgFiles.Count)"
+            throw "Expected exactly one Apple Silicon DMG, found $($dmgFiles.Count)"
           }
           $updaterFiles = @(Get-ChildItem "$bundleRoot/macos/*.app.tar.gz")
           if ($updaterFiles.Count -ne 1) {
-            throw "Expected exactly one universal updater archive, found $($updaterFiles.Count)"
+            throw "Expected exactly one Apple Silicon updater archive, found $($updaterFiles.Count)"
           }
           $signaturePath = "$($updaterFiles[0].FullName).sig"
           if (-not (Test-Path -LiteralPath $signaturePath -PathType Leaf)) {
@@ -274,7 +294,8 @@ jobs:
             url = "https://github.com/${{ github.repository }}/releases/download/$tag/$assetName"
           }
           $manifest.platforms | Add-Member -NotePropertyName "darwin-aarch64" -NotePropertyValue $entry -Force
-          $manifest.platforms | Add-Member -NotePropertyName "darwin-x86_64" -NotePropertyValue $entry -Force
+          $manifest.platforms.PSObject.Properties.Remove("darwin-x86_64")
+          $manifest.notes = (Get-Content -LiteralPath ".release-metadata/.github/release-notes/$tag.md" -Raw).Trim()
 
           $json = $manifest | ConvertTo-Json -Depth 10
           [IO.File]::WriteAllText(
@@ -297,7 +318,7 @@ jobs:
           $manifest = Get-Content (Join-Path $manifestDir "latest.json") -Raw | ConvertFrom-Json
           $expectedPrefix = "https://github.com/${{ github.repository }}/releases/download/$tag/"
 
-          foreach ($platformName in @("windows-x86_64", "darwin-aarch64", "darwin-x86_64")) {
+          foreach ($platformName in @("windows-x86_64", "darwin-aarch64")) {
             $platform = $manifest.platforms.PSObject.Properties[$platformName].Value
             if ($null -eq $platform) {
               throw "Missing updater platform: $platformName"
@@ -310,17 +331,39 @@ jobs:
             }
           }
 
+          if ($null -ne $manifest.platforms.PSObject.Properties["darwin-x86_64"]) {
+            throw "Intel macOS must not appear in the updater manifest"
+          }
           if ($manifest.version -ne $tag.Substring(1)) {
             throw "Unexpected updater version: $($manifest.version)"
           }
-          $expectedNotes = (Get-Content -LiteralPath ".github/release-notes/$tag.md" -Raw).Trim()
+          $expectedNotes = (Get-Content -LiteralPath ".release-metadata/.github/release-notes/$tag.md" -Raw).Trim()
           if ($manifest.notes.Trim() -ne $expectedNotes) {
             throw "Updater notes do not match the release notes"
           }
           $release = gh release view $tag --json assets | ConvertFrom-Json
-          foreach ($asset in @("HRouter_$($manifest.version)_x64-setup.exe", "HRouter_$($manifest.version)_universal.dmg")) {
+          foreach ($asset in @("HRouter_$($manifest.version)_x64-setup.exe", "HRouter_$($manifest.version)_aarch64.dmg")) {
             if (@($release.assets | Where-Object name -eq $asset).Count -ne 1) {
               throw "Missing desktop installer: $asset"
+            }
+          }
+
+      - name: Update release notes and remove obsolete macOS installers
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tag = "${{ inputs.tag }}"
+          gh release edit $tag --notes-file ".release-metadata/.github/release-notes/$tag.md"
+          if ($LASTEXITCODE -ne 0) { throw "Could not update release notes" }
+          $release = gh release view $tag --json assets | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Could not read release assets" }
+          $version = $tag.Substring(1)
+          foreach ($obsolete in @("HRouter_${version}_universal.dmg", "HRouter_${version}_x64.dmg")) {
+            if (@($release.assets | Where-Object name -eq $obsolete).Count -gt 0) {
+              gh release delete-asset $tag $obsolete --yes
+              if ($LASTEXITCODE -ne 0) { throw "Could not remove obsolete installer: $obsolete" }
             }
           }
 
