@@ -41,7 +41,7 @@ Different agents. Different config files. Different providers. Switching your co
 | **macOS**   | [Download from Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest) · `.dmg`       | Apple Silicon (M-series) only · macOS 12+ |
 | **Windows** | [Download from Releases](https://github.com/honestTai/HRouter-Desktop/releases/latest) · `-setup.exe` | x64                                       |
 
-> **v0.4.0 preview:** This README describes the redesigned workbench on `main`. v0.4.0 is not yet public; the download links currently lead to v0.3.1. See [Releases](https://github.com/honestTai/HRouter-Desktop/releases) for available packages. Starting with v0.4.0, macOS packages support M-series Macs only; Intel Macs are not supported.
+> **v0.4.0 is available.** Download the latest release above, or check for updates in the app. macOS packages support Apple Silicon (M-series) only; Intel Macs are not supported.
 
 [Changelog](CHANGELOG.md) · [Code-signing policy](CODE_SIGNING_POLICY.md)
 
