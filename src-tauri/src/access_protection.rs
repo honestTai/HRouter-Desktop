@@ -164,10 +164,60 @@ pub fn preserve_claude(live: &Value, target: &Value) -> Result<Value, AppError> 
     Ok(result)
 }
 
+/// Provider snapshots must not own the local Windows sandbox setup. This
+/// narrower merge is used when updating a stored takeover backup, where the
+/// provider/common-config MCP definitions must still win.
+fn preserve_codex_local_sandbox_settings(
+    live: &toml_edit::DocumentMut,
+    target: &mut toml_edit::DocumentMut,
+) {
+    for key in [
+        "approval_policy",
+        "sandbox_mode",
+        "sandbox_workspace_write",
+        "windows",
+        "windows_wsl_setup_acknowledged",
+    ] {
+        if let Some(value) = live.get(key) {
+            target[key] = value.clone();
+        } else {
+            target.remove(key);
+        }
+    }
+    for key in ["experimental_windows_sandbox", "elevated_windows_sandbox"] {
+        let live_value = live.get("features").and_then(|item| item.get(key));
+        match live_value {
+            Some(value) => {
+                if target.get("features").is_none() {
+                    target["features"] = toml_edit::Item::Table(toml_edit::Table::new());
+                }
+                if let Some(features) = target
+                    .get_mut("features")
+                    .and_then(toml_edit::Item::as_table_like_mut)
+                {
+                    features.insert(key, value.clone());
+                }
+            }
+            None => {
+                if let Some(features) = target
+                    .get_mut("features")
+                    .and_then(toml_edit::Item::as_table_like_mut)
+                {
+                    features.remove(key);
+                }
+            }
+        }
+    }
+}
+
 pub fn preserve_codex(live: &str, target: &str) -> Result<String, AppError> {
     let mut live = live
         .parse::<toml_edit::DocumentMut>()
         .map_err(|_| AppError::Config("现有 Codex TOML 无效，已停止写入。".into()))?;
+    let live_provider_id = live
+        .get("model_provider")
+        .and_then(|item| item.as_str())
+        .map(str::to_string);
     let target = target
         .parse::<toml_edit::DocumentMut>()
         .map_err(|_| AppError::Config("目标 Codex TOML 无效。".into()))?;
@@ -198,7 +248,20 @@ pub fn preserve_codex(live: &str, target: &str) -> Result<String, AppError> {
             let table = live["model_providers"]
                 .as_table_like_mut()
                 .ok_or_else(|| AppError::Config("model_providers 必须为表。".into()))?;
-            table.insert(id, provider.clone());
+            // During takeover, Codex keeps existing sessions on the stable
+            // cc-switch-official bucket. Update that bucket with the selected
+            // provider's gateway/API settings instead of leaving the old
+            // OpenAI route behind it.
+            let destination = if live_provider_id.as_deref()
+                == Some(crate::codex_config::CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID)
+                && id != crate::codex_config::CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID
+            {
+                crate::codex_config::CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID
+            } else {
+                id
+            };
+            table.remove(destination);
+            table.insert(destination, provider.clone());
         }
     }
     if let Some(value) = target
@@ -215,12 +278,115 @@ pub fn preserve_codex(live: &str, target: &str) -> Result<String, AppError> {
     } else if let Some(table) = live.get_mut("features").and_then(|i| i.as_table_like_mut()) {
         table.remove("api_key_model_discovery");
     }
+    // MCP definitions may be supplied by the selected provider's explicit
+    // common-config snippet. Preserve the current machine's MCP section when
+    // the target has none, but let an explicit target section win conflicts.
+    if let Some(value) = target.get("mcp_servers") {
+        live["mcp_servers"] = value.clone();
+    }
     Ok(live.to_string())
+}
+
+/// Merge provider-owned Codex route fields onto the current machine config.
+/// Provider snapshots must not replace local agent settings such as sandbox,
+/// approvals, plugins, skills, or other future Codex options. An explicit
+/// provider common-config MCP section remains an intentional exception.
+pub(crate) fn preserve_extensions(
+    app: &AppType,
+    live: &Value,
+    mut target: Value,
+) -> Result<Value, AppError> {
+    match app {
+        AppType::Codex => {
+            let config = |value: &Value| -> Result<String, AppError> {
+                match value.get("config") {
+                    None => Ok(String::new()),
+                    Some(Value::String(text)) => Ok(text.clone()),
+                    _ => Err(AppError::Config("Codex config 必须为 TOML 字符串。".into())),
+                }
+            };
+            let live = config(live)?
+                .parse::<toml_edit::DocumentMut>()
+                .map_err(|_| AppError::Config("现有 Codex TOML 无效，已停止写入。".into()))?;
+            let mut doc = config(&target)?
+                .parse::<toml_edit::DocumentMut>()
+                .map_err(|_| AppError::Config("目标 Codex TOML 无效。".into()))?;
+            for key in ["plugins", "skills"] {
+                if let Some(value) = live.get(key) {
+                    doc[key] = value.clone();
+                } else {
+                    doc.remove(key);
+                }
+            }
+            preserve_codex_local_sandbox_settings(&live, &mut doc);
+            let target = target
+                .as_object_mut()
+                .ok_or_else(|| AppError::Config("Codex 配置必须为对象。".into()))?;
+            target.insert("config".into(), Value::String(doc.to_string()));
+        }
+        AppType::Claude => {
+            let live = live
+                .as_object()
+                .ok_or_else(|| AppError::Config("现有 Claude 配置必须为对象。".into()))?;
+            let target = target
+                .as_object_mut()
+                .ok_or_else(|| AppError::Config("目标 Claude 配置必须为对象。".into()))?;
+            for key in ["enabledPlugins", "extraKnownMarketplaces"] {
+                if let Some(value) = live.get(key) {
+                    target.insert(key.into(), value.clone());
+                } else {
+                    target.remove(key);
+                }
+            }
+        }
+        _ => {}
+    }
+    Ok(target)
+}
+
+pub(crate) fn preserve_local_extensions(
+    app: &AppType,
+    mut target: Value,
+) -> Result<Value, AppError> {
+    let path = match app {
+        AppType::Codex => crate::codex_config::get_codex_config_path(),
+        AppType::Claude => crate::config::get_claude_settings_path(),
+        _ => return Ok(target),
+    };
+    let text = match std::fs::read_to_string(&path) {
+        Ok(text) => text,
+        // First setup has no local preferences to preserve; keep the import.
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(target),
+        Err(e) => return Err(AppError::io(&path, e)),
+    };
+    let live = if matches!(app, AppType::Codex) {
+        json!({"config": text})
+    } else {
+        serde_json::from_str(&text)
+            .map_err(|_| AppError::Config("现有 Claude JSON 无效，已停止写入。".into()))?
+    };
+    if matches!(app, AppType::Codex) {
+        let live_config = live.get("config").and_then(Value::as_str).unwrap_or("");
+        let target_obj = target
+            .as_object_mut()
+            .ok_or_else(|| AppError::Config("Codex 配置必须为对象。".into()))?;
+        let target_config = target_obj
+            .get("config")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        target_obj.insert(
+            "config".into(),
+            Value::String(preserve_codex(live_config, target_config)?),
+        );
+        Ok(target)
+    } else {
+        preserve_extensions(app, &live, target)
+    }
 }
 
 pub fn protect_settings(app: &AppType, target: Value) -> Result<Value, AppError> {
     if !enabled(app) {
-        return Ok(target);
+        return preserve_local_extensions(app, target);
     }
     let files = read_files(app)?;
     match app {
@@ -724,6 +890,166 @@ mod tests {
         assert!(preserve_codex("invalid = [", "model='new'").is_err());
         assert!(preserve_claude(&json!({"env":"invalid"}), &json!({})).is_err());
     }
+    #[test]
+    fn codex_extension_preservation_keeps_comments_arrays_and_disabled_state() {
+        let live = json!({"config": "# preferences\n[plugins.writer]\n# keep disabled\nenabled = false\n[[skills.config]]\npath = '/skills/writer'\nenabled = false\n"});
+        let target = json!({"auth":{"OPENAI_API_KEY":"target-key"},"config":"model = 'new'\n[plugins.stale]\nenabled = true\n"});
+        let result = preserve_extensions(&AppType::Codex, &live, target.clone()).unwrap();
+        let config = result["config"].as_str().unwrap();
+        let parsed: toml::Value = toml::from_str(config).unwrap();
+        assert!(config.contains("# keep disabled"));
+        assert_eq!(
+            parsed["plugins"]["writer"]["enabled"].as_bool(),
+            Some(false)
+        );
+        assert_eq!(
+            parsed["skills"]["config"][0]["path"].as_str(),
+            Some("/skills/writer")
+        );
+        assert!(parsed["plugins"].get("stale").is_none());
+        assert_eq!(result["auth"], target["auth"]);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn local_extensions_allow_first_setup_but_reject_invalid_existing_config() {
+        let _home = TestHome::new();
+        for (app, target, invalid) in [
+            (
+                AppType::Codex,
+                json!({"config":"[plugins.writer]\nenabled = true\n"}),
+                "broken = [",
+            ),
+            (
+                AppType::Claude,
+                json!({"enabledPlugins":{"writer":true}}),
+                "{broken",
+            ),
+        ] {
+            assert_eq!(
+                preserve_local_extensions(&app, target.clone()).unwrap(),
+                target
+            );
+            let path = paths(&app)[0].clone();
+            crate::config::write_text_file(&path, invalid).unwrap();
+            assert!(preserve_local_extensions(&app, target).is_err());
+            assert_eq!(std::fs::read_to_string(path).unwrap(), invalid);
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn codex_extension_preservation_does_not_depend_on_protection_toggle() {
+        let _home = TestHome::new();
+        let app = AppType::Codex;
+        crate::config::write_text_file(&paths(&app)[0], "[plugins.writer]\nenabled = true\n[[skills.config]]\npath = '/skills/writer'\nenabled = false\n").unwrap();
+        for enabled in [false, true] {
+            set_enabled(&app, enabled).unwrap();
+            let result = protect_settings(&app, json!({"config":"model = 'new'\n"})).unwrap();
+            let parsed: toml::Value = toml::from_str(result["config"].as_str().unwrap()).unwrap();
+            assert_eq!(parsed["plugins"]["writer"]["enabled"].as_bool(), Some(true));
+            assert_eq!(
+                parsed["skills"]["config"][0]["enabled"].as_bool(),
+                Some(false)
+            );
+            assert_eq!(parsed["model"].as_str(), Some("new"));
+        }
+    }
+
+    #[test]
+    fn codex_sandbox_preferences_survive_provider_replacement() {
+        let live = json!({"config": r#"sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+[windows]
+# Device setup is not owned by a provider.
+sandbox = "elevated"
+[sandbox_workspace_write]
+network_access = false
+writable_roots = ['C:\work']
+[features]
+experimental_windows_sandbox = false
+elevated_windows_sandbox = true
+unrelated = false
+"#});
+        let target = json!({"auth":{"OPENAI_API_KEY":"target"},"config": r#"model = "new"
+sandbox_mode = "danger-full-access"
+approval_policy = "never"
+[windows]
+sandbox = "unelevated"
+[sandbox_workspace_write]
+network_access = true
+[features]
+experimental_windows_sandbox = true
+api_key_model_discovery = true
+"#});
+        let result = preserve_extensions(&AppType::Codex, &live, target.clone()).unwrap();
+        let text = result["config"].as_str().unwrap();
+        let doc: toml::Value = toml::from_str(text).unwrap();
+        let original: toml::Value = toml::from_str(live["config"].as_str().unwrap()).unwrap();
+        for key in [
+            "windows",
+            "sandbox_mode",
+            "sandbox_workspace_write",
+            "approval_policy",
+        ] {
+            assert_eq!(doc.get(key), original.get(key), "lost local {key}");
+        }
+        for key in ["experimental_windows_sandbox", "elevated_windows_sandbox"] {
+            assert_eq!(doc["features"].get(key), original["features"].get(key));
+        }
+        assert_eq!(
+            doc["features"]["api_key_model_discovery"].as_bool(),
+            Some(true)
+        );
+        assert!(doc["features"].get("unrelated").is_none());
+        assert!(text.contains("# Device setup is not owned by a provider."));
+        assert_eq!(doc["model"].as_str(), Some("new"));
+        assert_eq!(result["auth"], target["auth"]);
+    }
+
+    #[test]
+    fn codex_sandbox_absence_does_not_import_another_devices_setup() {
+        let result = preserve_extensions(
+            &AppType::Codex,
+            &json!({"config":"model = 'old'\n"}),
+            json!({"config":"model = 'new'\nsandbox_mode = 'danger-full-access'\napproval_policy = 'never'\nwindows = { sandbox = 'elevated' }\nsandbox_workspace_write = { network_access = true }\nfeatures = { elevated_windows_sandbox = true, experimental_windows_sandbox = true, api_key_model_discovery = true }\n"}),
+        ).unwrap();
+        let doc: toml::Value = toml::from_str(result["config"].as_str().unwrap()).unwrap();
+        for key in [
+            "windows",
+            "sandbox_mode",
+            "sandbox_workspace_write",
+            "approval_policy",
+        ] {
+            assert!(doc.get(key).is_none(), "imported foreign {key}");
+        }
+        assert!(doc["features"].get("elevated_windows_sandbox").is_none());
+        assert!(doc["features"]
+            .get("experimental_windows_sandbox")
+            .is_none());
+        assert_eq!(
+            doc["features"]["api_key_model_discovery"].as_bool(),
+            Some(true)
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn codex_sandbox_preservation_is_not_opt_in() {
+        let _home = TestHome::new();
+        let app = AppType::Codex;
+        // Inline tables also appear in imported config files.
+        crate::config::write_text_file(&paths(&app)[0], "windows = { sandbox = 'unelevated' }\n")
+            .unwrap();
+        for enabled in [false, true] {
+            set_enabled(&app, enabled).unwrap();
+            let result = protect_settings(&app, json!({"config":"model = 'new'\n"})).unwrap();
+            let doc: toml::Value = toml::from_str(result["config"].as_str().unwrap()).unwrap();
+            assert_eq!(doc["windows"]["sandbox"].as_str(), Some("unelevated"));
+            assert_eq!(doc["model"].as_str(), Some("new"));
+        }
+    }
+
     struct TestHome {
         _dir: tempfile::TempDir,
         previous: Option<std::ffi::OsString>,

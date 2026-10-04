@@ -345,6 +345,11 @@ impl ProxyService {
             provider,
         )
         .map_err(|e| format!("构建 claude 有效配置失败: {e}"))?;
+        effective_provider.settings_config = crate::access_protection::preserve_local_extensions(
+            &AppType::Claude,
+            effective_provider.settings_config,
+        )
+        .map_err(|e| format!("保留 Claude 插件配置失败: {e}"))?;
         Ok(effective_provider)
     }
 
@@ -382,6 +387,11 @@ impl ProxyService {
                 existing_live,
             )?;
         }
+        effective_settings = crate::access_protection::preserve_local_extensions(
+            &AppType::Codex,
+            effective_settings,
+        )
+        .map_err(|e| format!("保留 Codex 扩展配置失败: {e}"))?;
         let (_, proxy_codex_base_url) = self.build_proxy_urls().await?;
 
         Self::apply_codex_takeover_fields_for_provider(
@@ -1853,6 +1863,20 @@ impl ProxyService {
                     "{app_type_str} 备份本身已是代理占位符（异常历史状态），跳过备份，改走 SSOT 重建 Live"
                 );
             } else {
+                let config = if matches!(app_type, AppType::Codex) {
+                    // The current Codex Live file is proxy-mutated while
+                    // stopping takeover. Preserve only local agent sections
+                    // from it; a full merge would copy HRouter's proxy route
+                    // back into the original restore backup.
+                    let live = self
+                        .read_codex_live()
+                        .unwrap_or_else(|_| json!({"config": ""}));
+                    crate::access_protection::preserve_extensions(app_type, &live, config)
+                        .map_err(|e| format!("恢复时保留扩展配置失败: {e}"))?
+                } else {
+                    crate::access_protection::preserve_local_extensions(app_type, config)
+                        .map_err(|e| format!("恢复时保留扩展配置失败: {e}"))?
+                };
                 self.write_live_config_for_app(app_type, &config)?;
                 log::info!("{app_type_str} Live 配置已从备份恢复");
                 return Ok(());
@@ -2371,6 +2395,12 @@ impl ProxyService {
                     &mut effective_settings,
                     existing_value,
                 )?;
+                effective_settings = crate::access_protection::preserve_extensions(
+                    &AppType::Codex,
+                    existing_value,
+                    effective_settings,
+                )
+                .map_err(|e| format!("保留 Codex 扩展备份失败: {e}"))?;
                 Self::preserve_codex_auth_in_backup(
                     &mut effective_settings,
                     existing_value,
@@ -2405,6 +2435,18 @@ impl ProxyService {
                     existing_value,
                 )?;
             }
+        }
+
+        // Claude/Grok local settings are not part of their provider snapshot.
+        // Codex was already merged against the trusted original backup above;
+        // re-merging from the proxy-mutated live file here would reintroduce
+        // the stopped proxy route into the restore backup.
+        if !matches!(app_type_enum, AppType::Codex) {
+            effective_settings = crate::access_protection::preserve_local_extensions(
+                &app_type_enum,
+                effective_settings,
+            )
+            .map_err(|e| format!("保留 {app_type} 扩展配置失败: {e}"))?;
         }
 
         let backup_json = match app_type_enum {
@@ -2533,6 +2575,14 @@ impl ProxyService {
                     &provider,
                 )
                 .map_err(|e| format!("构建 Codex 有效配置失败: {e}"))?;
+                // Direct Codex hot-switching writes the provider snapshot without
+                // passing through `protect_settings`; merge only provider-owned
+                // route fields onto the current machine config first.
+                let effective_settings = crate::access_protection::preserve_local_extensions(
+                    &AppType::Codex,
+                    effective_settings,
+                )
+                .map_err(|e| format!("保留 Codex 本机配置失败: {e}"))?;
                 let auth = effective_settings
                     .get("auth")
                     .ok_or_else(|| "Codex 供应商缺少 auth 配置".to_string())?;
@@ -2793,6 +2843,45 @@ impl ProxyService {
             proxy_base_url,
             Some(provider),
         )?;
+        // Add the proxy placeholder before mirroring the route, so existing
+        // sessions get the same provider-scoped token as new requests.
+        let projected = crate::codex_config::prepare_codex_provider_live_config(
+            settings.get("auth").unwrap_or(&Value::Null),
+            &projected,
+        )
+        .map_err(|e| format!("写入 Codex 代理 token 失败: {e}"))?;
+        // Existing Codex sessions may still refer to the stable takeover
+        // bucket. Keep that bucket in lockstep with the newly selected active
+        // provider, while leaving the active provider id unchanged so this is
+        // no longer detected as the built-in official route.
+        let projected = if let Ok(mut doc) = projected.parse::<toml_edit::DocumentMut>() {
+            let active = doc.get("model_provider").and_then(|item| item.as_str());
+            if let Some(active) = active {
+                let active_provider = doc
+                    .get("model_providers")
+                    .and_then(|item| item.as_table_like())
+                    .and_then(|providers| providers.get(active))
+                    .cloned();
+                if let Some(active_provider) = active_provider {
+                    if let Some(providers) = doc
+                        .get_mut("model_providers")
+                        .and_then(|item| item.as_table_like_mut())
+                    {
+                        if providers.contains_key(
+                            crate::codex_config::CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID,
+                        ) {
+                            providers.insert(
+                                crate::codex_config::CC_SWITCH_CODEX_OFFICIAL_PROXY_PROVIDER_ID,
+                                active_provider,
+                            );
+                        }
+                    }
+                }
+            }
+            doc.to_string()
+        } else {
+            projected
+        };
         settings["config"] = json!(projected);
         Self::attach_codex_model_catalog_from_provider(settings, Some(provider));
         Ok(())
@@ -5953,6 +6042,130 @@ base_url = "https://codex.example/v1"
         assert!(
             config.contains("disable_response_storage = true"),
             "common config should be applied into Codex restore backup"
+        );
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn proxy_switch_and_restore_preserve_current_extension_preferences() {
+        let _home = TempHome::new();
+        crate::settings::reload_settings().unwrap();
+        let db = Arc::new(Database::memory().unwrap());
+        let service = ProxyService::new(db.clone());
+        let path = crate::codex_config::get_codex_config_path();
+        let initial = "model = 'old'\n[plugins.writer]\nenabled = true\n[[skills.config]]\npath = '/skills/writer'\nenabled = false\n";
+        crate::config::write_text_file(&path, initial).unwrap();
+        crate::config::write_text_file(&crate::codex_config::get_codex_auth_path(), "{}").unwrap();
+        let provider = Provider::with_id(
+            "new".into(),
+            "New".into(),
+            json!({
+                "auth":{"OPENAI_API_KEY":"new-key"},
+                "config":"model = 'new'\nmodel_provider = 'new'\n[model_providers.new]\nname = 'New'\nbase_url = 'https://new.example/v1'\nwire_api = 'responses'\n[plugins.stale]\nenabled = true\n"
+            }),
+            None,
+        );
+        db.save_live_backup("codex", &json!({"auth":{},"config":initial}).to_string())
+            .await
+            .unwrap();
+        service
+            .update_live_backup_from_provider("codex", &provider)
+            .await
+            .unwrap();
+        service
+            .sync_codex_live_from_provider_while_proxy_active(&provider)
+            .await
+            .unwrap();
+        let current = std::fs::read_to_string(&path).unwrap();
+        let parsed: toml::Value = toml::from_str(&current).unwrap();
+        assert_eq!(parsed["plugins"]["writer"]["enabled"].as_bool(), Some(true));
+        assert_eq!(
+            parsed["skills"]["config"][0]["enabled"].as_bool(),
+            Some(false)
+        );
+        assert!(parsed["plugins"].get("stale").is_none());
+        assert_eq!(parsed["model"].as_str(), Some("new"));
+        // The user changes extension settings while the proxy is active.
+        let mut current = current.parse::<toml_edit::DocumentMut>().unwrap();
+        current["plugins"]["writer"]["enabled"] = toml_edit::value(false);
+        current.remove("skills");
+        crate::config::write_text_file(&path, &current.to_string()).unwrap();
+        service
+            .restore_live_config_for_app_with_fallback_inner(&AppType::Codex)
+            .await
+            .unwrap();
+        let restored: toml::Value =
+            toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(
+            restored["plugins"]["writer"]["enabled"].as_bool(),
+            Some(false)
+        );
+        assert!(restored.get("skills").is_none());
+        assert_eq!(
+            restored["model_providers"]["new"]["base_url"].as_str(),
+            Some("https://new.example/v1")
+        );
+
+        let claude_path = crate::config::get_claude_settings_path();
+        let claude_live = json!({"enabledPlugins":{"writer@example":false},"env":{"ANTHROPIC_API_KEY":"old-key"}});
+        crate::config::write_text_file(&claude_path, &claude_live.to_string()).unwrap();
+        let claude = Provider::with_id(
+            "claude-new".into(),
+            "New".into(),
+            json!({
+                "env":{"ANTHROPIC_API_KEY":"new-key","ANTHROPIC_BASE_URL":"https://new.example"},
+                "enabledPlugins":{"stale@example":true}
+            }),
+            None,
+        );
+        service
+            .update_live_backup_from_provider("claude", &claude)
+            .await
+            .unwrap();
+        service
+            .sync_claude_live_from_provider_while_proxy_active(&claude)
+            .await
+            .unwrap();
+        let current = service.read_claude_live().unwrap();
+        assert_eq!(current["enabledPlugins"], claude_live["enabledPlugins"]);
+        service
+            .restore_live_config_for_app_with_fallback_inner(&AppType::Claude)
+            .await
+            .unwrap();
+        let restored = service.read_claude_live().unwrap();
+        assert_eq!(restored["enabledPlugins"], claude_live["enabledPlugins"]);
+        assert_eq!(restored["env"]["ANTHROPIC_API_KEY"], "new-key");
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn codex_extension_backup_survives_when_live_file_is_missing() {
+        let _home = TempHome::new();
+        crate::settings::reload_settings().unwrap();
+        let db = Arc::new(Database::memory().unwrap());
+        let service = ProxyService::new(db.clone());
+        db.save_live_backup(
+            "codex",
+            &json!({"auth":{},"config":"[plugins.writer]\nenabled = false\n"}).to_string(),
+        )
+        .await
+        .unwrap();
+        let provider = Provider::with_id(
+            "new".into(),
+            "New".into(),
+            json!({"auth":{},"config":"model = 'new'\n"}),
+            None,
+        );
+        service
+            .update_live_backup_from_provider("codex", &provider)
+            .await
+            .unwrap();
+        let backup = db.get_live_backup("codex").await.unwrap().unwrap();
+        let settings: Value = serde_json::from_str(&backup.original_config).unwrap();
+        let parsed: toml::Value = toml::from_str(settings["config"].as_str().unwrap()).unwrap();
+        assert_eq!(
+            parsed["plugins"]["writer"]["enabled"].as_bool(),
+            Some(false)
         );
     }
 

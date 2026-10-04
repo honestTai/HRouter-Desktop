@@ -3217,3 +3217,106 @@ fn recover_from_crash_without_backup_cleans_placeholder_instead_of_writing_it_ba
         "recovery must drop the local proxy base URL"
     );
 }
+
+/// Provider credentials must not own locally installed extension preferences.
+#[test]
+fn switch_codex_preserves_local_extensions_without_opt_in() {
+    let _guard = test_mutex().lock().expect("acquire test mutex");
+    reset_test_fs();
+    let state = create_test_state().expect("create state");
+    let live = r#"model = "old-model"
+[plugins."writer@example"]
+enabled = true
+[plugins."disabled@example"]
+enabled = false
+[[skills.config]]
+path = "/test/skills/writer/SKILL.md"
+enabled = false
+"#;
+    let path = cc_switch_lib::get_codex_config_path();
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(&path, live).unwrap();
+    let target = r#"model = "new-model"
+model_provider = "new"
+[model_providers.new]
+name = "New"
+base_url = "https://new.example/v1"
+wire_api = "responses"
+[plugins."writer@example"]
+enabled = false
+[plugins."removed@example"]
+enabled = true
+[[skills.config]]
+path = "/test/skills/writer/SKILL.md"
+enabled = true
+"#;
+    let provider = Provider::with_id(
+        "new".into(),
+        "New".into(),
+        json!({"auth":{"OPENAI_API_KEY":"new-key"},"config":target}),
+        None,
+    );
+    state.db.save_provider("codex", &provider).unwrap();
+    ProviderService::switch(&state, AppType::Codex, "new").unwrap();
+    let current = std::fs::read_to_string(&path).unwrap();
+    let doc: toml::Value = toml::from_str(&current).unwrap();
+    assert_eq!(
+        doc["plugins"]["writer@example"]["enabled"].as_bool(),
+        Some(true)
+    );
+    assert_eq!(
+        doc["plugins"]["disabled@example"]["enabled"].as_bool(),
+        Some(false)
+    );
+    assert!(doc["plugins"].get("removed@example").is_none());
+    assert_eq!(doc["skills"]["config"][0]["enabled"].as_bool(), Some(false));
+    assert_eq!(doc["model"].as_str(), Some("new-model"));
+    assert_eq!(
+        doc["model_providers"]["new"]["base_url"].as_str(),
+        Some("https://new.example/v1")
+    );
+
+    // Reapplying a saved provider must not resurrect locally removed sections.
+    let mut current = current.parse::<toml_edit::DocumentMut>().unwrap();
+    current.remove("plugins");
+    current.remove("skills");
+    std::fs::write(&path, current.to_string()).unwrap();
+    ProviderService::switch(&state, AppType::Codex, "new").unwrap();
+    let doc: toml::Value = toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    assert!(doc.get("plugins").is_none());
+    assert!(doc.get("skills").is_none());
+}
+
+#[test]
+fn switch_claude_preserves_local_plugins_without_opt_in() {
+    let _guard = test_mutex().lock().expect("acquire test mutex");
+    reset_test_fs();
+    let state = create_test_state().expect("create state");
+    let path = get_claude_settings_path();
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let live = json!({"env":{"ANTHROPIC_API_KEY":"old"},
+        "enabledPlugins":{"writer@example":true,"disabled@example":false},
+        "extraKnownMarketplaces":{"example":{"source":{"source":"github","repo":"example/plugins"}}}});
+    std::fs::write(&path, live.to_string()).unwrap();
+    let provider = Provider::with_id(
+        "new".into(),
+        "New".into(),
+        json!({"env":{"ANTHROPIC_API_KEY":"new"},
+            "enabledPlugins":{"writer@example":false,"removed@example":true}}),
+        None,
+    );
+    state.db.save_provider("claude", &provider).unwrap();
+    ProviderService::switch(&state, AppType::Claude, "new").unwrap();
+    let current: serde_json::Value = read_json_file(&path).unwrap();
+    assert_eq!(current["enabledPlugins"], live["enabledPlugins"]);
+    assert_eq!(
+        current["extraKnownMarketplaces"],
+        live["extraKnownMarketplaces"]
+    );
+    assert_eq!(current["env"]["ANTHROPIC_API_KEY"], "new");
+    std::fs::write(&path, r#"{"env":{"ANTHROPIC_API_KEY":"new"}}"#).unwrap();
+    ProviderService::switch(&state, AppType::Claude, "new").unwrap();
+    let current: serde_json::Value = read_json_file(&path).unwrap();
+    assert!(current.get("enabledPlugins").is_none());
+    assert!(current.get("extraKnownMarketplaces").is_none());
+}
