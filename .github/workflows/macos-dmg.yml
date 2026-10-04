@@ -6,6 +6,11 @@ on:
       tag:
         description: "Existing release tag to receive signed macOS artifacts"
         required: true
+      publish:
+        description: "Publish as latest after validation (leave false until manual testing passes)"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
@@ -279,7 +284,7 @@ jobs:
           )
           gh release upload $tag $manifestPath --clobber
 
-      - name: Validate both desktop platforms and publish release
+      - name: Validate both desktop platforms
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
@@ -318,4 +323,11 @@ jobs:
               throw "Missing desktop installer: $asset"
             }
           }
-          gh release edit $tag --draft=false --latest
+
+      - name: Publish validated release
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: gh release edit "$RELEASE_TAG" --draft=false --latest
