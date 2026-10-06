@@ -1,5 +1,15 @@
 <div align="center">
 
+[English](README.md) · **简体中文**
+
+[HRouter](https://hrouter.net/home) · [All public projects](https://github.com/honestTai) · [Star & Fork trends](#project-activity)
+
+</div>
+
+[![Repository summary](https://raw.githubusercontent.com/honestTai/honestTai/main/assets/badges/HRouter-Desktop.svg)](#project-activity)
+
+<div align="center">
+
 <img src="src-tauri/icons/128x128.png" width="96" alt="HRouter Desktop">
 
 # HRouter Desktop
@@ -184,3 +194,17 @@ pnpm dev
 项目保留原作者版权与 MIT 许可证。部分内部 `cc-switch` 标识继续用于兼容与迁移。
 
 [MIT 许可证](LICENSE) · [归属声明](NOTICE.md)
+
+---
+
+<a id="project-activity"></a>
+
+## 项目动态 · Project activity
+
+当前 Star / Fork 数量与留存事件历史，计划每日更新。
+
+[![Star and Fork history for HRouter-Desktop](https://raw.githubusercontent.com/honestTai/honestTai/main/assets/metrics/HRouter-Desktop.svg)](https://github.com/honestTai/honestTai/blob/main/data/README.md)
+
+[每日实测趋势](https://raw.githubusercontent.com/honestTai/honestTai/main/assets/metrics/HRouter-Desktop-daily.svg) · [数据口径](https://github.com/honestTai/honestTai/blob/main/data/METHODOLOGY.zh-CN.md) · [全部公开项目](https://github.com/honestTai)
+
+<sub>历史曲线仅重建当前仍保留的 Star 与可见 Fork，并非过去每日净总量。每日实测总量自 2026-10-06 开始，不伪造回填。</sub>

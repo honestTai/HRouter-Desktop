@@ -1,5 +1,15 @@
 <div align="center">
 
+**English** · [简体中文](README_ZH.md)
+
+[HRouter](https://hrouter.net/home) · [All public projects](https://github.com/honestTai) · [Star & Fork trends](#project-activity)
+
+</div>
+
+[![Repository summary](https://raw.githubusercontent.com/honestTai/honestTai/main/assets/badges/HRouter-Desktop.svg)](#project-activity)
+
+<div align="center">
+
 <img src="src-tauri/icons/128x128.png" width="96" alt="HRouter Desktop">
 
 # HRouter Desktop
@@ -184,3 +194,17 @@ Based on **[CC Switch](https://github.com/farion1231/cc-switch)** by **Jason You
 The original copyright and MIT license are preserved. Some internal `cc-switch` identifiers remain for compatibility and migration.
 
 [MIT License](LICENSE) · [Attribution](NOTICE.md)
+
+---
+
+<a id="project-activity"></a>
+
+## Project activity
+
+Star / Fork totals and retained-event history, scheduled to refresh daily.
+
+[![Star and Fork history for HRouter-Desktop](https://raw.githubusercontent.com/honestTai/honestTai/main/assets/metrics/HRouter-Desktop.svg)](https://github.com/honestTai/honestTai/blob/main/data/README.md)
+
+[Observed daily totals](https://raw.githubusercontent.com/honestTai/honestTai/main/assets/metrics/HRouter-Desktop-daily.svg) · [Methodology](https://github.com/honestTai/honestTai/blob/main/data/METHODOLOGY.md) · [All public projects](https://github.com/honestTai)
+
+<sub>Historical curves reconstruct currently retained stars and visible forks, not historical net totals. Separate daily observations start on 2026-10-06; no fabricated backfill.</sub>
