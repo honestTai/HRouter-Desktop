@@ -361,9 +361,13 @@ requires_openai_auth = true
         model_providers.get("rightcode"),
         "legacy official-proxy thread ids must resolve to the current route"
     );
-    assert!(
-        model_providers.get("private-relay").is_none(),
-        "the live route uses the shared bucket"
+    assert_eq!(
+        model_providers
+            .get("private-relay")
+            .and_then(|v| v.get("base_url"))
+            .and_then(|v| v.as_str()),
+        Some("https://rightcode.example/v1"),
+        "the displaced local route definition is retained while the active shared bucket switches"
     );
     assert_eq!(
         model_providers
@@ -1660,6 +1664,15 @@ requires_openai_auth = true
 
     ProviderService::switch(&state, AppType::Codex, "provider-b")
         .expect("switch to provider b should succeed");
+    // Switching suppliers preserves this machine's profile configuration.
+    // This machine has no profiles, so the preset's `work` profile must not
+    // appear in Live or later get backfilled as a local preference.
+    let live_config = std::fs::read_to_string(cc_switch_lib::get_codex_config_path())
+        .expect("read provider b live config");
+    let live: toml::Value = toml::from_str(&live_config).expect("parse live config");
+    assert!(live.get("profile").is_none());
+    assert!(live.get("profiles").is_none());
+
     ProviderService::switch(&state, AppType::Codex, "provider-c")
         .expect("switch to provider c should succeed");
 
@@ -1688,14 +1701,9 @@ requires_openai_auth = true
             .is_some(),
         "provider b should keep its own model_providers table after backfill"
     );
-    assert_eq!(
-        parsed
-            .get("profiles")
-            .and_then(|v| v.get("work"))
-            .and_then(|v| v.get("model_provider"))
-            .and_then(|v| v.as_str()),
-        Some("aihubmix"),
-        "profile overrides should be restored to provider b's storage-specific id"
+    assert!(
+        parsed.get("profiles").is_none(),
+        "backfill must not resurrect provider-only profiles absent from the local config"
     );
 }
 
@@ -2653,13 +2661,18 @@ command = "ghost-cmd"
         !live_after.contains("sk-a-live-secret"),
         "provider A's bearer token must not leak into B's live, got: {live_after}"
     );
-    assert!(
-        !live_after.contains("mcp_servers"),
-        "no DB-enabled MCP servers, so live must not resurrect stale entries, got: {live_after}"
+    // No DB records own these local entries. Switching providers preserves
+    // them in Live, but they must still be absent from snippets and snapshots.
+    // Removal of DB-known disabled servers has separate MCP sync coverage.
+    assert_eq!(
+        live_doc["mcp_servers"]["echo"]["command"].as_str(),
+        Some("echo"),
+        "unmanaged local MCP servers must survive a supplier switch"
     );
-    assert!(
-        !live_after.contains("ghost-legacy"),
-        "the legacy [mcp.servers] orphan must not propagate to B's live, got: {live_after}"
+    assert_eq!(
+        live_doc["mcp"]["servers"]["ghost-legacy"]["command"].as_str(),
+        Some("ghost-cmd"),
+        "provider switching must not erase unowned local configuration sections"
     );
     assert!(
         !live_after.contains("wire_api = \"chat\""),

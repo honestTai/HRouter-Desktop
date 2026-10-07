@@ -35,6 +35,7 @@ export const SESSION_APP_IDS: AppId[] = [
   "workbuddy",
   "deepseek-harness",
   "claude",
+  "claude-desktop",
   "codex",
   "gemini",
   "grokbuild",

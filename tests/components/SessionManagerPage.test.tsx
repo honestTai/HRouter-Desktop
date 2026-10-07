@@ -26,6 +26,21 @@ vi.mock("sonner", () => ({
   },
 }));
 
+// JSDOM has no layout/scroll viewport; expose small fixture lists deterministically.
+vi.mock("@tanstack/react-virtual", () => ({
+  useVirtualizer: ({ count }: { count: number }) => ({
+    getTotalSize: () => count * 120,
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, index) => ({
+        key: index,
+        index,
+        start: index * 120,
+      })),
+    measureElement: vi.fn(),
+    scrollToIndex: vi.fn(),
+  }),
+}));
+
 vi.mock("@/components/sessions/SessionToc", () => ({
   SessionTocSidebar: () => null,
   SessionTocDialog: () => null,
@@ -288,6 +303,60 @@ describe("SessionManagerPage", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByTestId("confirm-dialog")).not.toBeInTheDocument();
   });
+
+  it.each([
+    "/mock/Claude-3p/local_session.jsonl",
+    "/mock/Claude-3p/local_session.json",
+    String.raw`C:\Users\测试 用户\AppData\Local\Claude-3p\local_session.jsonl`,
+    String.raw`C:\Users\测试 用户\AppData\Roaming\Claude\local_session.json`,
+    String.raw`\\server\profile data\Claude-3p\local_session.jsonl`,
+  ])(
+    "reads Claude Desktop history at %s with working filters and safe actions",
+    async (sourcePath) => {
+      setSessionFixtures(
+        [
+          {
+            providerId: "claude-desktop",
+            sessionId: "desktop-session",
+            title: "Desktop Cowork history",
+            sourcePath,
+            readOnly: true,
+          },
+          {
+            providerId: "claude",
+            sessionId: "cli-session",
+            title: "CLI-only history",
+            sourcePath: "/mock/cli.jsonl",
+          },
+        ],
+        {
+          [`claude-desktop:${sourcePath}`]: [
+            { role: "user", content: "Desktop question" },
+            { role: "assistant", content: "Desktop response" },
+          ],
+        },
+      );
+      renderPage("claude-desktop");
+      expect(
+        await screen.findByRole("heading", { name: "Desktop Cowork history" }),
+      ).toBeVisible();
+      expect(await screen.findByText("Desktop response")).toBeVisible();
+      expect(screen.queryByText("CLI-only history")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /删除会话/i })).toBeDisabled();
+      expect(
+        screen.queryByRole("button", { name: /批量管理/i }),
+      ).not.toBeInTheDocument();
+      const resume = screen.queryByRole("button", { name: /恢复会话/i });
+      if (resume) expect(resume).toBeDisabled();
+      openSearch();
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "Cowork" },
+      });
+      expect(
+        screen.getByRole("heading", { name: "Desktop Cowork history" }),
+      ).toBeVisible();
+    },
+  );
 
   it("removes a deleted session from filtered search results", async () => {
     renderPage();

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1 — 2026-10-07
+
+- Adds read-only Claude Desktop Code, Cowork and local Chat session history, including normal/third-party profiles and both macOS and Windows storage layouts.
+- Detects shared Claude Code transcripts, short session directories and Windows MSIX app data; deduplicates shared logs and falls back to audit logs or initial-message metadata when needed.
+- Handles Unicode/space-containing paths, Windows UNC paths and CRLF transcripts; keeps Desktop deletion and CLI resume disabled to protect client-owned session indexes.
+- Preserves local Codex settings when switching providers, including Windows sandbox preferences, plugins, skills and profiles; aligns the integration regression fixture with local-profile preservation.
+- Adds cross-platform history discovery, UI and Windows-native path regression tests.
+
 ## 0.4.0 — 2026-10-03
 
 - Promotes the redesigned Agent workbench to the main branch, with unified providers, profiles, route policies, usage, sessions, MCP, and Skills.

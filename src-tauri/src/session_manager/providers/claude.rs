@@ -15,9 +15,12 @@ use super::utils::{
 const PROVIDER_ID: &str = "claude";
 
 pub fn scan_sessions() -> Vec<SessionMeta> {
-    let root = get_claude_config_dir().join("projects");
+    scan_sessions_in(&get_claude_config_dir().join("projects"))
+}
+
+pub(super) fn scan_sessions_in(root: &Path) -> Vec<SessionMeta> {
     let mut files = Vec::new();
-    collect_jsonl_files(&root, &mut files);
+    collect_jsonl_files(root, &mut files);
 
     let mut sessions = Vec::new();
     for path in files {
@@ -56,6 +59,7 @@ pub fn load_messages(path: &Path) -> Result<Vec<SessionMessage>, String> {
         let mut role = message
             .get("role")
             .and_then(Value::as_str)
+            .or_else(|| value.get("type").and_then(Value::as_str))
             .unwrap_or("unknown")
             .to_string();
 
@@ -77,7 +81,10 @@ pub fn load_messages(path: &Path) -> Result<Vec<SessionMessage>, String> {
             continue;
         }
 
-        let ts = value.get("timestamp").and_then(parse_timestamp_to_ms);
+        let ts = value
+            .get("timestamp")
+            .or_else(|| value.get("_audit_timestamp"))
+            .and_then(parse_timestamp_to_ms);
 
         messages.push(SessionMessage { role, content, ts });
     }
@@ -92,6 +99,10 @@ pub fn delete_session(_root: &Path, path: &Path, session_id: &str) -> Result<boo
             path.display()
         )
     })?;
+
+    if meta.read_only == Some(true) {
+        return Err("Claude Desktop history is read-only; delete it in Claude Desktop".to_string());
+    }
 
     if meta.session_id != session_id {
         return Err(format!(
@@ -120,7 +131,7 @@ pub fn delete_session(_root: &Path, path: &Path, session_id: &str) -> Result<boo
     Ok(true)
 }
 
-fn parse_session(path: &Path) -> Option<SessionMeta> {
+pub(super) fn parse_session(path: &Path) -> Option<SessionMeta> {
     if is_agent_session(path) {
         return None;
     }
@@ -131,6 +142,7 @@ fn parse_session(path: &Path) -> Option<SessionMeta> {
     let mut project_dir: Option<String> = None;
     let mut created_at: Option<i64> = None;
     let mut first_user_message: Option<String> = None;
+    let mut desktop = false;
 
     // Extract metadata and first user message from head lines
     for line in &head {
@@ -138,9 +150,14 @@ fn parse_session(path: &Path) -> Option<SessionMeta> {
             Ok(parsed) => parsed,
             Err(_) => continue,
         };
+        desktop |= matches!(
+            value.get("entrypoint").and_then(Value::as_str),
+            Some("claude-desktop" | "claude-desktop-3p")
+        );
         if session_id.is_none() {
             session_id = value
                 .get("sessionId")
+                .or_else(|| value.get("session_id"))
                 .and_then(Value::as_str)
                 .map(|s| s.to_string());
         }
@@ -151,7 +168,10 @@ fn parse_session(path: &Path) -> Option<SessionMeta> {
                 .map(|s| s.to_string());
         }
         if created_at.is_none() {
-            created_at = value.get("timestamp").and_then(parse_timestamp_to_ms);
+            created_at = value
+                .get("timestamp")
+                .or_else(|| value.get("_audit_timestamp"))
+                .and_then(parse_timestamp_to_ms);
         }
         // Extract first real user message as title candidate
         // Skip system-injected caveats and slash commands (e.g. /clear, /compact)
@@ -195,7 +215,10 @@ fn parse_session(path: &Path) -> Option<SessionMeta> {
             Err(_) => continue,
         };
         if last_active_at.is_none() {
-            last_active_at = value.get("timestamp").and_then(parse_timestamp_to_ms);
+            last_active_at = value
+                .get("timestamp")
+                .or_else(|| value.get("_audit_timestamp"))
+                .and_then(parse_timestamp_to_ms);
         }
         // Look for custom-title entry (take the last one, i.e. first in reverse)
         if custom_title.is_none()
@@ -240,8 +263,13 @@ fn parse_session(path: &Path) -> Option<SessionMeta> {
     let summary = summary.map(|text| truncate_summary(&text, 160));
 
     Some(SessionMeta {
-        read_only: None,
-        provider_id: PROVIDER_ID.to_string(),
+        read_only: desktop.then_some(true),
+        provider_id: if desktop {
+            "claude-desktop"
+        } else {
+            PROVIDER_ID
+        }
+        .to_string(),
         session_id: session_id.clone(),
         title,
         summary,
@@ -249,7 +277,7 @@ fn parse_session(path: &Path) -> Option<SessionMeta> {
         created_at,
         last_active_at,
         source_path: Some(path.to_string_lossy().to_string()),
-        resume_command: Some(format!("claude --resume {session_id}")),
+        resume_command: (!desktop).then(|| format!("claude --resume {session_id}")),
     })
 }
 
@@ -304,6 +332,38 @@ fn remove_path_if_exists(path: &Path) -> std::io::Result<()> {
 mod tests {
     use super::*;
     use tempfile::tempdir;
+
+    #[test]
+    fn shared_desktop_entrypoints_are_read_only_and_not_resumed_in_cli() {
+        for entrypoint in ["claude-desktop", "claude-desktop-3p", "cli", "sdk"] {
+            let temp = tempdir().unwrap();
+            let path = temp.path().join("session.jsonl");
+            let desktop = entrypoint.starts_with("claude-desktop");
+            std::fs::write(
+                &path,
+                serde_json::json!({
+                    "sessionId": "session-123", "entrypoint": entrypoint,
+                    "cwd": "/tmp/project", "type": "user", "timestamp": "2026-10-07T00:00:00Z",
+                    "message": {"role": "user", "content": "Question"}
+                })
+                .to_string(),
+            )
+            .unwrap();
+            let meta = parse_session(&path).unwrap();
+            assert_eq!(
+                meta.provider_id,
+                if desktop { "claude-desktop" } else { "claude" }
+            );
+            assert_eq!(meta.read_only, desktop.then_some(true));
+            assert_eq!(meta.resume_command.is_none(), desktop);
+            if desktop {
+                assert!(delete_session(temp.path(), &path, "session-123")
+                    .unwrap_err()
+                    .contains("read-only"));
+                assert!(path.exists());
+            }
+        }
+    }
 
     #[test]
     fn delete_session_removes_main_file_and_sidecar_directory() {

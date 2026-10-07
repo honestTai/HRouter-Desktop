@@ -2,12 +2,31 @@ import { describe, expect, it } from "vitest";
 import {
   extractCodexPromptPreview,
   formatSessionMessagePreview,
+  getBaseName,
   groupSessionsByProviderAndDirectory,
   shouldHideCodexMessageFromToc,
 } from "@/components/sessions/utils";
 import type { SessionMeta } from "@/types";
 
 describe("session utils", () => {
+  it.each([
+    [
+      "/Users/测试 用户/Library/Application Support/Claude/local_session.json",
+      "local_session.json",
+    ],
+    [
+      String.raw`C:\Users\测试 用户\AppData\Local\Claude-3p\local_session.jsonl`,
+      "local_session.jsonl",
+    ],
+    [
+      String.raw`\\server\profile data\Claude\local_session.jsonl`,
+      "local_session.jsonl",
+    ],
+    [String.raw`\\?\C:\Users\测试 用户\My Project`, "My Project"],
+  ])("displays macOS and Windows session paths: %s", (path, name) => {
+    expect(getBaseName(path)).toBe(name);
+  });
+
   it("extracts Codex VS Code prompts after the request marker", () => {
     const content = [
       "# Context from my IDE setup:",

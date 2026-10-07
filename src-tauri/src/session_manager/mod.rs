@@ -4,7 +4,9 @@ pub mod terminal;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-use providers::{claude, codex, file_agents, gemini, grokbuild, hermes, openclaw, opencode};
+use providers::{
+    claude, claude_desktop, codex, file_agents, gemini, grokbuild, hermes, openclaw, opencode,
+};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -60,7 +62,11 @@ pub struct DeleteSessionOutcome {
 pub fn scan_sessions() -> Vec<SessionMeta> {
     let (r1, r2, r3, r4, r5, r6, r7) = std::thread::scope(|s| {
         let h1 = s.spawn(codex::scan_sessions);
-        let h2 = s.spawn(claude::scan_sessions);
+        let h2 = s.spawn(|| {
+            let mut sessions = claude::scan_sessions();
+            claude_desktop::merge_sessions(&mut sessions);
+            sessions
+        });
         let h3 = s.spawn(opencode::scan_sessions);
         let h4 = s.spawn(openclaw::scan_sessions);
         let h5 = s.spawn(gemini::scan_sessions);
@@ -110,6 +116,7 @@ pub fn load_messages(provider_id: &str, source_path: &str) -> Result<Vec<Session
         "pi" | "workbuddy" | "deepseek-harness" => file_agents::load_messages(provider_id, path),
         "codex" => codex::load_messages(path),
         "claude" => claude::load_messages(path),
+        "claude-desktop" => claude_desktop::load_messages(path),
         "opencode" => opencode::load_messages(path),
         "openclaw" => openclaw::load_messages(path),
         "gemini" => gemini::load_messages(path),
@@ -124,6 +131,10 @@ pub fn delete_session(
     session_id: &str,
     source_path: &str,
 ) -> Result<bool, String> {
+    if provider_id == "claude-desktop" {
+        return Err("Claude Desktop history is read-only; delete it in Claude Desktop".to_string());
+    }
+
     // SQLite sessions bypass the file-based deletion path
     if provider_id == "opencode" && source_path.starts_with("sqlite:") {
         return opencode::delete_session_sqlite(session_id, source_path);
