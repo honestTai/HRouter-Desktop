@@ -509,10 +509,19 @@ mod tests {
         );
     }
     fn store(dir: &Path, tree: &str) -> PathBuf {
-        dir.join(tree).join("12345678/00000000")
+        dir.join(tree).join("12345678").join("00000000")
     }
     fn merge_sessions_from_dirs(sessions: &mut Vec<SessionMeta>, dirs: &[PathBuf]) {
         merge_sessions_with_shared(sessions, dirs, &[]);
+    }
+    fn assert_source_path(session: &SessionMeta, expected: &Path) {
+        // read_dir uses native separators; fixtures can contain mixed separators
+        // on Windows. Check file identity, not a platform-specific spelling.
+        let actual = session.source_path.as_deref().expect("session source path");
+        assert_eq!(
+            fs::canonicalize(actual).expect("readable session source"),
+            fs::canonicalize(expected).expect("expected fixture source")
+        );
     }
     fn scan(dir: &Path) -> Vec<SessionMeta> {
         let mut sessions = Vec::new();
@@ -717,7 +726,7 @@ mod tests {
         merge_sessions_from_dirs(&mut sessions, &[app, second_app]);
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].provider_id, PROVIDER_ID);
-        assert_eq!(sessions[0].source_path.as_deref(), shared_path.to_str());
+        assert_source_path(&sessions[0], &shared_path);
         assert!(sessions[0].resume_command.is_none());
     }
 
@@ -793,7 +802,7 @@ mod tests {
         write(&path, &record.to_string());
         let sessions = scan(temp.path());
         assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].source_path.as_deref(), path.to_str());
+        assert_source_path(&sessions[0], &path);
         let messages = load_messages(&path).unwrap();
         assert_eq!(messages.len(), 1);
         assert_eq!(messages[0].content, "First question");
@@ -828,7 +837,7 @@ mod tests {
         );
         let sessions = scan(temp.path());
         assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].source_path.as_deref(), audit.to_str());
+        assert_source_path(&sessions[0], &audit);
         let messages = load_messages(&audit).unwrap();
         assert_eq!(messages.len(), 3);
         assert_eq!(messages[0].role, "user");
@@ -918,7 +927,7 @@ mod tests {
         merge_sessions_with_shared(&mut sessions, &[temp.path().to_path_buf()], &extra);
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].provider_id, PROVIDER_ID);
-        assert_eq!(sessions[0].source_path.as_deref(), path.to_str());
+        assert_source_path(&sessions[0], &path);
         // Additional ordinary CLI sessions are not imported without Desktop ownership.
         let mut sessions = Vec::new();
         merge_sessions_with_shared(&mut sessions, &[], &extra);
