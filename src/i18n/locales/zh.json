@@ -3534,6 +3534,9 @@
     "desktopSkills": "Claude Desktop 的 Skills 通过账户导入。在技能条目上导出 ZIP 后，到 Claude 设置中添加；这里不会伪造启用状态。"
   },
   "usageWidget": {
+    "throughputIdle": "当前窗口无吞吐",
+    "lastSpeedHint": "上次测量：{{time}}，仅此请求的实测生成速度；不是当前实时速度。",
+    "selectAgent": "切换查看的 Agent",
     "open": "桌面用量组件",
     "shrink": "缩小显示",
     "enlarge": "放大显示",
@@ -3561,11 +3564,11 @@
     "syncError": "部分 Agent 记录未能刷新，展示已读取的数据",
     "updated": "更新于",
     "follow": "跟随工作台的 Agent",
-    "speedUnavailable": "当前没有带计时的请求。会话日志不提供生成速度；启用线路代理后可采集后续请求。",
+    "speedUnavailable": "今日暂无带计时的已完成请求。直连请求的会话日志不提供生成耗时；如需测速，请先手动启用此 Agent 的线路代理，再完成一次请求。",
     "throughput": "当前 Key 吞吐速率",
-    "throughputHint": "服务端返回的每分钟 Token 数，不等同于单次生成速度。",
+    "throughputHint": "服务端统计窗口内的每分钟 Token 数；窗口内无请求时会归零，不等同于单次生成速度。",
     "totalSpent": "当前 Key 累计消费",
     "nativeTitle": "macOS 原生小组件",
-    "nativeHelp": "在桌面右键 → 编辑小组件，搜索 HRouter 后添加；较早系统可在通知中心添加。跟随所选 Agent，更新时间由系统调度。"
+    "nativeHelp": "在桌面右键 → 编辑小组件，搜索 HRouter 后添加。macOS 14 及以上可右键小组件 → 编辑小组件 → Agent，独立选择（可添加多个）；旧系统跟随应用中选择的 Agent。更新时间由系统调度。"
   }
 }

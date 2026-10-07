@@ -1,6 +1,7 @@
 use std::ffi::CStr;
 use std::fs;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use objc2_foundation::{NSFileManager, NSString};
@@ -51,13 +52,25 @@ fn write_agent_file(name: &str, payload: serde_json::Value) -> Result<(), String
     Ok(())
 }
 
+pub fn select_agent(app: &str) -> Result<(), String> {
+    crate::ResourceTarget::from_str(app)?;
+    write_agent_file("selected-agent.json", serde_json::json!({"app": app}))
+}
+
+fn agent_file_name(app: &str, kind: &str) -> Result<String, String> {
+    // Do not allow caller-supplied paths into the App Group container.
+    crate::ResourceTarget::from_str(app)?;
+    Ok(format!("agent-{kind}-{app}.json"))
+}
+
 pub fn sync_agent_snapshot(v: &serde_json::Value) -> Result<(), String> {
+    let app = v["app"].as_str().ok_or("Missing Agent")?;
     write_agent_file(
-        "agent-summary.json",
+        &agent_file_name(app, "summary")?,
         serde_json::json!({
             "app":v["app"], "providerId":v["providerId"], "revision":v["providerRevision"],
             "tokens":v["summary"]["realTotalTokens"], "cacheRate":v["summary"]["cacheHitRate"],
-            "speed":v["tokensPerSecond"], "updatedAt":v["measuredAt"]
+            "speed":v["tokensPerSecond"], "speedMeasuredAt":v["speedMeasuredAt"], "updatedAt":v["measuredAt"]
         }),
     )
 }
@@ -69,7 +82,7 @@ pub fn sync_agent_finance(
     v: &serde_json::Value,
 ) -> Result<(), String> {
     write_agent_file(
-        "agent-finance.json",
+        &agent_file_name(app, "finance")?,
         serde_json::json!({
             "app":app, "providerId":provider, "revision":revision,
             "today":v["todayCost"], "spent":v["totalSpent"], "balance":v["balance"],

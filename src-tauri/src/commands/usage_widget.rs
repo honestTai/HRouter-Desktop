@@ -48,6 +48,15 @@ pub async fn open_usage_widget(app_handle: tauri::AppHandle, app: String) -> Res
     Ok(())
 }
 
+/// This changes only the widget's display selection, never Agent routing.
+#[tauri::command]
+pub fn select_usage_widget_agent(app: String) -> Result<(), String> {
+    ResourceTarget::from_str(&app)?;
+    #[cfg(target_os = "macos")]
+    crate::macos_widget::select_agent(&app)?;
+    Ok(())
+}
+
 fn current_provider(state: &AppState, app: &str) -> Result<Option<Provider>, String> {
     ResourceTarget::from_str(app)?;
     let id = if crate::file_provider_service::supports(app) {
@@ -117,6 +126,7 @@ pub struct WidgetSnapshot {
     summary: UsageSummary,
     tokens_per_second: Option<f64>,
     speed_samples: usize,
+    speed_measured_at: Option<i64>,
     measured_at: i64,
 }
 
@@ -154,6 +164,29 @@ fn speed(logs: &[RequestLogDetail], since: i64) -> (Option<f64>, usize) {
     )
 }
 
+// Keep the last real measurement available after the rolling window expires.
+// Never infer generation duration from session timestamps or server TPM.
+fn speed_with_last_sample(
+    logs: &[RequestLogDetail],
+    now: i64,
+) -> (Option<f64>, usize, Option<i64>) {
+    let valid: Vec<_> = logs
+        .iter()
+        .filter(|row| row.created_at <= now && speed(std::slice::from_ref(row), 0).0.is_some())
+        .cloned()
+        .collect();
+    let measured_at = valid.iter().map(|row| row.created_at).max();
+    let (value, samples) = speed(&valid, now - 300);
+    if value.is_some() {
+        return (value, samples, measured_at);
+    }
+    if let Some(last) = valid.into_iter().max_by_key(|row| row.created_at) {
+        let (value, samples) = speed(std::slice::from_ref(&last), 0);
+        return (value, samples, measured_at);
+    }
+    (None, 0, None)
+}
+
 #[tauri::command]
 pub fn get_usage_widget_snapshot(
     state: State<'_, AppState>,
@@ -178,11 +211,12 @@ pub fn get_usage_widget_snapshot(
             provider_name: None,
             model: None,
             status_code: None,
-            start_date: Some(now.timestamp() - 300),
+            start_date: Some(start),
             end_date: Some(now.timestamp()),
         })
         .map_err(|e| e.to_string())?;
-    let (tokens_per_second, speed_samples) = speed(&logs.data, now.timestamp() - 300);
+    let (tokens_per_second, speed_samples, speed_measured_at) =
+        speed_with_last_sample(&logs.data, now.timestamp());
     let finance_enabled = provider.as_ref().is_some_and(|p| {
         let (base, key) = credentials(&app, p);
         hrouter_endpoint(&base, &key)
@@ -200,6 +234,7 @@ pub fn get_usage_widget_snapshot(
         summary,
         tokens_per_second,
         speed_samples,
+        speed_measured_at,
         measured_at: now.timestamp(),
     };
     #[cfg(target_os = "macos")]
@@ -244,7 +279,7 @@ fn hrouter_finance(v: &Value) -> Value {
         }
     }
     // Actual key charge, not raw model cost, total spend, or account-wide dashboard cost.
-    json!({"todayCost":number(&v["usage"]["today"]["actual_cost"]), "unit":v["unit"].as_str().unwrap_or("CNY"), "balance":number(&v["balance"]), "totalSpent":number(&v["usage"]["total"]["actual_cost"]), "tokensPerMinute":number(&v["usage"]["tpm"]), "plans":plans})
+    json!({"todayCost":number(&v["usage"]["today"]["actual_cost"]), "unit":v["unit"].as_str().unwrap_or("CNY"), "balance":number(&v["balance"]), "totalSpent":number(&v["usage"]["total"]["actual_cost"]), "tokensPerMinute":number(&v["usage"]["tpm"]).filter(|n| *n >= 0.0), "plans":plans})
 }
 
 #[tauri::command]
@@ -420,6 +455,44 @@ mod tests {
             speed(&[good, failed, no_timing, aggregated], 0),
             (Some(50.0), 1)
         );
+    }
+    #[test]
+    fn last_measured_speed_survives_idle_window_without_becoming_live_zero() {
+        let old = request();
+        assert_eq!(
+            speed_with_last_sample(&[old.clone()], 1000),
+            (Some(50.0), 1, Some(100))
+        );
+        let mut recent = old.clone();
+        recent.created_at = 900;
+        recent.output_tokens = 200;
+        assert_eq!(
+            speed_with_last_sample(&[old, recent], 1000),
+            (Some(100.0), 1, Some(900))
+        );
+    }
+    #[test]
+    fn session_counts_future_and_invalid_timings_never_fabricate_speed() {
+        let mut session = request();
+        session.data_source = Some("session_log".into());
+        let mut future = request();
+        future.created_at = 1001;
+        let mut invalid = request();
+        invalid.first_token_ms = Some(4000);
+        assert_eq!(
+            speed_with_last_sample(&[session, future, invalid], 1000),
+            (None, 0, None)
+        );
+        assert_eq!(speed_with_last_sample(&[], 1000), (None, 0, None));
+    }
+    #[test]
+    fn missing_and_zero_throughput_remain_distinct_and_negative_is_rejected() {
+        assert!(hrouter_finance(&json!({}))["tokensPerMinute"].is_null());
+        assert_eq!(
+            hrouter_finance(&json!({"usage":{"tpm":0}}))["tokensPerMinute"],
+            0.0
+        );
+        assert!(hrouter_finance(&json!({"usage":{"tpm":-1}}))["tokensPerMinute"].is_null());
     }
     #[test]
     fn file_agents_use_the_saved_literal_credential_not_an_invented_api_key_field() {

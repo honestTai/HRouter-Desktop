@@ -61,7 +61,7 @@ xcodebuild \
   "SYMROOT=$build_dir/xcode" \
   "OBJROOT=$build_dir/xcode/intermediates" \
   "MARKETING_VERSION=$version" \
-  "CURRENT_PROJECT_VERSION=${HROUTER_WIDGET_BUILD_NUMBER:-2}" \
+  "CURRENT_PROJECT_VERSION=${HROUTER_WIDGET_BUILD_NUMBER:-3}" \
   CODE_SIGNING_ALLOWED=NO \
   build
 

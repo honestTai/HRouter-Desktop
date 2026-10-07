@@ -7,10 +7,14 @@ import {
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { UsageWidget } from "@/components/widget/UsageWidget";
+import {
+  UsageWidget,
+  initialWidgetAgent,
+} from "@/components/widget/UsageWidget";
 import { UsageMeter } from "@/components/widget/UsageMeter";
 const mocks = vi.hoisted(() => ({
   snapshot: vi.fn(),
+  selectAgent: vi.fn().mockResolvedValue(undefined),
   finance: vi.fn(),
   minimize: vi.fn(),
   close: vi.fn(),
@@ -19,7 +23,11 @@ const mocks = vi.hoisted(() => ({
   listeners: new Map<string, (e: any) => void>(),
 }));
 vi.mock("@/lib/api/usageWidget", () => ({
-  usageWidgetApi: { snapshot: mocks.snapshot, finance: mocks.finance },
+  usageWidgetApi: {
+    snapshot: mocks.snapshot,
+    finance: mocks.finance,
+    selectAgent: mocks.selectAgent,
+  },
 }));
 vi.mock("@/lib/api/usage", () => ({
   usageApi: { syncSessionUsage: async () => ({ imported: 0, errors: [] }) },
@@ -76,6 +84,7 @@ beforeEach(() => {
   mocks.snapshot.mockReset();
   mocks.finance.mockReset();
   mocks.listeners.clear();
+  mocks.selectAgent.mockClear();
   [mocks.minimize, mocks.close, mocks.pin, mocks.maximize].forEach((fn) =>
     fn.mockReset().mockResolvedValue(undefined),
   );
@@ -169,6 +178,56 @@ describe("usage widget", () => {
     expect(await screen.findByText("codex-provider")).toBeVisible();
     expect(screen.queryByText("Wallet")).toBeNull();
     expect(mocks.finance).toHaveBeenCalledWith("codex", "same-id", "codex");
+  });
+  it("selects an Agent from the widget without changing the workbench selection", async () => {
+    localStorage.setItem("hrouter-last-app", "claude");
+    mount();
+    await screen.findByText("Wallet");
+    mocks.finance.mockImplementation((app) =>
+      app === "codex" ? new Promise(() => {}) : Promise.resolve({ plans: [] }),
+    );
+    fireEvent.keyDown(
+      screen.getByRole("combobox", { name: "usageWidget.selectAgent" }),
+      { key: "ArrowDown" },
+    );
+    expect(await screen.findAllByRole("option")).toHaveLength(11);
+    fireEvent.click(screen.getByRole("option", { name: "Codex" }));
+    expect(await screen.findByText("codex-provider")).toBeVisible();
+    expect(screen.queryByText("Wallet")).toBeNull();
+    expect(localStorage.getItem("hrouter-widget-agent")).toBe("codex");
+    expect(localStorage.getItem("hrouter-last-app")).toBe("claude");
+    expect(initialWidgetAgent()).toBe("codex");
+    expect(mocks.selectAgent).toHaveBeenLastCalledWith("codex");
+    fireEvent(
+      window,
+      new StorageEvent("storage", {
+        key: "hrouter-last-app",
+        newValue: "gemini",
+      }),
+    );
+    expect(screen.getByRole("combobox")).toHaveTextContent("Codex");
+  });
+  it("shows zero TPM as an idle server window, not zero generation speed", async () => {
+    mocks.snapshot.mockResolvedValue(
+      snapshot("claude", { tokensPerSecond: null, speedSamples: 0 }),
+    );
+    mocks.finance.mockResolvedValue({ tokensPerMinute: 0, plans: [] });
+    mount();
+    expect(await screen.findByText("usageWidget.throughputIdle")).toBeVisible();
+    expect(screen.getByText("usageWidget.speedUnavailable")).toBeVisible();
+    expect(screen.queryByText("0 tok/min")).toBeNull();
+    expect(screen.queryByText("0.0 tok/s")).toBeNull();
+  });
+  it("labels an older measured speed and shows throughput separately even with a timed sample", async () => {
+    mocks.snapshot.mockResolvedValue(
+      snapshot("claude", { speedMeasuredAt: 1699999000 }),
+    );
+    mocks.finance.mockResolvedValue({ tokensPerMinute: 2400, plans: [] });
+    mount();
+    expect(await screen.findByText("usageWidget.throughput")).toBeVisible();
+    expect(screen.getByText("20.0 tok/s")).toBeVisible();
+    expect(screen.getByText("usageWidget.lastSpeedHint")).toBeVisible();
+    expect(screen.queryByText("usageWidget.speedHint")).toBeNull();
   });
   it("clamps visual meters and does not create percentages for unknown limits", () => {
     const { rerender } = render(

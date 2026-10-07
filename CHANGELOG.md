@@ -2,6 +2,11 @@
 
 ## 0.4.1 — 2026-10-07
 
+- Adds an independent Agent selector to the floating usage window on macOS and Windows; switching the display does not change provider routes.
+- Adds per-widget Agent configuration on macOS 14+, with isolated snapshots and background synchronization for all supported Agents; macOS 12/13 retains follow-app mode.
+- Separates measured generation speed from server-window TPM, labels idle throughput explicitly, and retains the day's last timed request with its measurement time instead of dropping it after five minutes. Direct requests without timing remain unavailable, not fabricated zero.
+- Adds native WidgetKit storage/configuration/expiry tests and an unsigned extension build to macOS CI.
+
 - Adds read-only Claude Desktop Code, Cowork and local Chat session history, including normal/third-party profiles and both macOS and Windows storage layouts.
 - Detects shared Claude Code transcripts, short session directories and Windows MSIX app data; deduplicates shared logs and falls back to audit logs or initial-message metadata when needed.
 - Handles Unicode/space-containing paths, Windows UNC paths and CRLF transcripts; keeps Desktop deletion and CLI resume disabled to protect client-owned session indexes.

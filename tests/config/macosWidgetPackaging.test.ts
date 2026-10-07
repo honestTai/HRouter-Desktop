@@ -21,7 +21,7 @@ describe("macOS widget bootstrap packaging", () => {
 
   it("bumps the extension build and preserves signing and architecture support", () => {
     const script = read("scripts/build-macos-widget.sh");
-    expect(script).toContain("HROUTER_WIDGET_BUILD_NUMBER:-2");
+    expect(script).toContain("HROUTER_WIDGET_BUILD_NUMBER:-3");
     expect(script).toContain('"ARCHS=${architectures[*]}"');
     expect(script).toContain("codesign --verify --strict");
     expect(read("src-tauri/macos-widget/Info.plist")).toContain(

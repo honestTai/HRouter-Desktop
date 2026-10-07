@@ -15,6 +15,13 @@ import {
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { APP_IDS, APP_ICON_MAP } from "@/config/appConfig";
 import type { AppId } from "@/lib/api/types";
 import { usageWidgetApi } from "@/lib/api/usageWidget";
@@ -24,6 +31,7 @@ import { UsageMeter } from "./UsageMeter";
 export function initialWidgetAgent(): AppId {
   const app =
     new URLSearchParams(window.location.search).get("agent") ??
+    localStorage.getItem("hrouter-widget-agent") ??
     localStorage.getItem("hrouter-last-app");
   return APP_IDS.includes(app as AppId) ? (app as AppId) : "claude";
 }
@@ -31,6 +39,10 @@ export function UsageWidget() {
   const { t, i18n } = useTranslation();
   const client = useQueryClient();
   const [app, setApp] = useState(initialWidgetAgent);
+  useEffect(() => {
+    localStorage.setItem("hrouter-widget-agent", app);
+    void usageWidgetApi.selectAgent(app).catch(() => undefined);
+  }, [app]);
   const [pinned, setPinned] = useState(false);
   const [scale, setScale] = useState(1);
   const [controlBusy, setControlBusy] = useState(false);
@@ -108,7 +120,7 @@ export function UsageWidget() {
       }
 
       if (
-        event.key === "hrouter-last-app" &&
+        event.key === "hrouter-widget-agent" &&
         APP_IDS.includes(event.newValue as AppId)
       )
         setApp(event.newValue as AppId);
@@ -153,10 +165,24 @@ export function UsageWidget() {
       data-testid="usage-widget"
     >
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-1 border-b px-3 py-2">
-        <span className="flex items-center gap-2 text-sm font-semibold">
+        <div className="flex min-w-0 items-center gap-2 text-sm font-semibold">
           {APP_ICON_MAP[app].icon}
-          {APP_ICON_MAP[app].label}
-        </span>
+          <Select value={app} onValueChange={(value) => setApp(value as AppId)}>
+            <SelectTrigger
+              aria-label={t("usageWidget.selectAgent")}
+              className="h-8 w-auto max-w-48 gap-2 px-2 text-sm"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {APP_IDS.map((id) => (
+                <SelectItem key={id} value={id}>
+                  {APP_ICON_MAP[id].label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="flex items-center gap-0.5">
           <Button
             variant="ghost"
@@ -299,9 +325,16 @@ export function UsageWidget() {
               hint={
                 data?.tokensPerSecond == null
                   ? t("usageWidget.speedUnavailable")
-                  : t("usageWidget.speedHint", {
-                      count: data?.speedSamples ?? 0,
-                    })
+                  : data.speedMeasuredAt != null &&
+                      data.measuredAt - data.speedMeasuredAt > 300
+                    ? t("usageWidget.lastSpeedHint", {
+                        time: new Date(
+                          data.speedMeasuredAt * 1000,
+                        ).toLocaleTimeString(),
+                      })
+                    : t("usageWidget.speedHint", {
+                        count: data?.speedSamples ?? 0,
+                      })
               }
             />
             <section
@@ -321,18 +354,21 @@ export function UsageWidget() {
                   {t("usageWidget.financeError")}
                 </p>
               )}
-              {data?.tokensPerSecond == null &&
-                account?.tokensPerMinute != null && (
-                  <div className="space-y-1 text-xs">
-                    <div className="flex justify-between gap-3">
-                      <span>{t("usageWidget.throughput")}</span>
-                      <strong>{fmt(account.tokensPerMinute)} tok/min</strong>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">
-                      {t("usageWidget.throughputHint")}
-                    </p>
+              {account?.tokensPerMinute != null && (
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between gap-3">
+                    <span>{t("usageWidget.throughput")}</span>
+                    <strong>
+                      {account.tokensPerMinute === 0
+                        ? t("usageWidget.throughputIdle")
+                        : `${fmt(account.tokensPerMinute)} tok/min`}
+                    </strong>
                   </div>
-                )}
+                  <p className="text-[10px] text-muted-foreground">
+                    {t("usageWidget.throughputHint")}
+                  </p>
+                </div>
+              )}
               {account?.totalSpent != null && (
                 <div className="flex justify-between gap-3 text-sm">
                   <span>{t("usageWidget.totalSpent")}</span>

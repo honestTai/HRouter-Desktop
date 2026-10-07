@@ -11,6 +11,7 @@ export interface WidgetSnapshot {
   summary: UsageSummary;
   tokensPerSecond?: number;
   speedSamples: number;
+  speedMeasuredAt?: number;
   measuredAt: number;
 }
 export interface WidgetFinance {
@@ -22,6 +23,8 @@ export interface WidgetFinance {
 }
 export const usageWidgetApi = {
   open: (app: AppId) => invoke<void>("open_usage_widget", { app }),
+  selectAgent: (app: AppId) =>
+    invoke<void>("select_usage_widget_agent", { app }),
   snapshot: (app: AppId) =>
     invoke<WidgetSnapshot>("get_usage_widget_snapshot", { app }),
   finance: (app: AppId, providerId: string, providerRevision: string) =>

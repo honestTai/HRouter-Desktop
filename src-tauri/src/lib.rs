@@ -1574,6 +1574,7 @@ pub fn run() {
             commands::get_request_logs,
             commands::get_request_detail,
             commands::open_usage_widget,
+            commands::select_usage_widget_agent,
             commands::get_usage_widget_snapshot,
             commands::get_usage_widget_finance,
             commands::get_model_pricing,

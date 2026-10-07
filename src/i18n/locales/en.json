@@ -3534,6 +3534,9 @@
     "desktopSkills": "Claude Desktop imports Skills through its account. Export a Skill ZIP and add it in Claude Settings; exporting does not mark it enabled."
   },
   "usageWidget": {
+    "throughputIdle": "No throughput in current window",
+    "lastSpeedHint": "Last measured at {{time}}: this request’s measured generation speed, not a live rate.",
+    "selectAgent": "Choose Agent",
     "open": "Desktop usage widget",
     "shrink": "Smaller display",
     "enlarge": "Larger display",
@@ -3561,11 +3564,11 @@
     "syncError": "Some Agent records could not refresh; showing available data",
     "updated": "Updated",
     "follow": "Follows the workbench Agent",
-    "speedUnavailable": "No timed requests available. Session logs do not report generation speed; routing subsequent requests through the proxy enables measurement.",
+    "speedUnavailable": "No completed, timed requests today. Direct-connection session logs do not contain generation duration. To measure speed, manually enable this Agent’s route proxy, then complete a request.",
     "throughput": "Current key throughput",
-    "throughputHint": "Server-reported tokens per minute, not per-request generation speed.",
+    "throughputHint": "Server-reported tokens per minute in its rolling window; returns to zero when idle. This is not per-request generation speed.",
     "totalSpent": "Current key total spend",
     "nativeTitle": "Native macOS widget",
-    "nativeHelp": "Right-click the desktop → Edit Widgets, then search for HRouter. On older systems, use Notification Center. Follows the selected Agent; macOS schedules refreshes."
+    "nativeHelp": "Right-click the desktop → Edit Widgets, then add HRouter. On macOS 14+, right-click a widget → Edit Widget → Agent to select it independently (multiple widgets supported). Older systems follow the Agent selected in the app. macOS schedules refreshes."
   }
 }

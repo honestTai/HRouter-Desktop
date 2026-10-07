@@ -1,16 +1,18 @@
+import AppIntents
 import Foundation
 import SwiftUI
 import WidgetKit
 
 private let appGroupIdentifier = "QA2AVNA553.com.hrouter.desktop"
 
-private struct AgentSummary: Decodable {
+struct AgentSummary: Decodable {
     let app: String
     let providerId: String?
     let revision: String?
     let tokens: Double
     let cacheRate: Double
     let speed: Double?
+    var speedMeasuredAt: TimeInterval? = nil
     let updatedAt: TimeInterval
 
     var name: String {
@@ -21,7 +23,7 @@ private struct AgentSummary: Decodable {
     }
 }
 
-private struct AgentFinance: Decodable {
+struct AgentFinance: Decodable {
     let app: String
     let providerId: String?
     let revision: String?
@@ -33,30 +35,60 @@ private struct AgentFinance: Decodable {
     let updatedAt: TimeInterval
 }
 
-private struct UsageEntry: TimelineEntry {
+struct UsageEntry: TimelineEntry {
     let date: Date
     var agent: AgentSummary? = nil
     var finance: AgentFinance? = nil
+    var selectedApp: String? = nil
 }
 
-private enum SummaryStore {
-    static func read<T: Decodable>(_ name: String, as type: T.Type) -> T? {
-        guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier),
-              let data = try? Data(contentsOf: container.appendingPathComponent("Library/Application Support/HRouter/\(name)")) else { return nil }
+enum SummaryStore {
+    static func read<T: Decodable>(_ name: String, as type: T.Type, directory: URL? = nil) -> T? {
+        let root = directory ?? FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
+            .appendingPathComponent("Library/Application Support/HRouter")
+        guard let root, let data = try? Data(contentsOf: root.appendingPathComponent(name)) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
     }
 
-    static func entry() -> UsageEntry {
-        let now = Date()
-        var agent = read("agent-summary.json", as: AgentSummary.self)
-        if let value = agent, !Calendar.current.isDate(Date(timeIntervalSince1970: value.updatedAt), inSameDayAs: now) { agent = nil }
-        var finance = read("agent-finance.json", as: AgentFinance.self)
+    private struct Selection: Decodable { let app: String }
+    private static let allowedApps: Set<String> = [
+        "claude", "claude-desktop", "codex", "gemini", "grokbuild", "opencode",
+        "openclaw", "hermes", "pi", "deepseek-harness", "workbuddy"
+    ]
+
+    static func entry(app requestedApp: String? = nil, at now: Date = Date(), directory: URL? = nil) -> UsageEntry {
+        // Explicit configurations never fall back to a different Agent's data.
+        let selected = requestedApp ?? read("selected-agent.json", as: Selection.self, directory: directory)?.app
+        let legacy = read("agent-summary.json", as: AgentSummary.self, directory: directory)
+        let app = selected ?? legacy?.app ?? "claude"
+        guard allowedApps.contains(app) else { return UsageEntry(date: now) }
+        var agent = read("agent-summary-\(app).json", as: AgentSummary.self, directory: directory)
+            ?? (legacy?.app == app ? legacy : nil)
+        if let value = agent, value.app != app || !Calendar.current.isDate(Date(timeIntervalSince1970: value.updatedAt), inSameDayAs: now) { agent = nil }
+        var finance = read("agent-finance-\(app).json", as: AgentFinance.self, directory: directory)
         if let value = finance {
             if value.app != agent?.app || value.providerId != agent?.providerId || value.revision != agent?.revision || now.timeIntervalSince1970 - value.updatedAt > 300 {
                 finance = nil
             }
         }
-        return UsageEntry(date: now, agent: agent, finance: finance)
+        return UsageEntry(date: now, agent: agent, finance: finance, selectedApp: app)
+    }
+
+    static func timeline(app: String? = nil, at now: Date = Date(), directory: URL? = nil) -> Timeline<UsageEntry> {
+        let entry = entry(app: app, at: now, directory: directory)
+        let midnight = Calendar.current.startOfDay(for: now).addingTimeInterval(24 * 60 * 60)
+        // Include expiry entries so stale finance/day totals disappear even when
+        // WidgetKit postpones a reload. Calendar arithmetic handles DST days.
+        let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now)) ?? midnight
+        var dates = [nextDay]
+        if let speedAt = entry.agent?.speedMeasuredAt {
+            dates.append(Date(timeIntervalSince1970: speedAt + 301))
+        }
+        if let finance = entry.finance {
+            dates.append(Date(timeIntervalSince1970: finance.updatedAt + 301))
+        }
+        let entries = [entry] + dates.filter { $0 > now }.sorted().map { self.entry(app: app, at: $0, directory: directory) }
+        return Timeline(entries: entries, policy: .after(now.addingTimeInterval(15 * 60)))
     }
 }
 
@@ -74,11 +106,39 @@ private struct UsageProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<UsageEntry>) -> Void) {
-        let now = Date()
-        let entry = SummaryStore.entry()
-        let nextRefresh = Calendar.current.date(byAdding: .minute, value: 15, to: now)
-            ?? now.addingTimeInterval(15 * 60)
-        completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
+        completion(SummaryStore.timeline())
+    }
+}
+
+@available(macOS 14.0, *)
+enum WidgetAgent: String, AppEnum {
+    case follow, claude, codex, gemini, grokbuild, opencode, openclaw, hermes, pi, workbuddy
+    case claudeDesktop = "claude-desktop"
+    case deepseek = "deepseek-harness"
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Agent"
+    static var caseDisplayRepresentations: [WidgetAgent: DisplayRepresentation] = [
+        .follow: "跟随应用 / Follow app", .claude: "Claude Code", .claudeDesktop: "Claude Desktop",
+        .codex: "Codex", .gemini: "Gemini", .grokbuild: "Grok Build", .opencode: "OpenCode",
+        .openclaw: "OpenClaw", .hermes: "Hermes", .pi: "Pi Agent",
+        .deepseek: "DeepSeek Harness", .workbuddy: "WorkBuddy"
+    ]
+}
+
+@available(macOS 14.0, *)
+struct SelectAgentIntent: WidgetConfigurationIntent {
+    static var title: LocalizedStringResource = "选择 Agent / Choose Agent"
+    static var description = IntentDescription("每个小组件可独立选择 Agent / Each widget can monitor its own Agent.")
+    @Parameter(title: "Agent", default: .follow) var agent: WidgetAgent
+}
+
+@available(macOS 14.0, *)
+private struct ConfigurableUsageProvider: AppIntentTimelineProvider {
+    func placeholder(in context: Context) -> UsageEntry { UsageProvider().placeholder(in: context) }
+    func snapshot(for configuration: SelectAgentIntent, in context: Context) async -> UsageEntry {
+        SummaryStore.entry(app: configuration.agent == .follow ? nil : configuration.agent.rawValue)
+    }
+    func timeline(for configuration: SelectAgentIntent, in context: Context) async -> Timeline<UsageEntry> {
+        SummaryStore.timeline(app: configuration.agent == .follow ? nil : configuration.agent.rawValue)
     }
 }
 
@@ -157,13 +217,7 @@ private struct WidgetContent: View {
                     ProgressView(value: min(1, max(0, agent.cacheRate))).tint(.accentColor)
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 VStack(alignment: .leading, spacing: 8) {
-                    if let speed = agent.speed, Date().timeIntervalSince1970 - agent.updatedAt <= 300 {
-                        Text("\(speed, specifier: "%.1f") tok/s").font(.caption.weight(.semibold))
-                    } else if let tpm = entry.finance?.tpm {
-                        Text("\(isChinese ? "吞吐" : "Throughput") \(tpm, specifier: "%.0f") tok/min").font(.caption)
-                    } else {
-                        Text(isChinese ? "速度：暂无计时" : "Speed: no timing").font(.caption2).foregroundStyle(.secondary)
-                    }
+                    speedContent(agent)
                     if let finance = entry.finance {
                         HStack(spacing: 8) {
                             if let today = finance.today { metric(isChinese ? "今日花费" : "Today", today, finance.unit) }
@@ -193,17 +247,7 @@ private struct WidgetContent: View {
             }.font(.caption)
             ProgressView(value: min(1, max(0, agent.cacheRate))).tint(.accentColor)
             if family != .systemSmall {
-                HStack {
-                    Text(agent.speed == nil && entry.finance?.tpm != nil ? (isChinese ? "Key 吞吐速率" : "Key throughput") : (isChinese ? "生成速度" : "Generation"))
-                    Spacer()
-                    if let speed = agent.speed, Date().timeIntervalSince1970 - agent.updatedAt <= 300 {
-                        Text("\(speed, specifier: "%.1f") tok/s")
-                    } else if let tpm = entry.finance?.tpm {
-                        Text("\(tpm, specifier: "%.0f") tok/min").accessibilityLabel(isChinese ? "Key 吞吐速率，非生成速度" : "Key throughput, not generation speed")
-                    } else {
-                        Text(isChinese ? "暂无计时样本" : "No timing samples").foregroundStyle(.secondary)
-                    }
-                }.font(.caption)
+                speedContent(agent)
                 if let finance = entry.finance {
                     Divider()
                     HStack(alignment: .top, spacing: 14) {
@@ -217,6 +261,30 @@ private struct WidgetContent: View {
             Text(updatedText(agent.updatedAt)).font(.system(size: 9)).foregroundStyle(.secondary)
         }
         .padding(14)
+    }
+
+    private func speedContent(_ agent: AgentSummary) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            if let speed = agent.speed, speed.isFinite, speed > 0 {
+                let last = agent.speedMeasuredAt ?? agent.updatedAt
+                let recent = entry.date.timeIntervalSince1970 - last <= 300
+                Text("\(isChinese ? (recent ? "生成" : "上次生成") : (recent ? "Generation" : "Last generation")) \(speed, specifier: "%.1f") tok/s")
+                    .font(.caption.weight(.semibold))
+                if !recent {
+                    Text(updatedText(last)).font(.system(size: 9)).foregroundStyle(.secondary)
+                }
+            } else {
+                Text(isChinese ? "生成速度 — 暂无计时" : "Generation — no timing")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+            // TPM is a separate server window metric, never a generation-speed fallback.
+            if let tpm = entry.finance?.tpm, tpm.isFinite, tpm >= 0 {
+                Text(tpm == 0
+                     ? (isChinese ? "Key 当前窗口无吞吐" : "Key: idle window")
+                     : "Key \(isChinese ? "吞吐" : "throughput") \(String(format: "%.0f", tpm)) tok/min")
+                    .font(.system(size: 9)).foregroundStyle(.secondary)
+            }
+        }
     }
 
     private func metric(_ label: String, _ amount: Double, _ unit: String?) -> some View {
@@ -259,16 +327,27 @@ private struct HRouterWidgetBackground: ViewModifier {
     }
 }
 
+#if !WIDGET_TESTING
 @main
+#endif
 struct HRouterUsageWidget: Widget {
     private let kind = "com.hrouter.desktop.widget.usage"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: UsageProvider()) { entry in
-            WidgetContent(entry: entry)
+        if #available(macOS 14.0, *) {
+            return AppIntentConfiguration(kind: kind, intent: SelectAgentIntent.self, provider: ConfigurableUsageProvider()) { entry in
+                WidgetContent(entry: entry)
+            }
+            .configurationDisplayName("HRouter 用量")
+            .description("右键编辑小组件可选择 Agent / Edit Widget to choose an Agent.")
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        } else {
+            return StaticConfiguration(kind: kind, provider: UsageProvider()) { entry in
+                WidgetContent(entry: entry)
+            }
+            .configurationDisplayName("HRouter 用量")
+            .description("跟随应用中选择的 Agent / Follows the Agent selected in the app.")
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
         }
-        .configurationDisplayName("HRouter 用量")
-        .description("展示所选 Agent 的 Tokens、缓存、速度，以及接口返回的花费与余额。")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
