@@ -25,6 +25,14 @@ import { Label } from "@/components/ui/label";
 import { ToggleRow } from "@/components/ui/toggle-row";
 import JsonEditor from "@/components/JsonEditor";
 import { ProviderIcon } from "@/components/ProviderIcon";
+import { HRouterClaudeDesktopModelMapping } from "./shared/HRouterClaudeDesktopModelMapping";
+import {
+  buildHRouterDesktopRoutes,
+  getHRouterDesktopRoutes,
+  mappingFromHRouterDesktopRoutes,
+  validateHRouterDesktopRoutes,
+  type HRouterDesktopRoute,
+} from "@/lib/hrouterClaudeDesktop";
 import { HRouterCodexModelMapping } from "./shared/HRouterCodexModelMapping";
 import { ModelInputWithFetch } from "./shared/ModelInputWithFetch";
 import type { AppId } from "@/lib/api";
@@ -165,6 +173,10 @@ export function HRouterProviderForm({
   const [mapping, setMapping] = useState<HRouterModelMapping>(
     initialState.mapping,
   );
+  const [desktopRoutes, setDesktopRoutes] = useState<
+    HRouterDesktopRoute[] | undefined
+  >(() => getHRouterDesktopRoutes(initialProvider?.meta));
+  const desktopRows = desktopRoutes ?? buildHRouterDesktopRoutes(mapping);
   const [codexCatalog, setCodexCatalog] = useState<
     CodexCatalogModel[] | undefined
   >(() => getHRouterCodexCatalog(initialProvider?.settingsConfig));
@@ -195,8 +207,6 @@ export function HRouterProviderForm({
   const [isFetching, setIsFetching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [providerKey] = useState(initialProvider?.id ?? uniqueProviderKey);
-
-  const isClaudeApp = appId === "claude" || appId === "claude-desktop";
 
   const codexContextWindow = String(
     extractCodexTopLevelInt(codexConfig, "model_context_window") ??
@@ -343,6 +353,31 @@ export function HRouterProviderForm({
         models = imported.models;
         effectiveMapping = imported.mapping;
       }
+      let effectiveDesktopRows: HRouterDesktopRoute[] | undefined;
+      if (appId === "claude-desktop") {
+        effectiveDesktopRows =
+          desktopRoutes ?? buildHRouterDesktopRoutes(effectiveMapping);
+        const error = validateHRouterDesktopRoutes(effectiveDesktopRows);
+        if (error) {
+          toast.error(error);
+          return;
+        }
+        if (
+          effectiveMapping.primary.trim() &&
+          !effectiveDesktopRows.some(
+            (row) => row.model.trim() === effectiveMapping.primary.trim(),
+          )
+        ) {
+          toast.error(
+            "默认模型不在当前映射中，请添加对应映射或重新选择默认模型",
+          );
+          return;
+        }
+        effectiveMapping = mappingFromHRouterDesktopRoutes(
+          effectiveMapping,
+          effectiveDesktopRows,
+        );
+      }
       effectiveMapping = {
         ...effectiveMapping,
         primary: effectiveMapping.primary.trim(),
@@ -436,7 +471,15 @@ export function HRouterProviderForm({
         icon: "hrouter",
         iconColor: HROUTER_ICON_COLOR,
         presetCategory: "aggregator",
-        meta: buildHRouterProviderMeta(appId, effectiveMapping, key),
+        meta: {
+          ...initialProvider?.meta,
+          ...buildHRouterProviderMeta(
+            appId,
+            effectiveMapping,
+            key,
+            effectiveDesktopRows,
+          ),
+        },
         ...(appId === "opencode" || appId === "openclaw" || appId === "hermes"
           ? { providerKey }
           : {}),
@@ -472,6 +515,8 @@ export function HRouterProviderForm({
     codexGoalMode,
     codexRemoteCompaction,
     defaultName,
+    desktopRoutes,
+    initialProvider,
     fetchedModels,
     importModels,
     mapping,
@@ -601,18 +646,41 @@ export function HRouterProviderForm({
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="hrouter-primary-model">默认模型</Label>
-          <ModelInputWithFetch
-            id="hrouter-primary-model"
-            value={mapping.primary}
-            onChange={(primary) =>
+        {appId !== "claude-desktop" && (
+          <div className="space-y-2">
+            <Label htmlFor="hrouter-primary-model">默认模型</Label>
+            <ModelInputWithFetch
+              id="hrouter-primary-model"
+              value={mapping.primary}
+              onChange={(primary) =>
+                setMapping((current) => ({ ...current, primary }))
+              }
+              fetchedModels={fetchedModels}
+              isLoading={false}
+            />
+          </div>
+        )}
+
+        {appId === "claude-desktop" && (
+          <HRouterClaudeDesktopModelMapping
+            rows={desktopRows}
+            models={fetchedModels}
+            primary={mapping.primary}
+            onPrimaryChange={(primary) =>
               setMapping((current) => ({ ...current, primary }))
             }
-            fetchedModels={fetchedModels}
-            isLoading={false}
+            onChange={setDesktopRoutes}
+            onRecommend={() => {
+              const recommended = deriveHRouterModelMapping(
+                appId,
+                fetchedModels,
+              );
+              setMapping(recommended);
+              setDesktopRoutes(buildHRouterDesktopRoutes(recommended));
+            }}
+            disabled={isFetching || isSubmitting}
           />
-        </div>
+        )}
 
         {appId === "codex" && (
           <HRouterCodexModelMapping
@@ -627,7 +695,7 @@ export function HRouterProviderForm({
           />
         )}
 
-        {isClaudeApp && (
+        {appId === "claude" && (
           <div className="grid gap-3 sm:grid-cols-3">
             {(["haiku", "sonnet", "opus"] as const).map((role) => (
               <div key={role} className="space-y-2">

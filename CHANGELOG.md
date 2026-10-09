@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.2 — 2026-10-09
+
+- Makes HRouter Claude Desktop client IDs, upstream IDs and display labels visible and independently editable, with mismatch warnings and an explicit same-ID repair action.
+- Preserves compatible Claude model IDs instead of silently mapping newer Haiku models to Haiku 4.5 or older Opus models to Opus 5.
+- Recommends the highest numeric model version available to the current key, independent of API ordering, while retaining saved manual selections until an explicit recommendation reset.
+- Adds route creation/removal, duplicate and invalid-ID validation, context-flag preservation, and a warning when a saved default model is missing from the route map.
+- Adds frontend and backend regression coverage for recommendations, manual editing, configuration round trips and exact-ID profile/request handling.
+
 ## 0.4.1 — 2026-10-07
 
 - Adds an independent Agent selector to the floating usage window on macOS and Windows; switching the display does not change provider routes.

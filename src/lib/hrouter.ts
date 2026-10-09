@@ -7,7 +7,11 @@ import type {
   ProviderMeta,
   UsageScript,
 } from "@/types";
-import { CLAUDE_DESKTOP_ROLE_ROUTE_IDS } from "@/config/claudeDesktopProviderPresets";
+import {
+  buildHRouterDesktopRoutes,
+  buildHRouterDesktopRouteMap,
+  type HRouterDesktopRoute,
+} from "./hrouterClaudeDesktop";
 import {
   buildGrokBuildConfig,
   parseGrokBuildConfig,
@@ -218,10 +222,49 @@ export function deriveHRouterModelMapping(
     gemini: ["gemini"],
     grokbuild: ["appcodex", "codex", "gpt", "claude", "gemini"],
   };
-  const primary = findByHints(pool, primaryHints[appId] ?? []) ?? pool[0] ?? "";
-  const sonnet = findByHints(allModels, ["claude-sonnet", "sonnet"]) ?? primary;
-  const opus = findByHints(allModels, ["claude-opus", "opus"]) ?? sonnet;
-  const haiku = findByHints(allModels, ["claude-haiku", "haiku"]) ?? sonnet;
+  const isClaude = appId === "claude" || appId === "claude-desktop";
+  const latestRole = (role: "sonnet" | "opus" | "haiku") => {
+    if (!isClaude) return undefined;
+    // Compare versions, not API order, provider prefixes, or release dates.
+    const pattern = new RegExp(
+      `^(?:anthropic/)?claude-${role}-(\\d+(?:-\\d+)*)(?:$|-)`,
+      "i",
+    );
+    const versions = allModels.flatMap((id) => {
+      const match = id.match(pattern);
+      if (!match) return [];
+      const version = match[1]
+        .split("-")
+        .filter((part) => part.length !== 8)
+        .map(Number);
+      return [{ id, version }];
+    });
+    versions.sort((a, b) => {
+      for (let i = 0; i < Math.max(a.version.length, b.version.length); i++) {
+        const delta = (b.version[i] ?? 0) - (a.version[i] ?? 0);
+        if (delta) return delta;
+      }
+      return a.id.localeCompare(b.id, "en");
+    });
+    return versions[0]?.id;
+  };
+  const primary =
+    (isClaude ? latestRole("sonnet") : undefined) ??
+    findByHints(pool, primaryHints[appId] ?? []) ??
+    pool[0] ??
+    "";
+  const sonnet =
+    latestRole("sonnet") ??
+    findByHints(allModels, ["claude-sonnet", "sonnet"]) ??
+    primary;
+  const opus =
+    latestRole("opus") ??
+    findByHints(allModels, ["claude-opus", "opus"]) ??
+    sonnet;
+  const haiku =
+    latestRole("haiku") ??
+    findByHints(allModels, ["claude-haiku", "haiku"]) ??
+    sonnet;
 
   return { primary, haiku, sonnet, opus };
 }
@@ -719,6 +762,7 @@ export function buildHRouterProviderMeta(
   appId: AppId,
   mapping: HRouterModelMapping,
   apiKey: string,
+  desktopRoutes?: HRouterDesktopRoute[],
 ): ProviderMeta {
   const meta: ProviderMeta = {
     providerType: "hrouter",
@@ -739,20 +783,9 @@ export function buildHRouterProviderMeta(
     // HRouter aliases are not guaranteed to be native Claude Desktop model
     // names, so role mapping must be handled by the local routing layer.
     meta.claudeDesktopMode = "proxy";
-    meta.claudeDesktopModelRoutes = {
-      [CLAUDE_DESKTOP_ROLE_ROUTE_IDS.sonnet]: {
-        model: mapping.sonnet,
-        labelOverride: mapping.sonnet,
-      },
-      [CLAUDE_DESKTOP_ROLE_ROUTE_IDS.opus]: {
-        model: mapping.opus,
-        labelOverride: mapping.opus,
-      },
-      [CLAUDE_DESKTOP_ROLE_ROUTE_IDS.haiku]: {
-        model: mapping.haiku,
-        labelOverride: mapping.haiku,
-      },
-    };
+    meta.claudeDesktopModelRoutes = buildHRouterDesktopRouteMap(
+      desktopRoutes ?? buildHRouterDesktopRoutes(mapping),
+    );
   }
 
   return meta;

@@ -1601,6 +1601,57 @@ mod tests {
     }
 
     #[test]
+    fn hrouter_exact_model_ids_survive_profile_catalog_and_request_mapping() {
+        let temp = TempDir::new().expect("tempdir");
+        let paths = test_paths(temp.path());
+        let mut provider = proxy_provider("hrouter");
+        let ids = [
+            "claude-haiku-5-5",
+            "claude-opus-4-6",
+            "claude-sonnet-5-5",
+            "claude-fable-5-1",
+        ];
+        let meta = provider.meta.as_mut().expect("meta");
+        meta.api_format = Some("anthropic".to_string());
+        meta.claude_desktop_model_routes = ids
+            .iter()
+            .map(|id| {
+                (
+                    id.to_string(),
+                    ClaudeDesktopModelRoute {
+                        model: id.to_string(),
+                        label_override: Some(id.to_string()),
+                        supports_1m: None,
+                    },
+                )
+            })
+            .collect();
+        let db = test_db();
+        apply_provider_to_paths(&db, &provider, &paths).expect("apply exact IDs");
+        let profile: Value = read_json_file(&paths.profile_path).expect("profile");
+        let specs = profile["inferenceModels"].as_array().expect("model specs");
+        let catalog = model_list_response(&provider).expect("catalog");
+        assert_eq!(specs.len(), ids.len());
+        for id in ids {
+            assert!(specs.iter().any(|spec| spec["name"] == id));
+            assert!(catalog["data"]
+                .as_array()
+                .expect("models")
+                .iter()
+                .any(|model| model["id"] == id));
+            let mapped = map_proxy_request_model(
+                json!({"model": id, "messages": [], "output_config": {"effort": "high"}}),
+                &provider,
+            )
+            .expect("map exact model");
+            assert_eq!(mapped["model"], id);
+            assert_eq!(mapped["output_config"]["effort"], "high");
+        }
+        assert!(!specs.iter().any(|spec| spec["name"] == "claude-haiku-4-5"));
+        assert!(!specs.iter().any(|spec| spec["name"] == "claude-opus-5"));
+    }
+
+    #[test]
     fn claude_desktop_proxy_accepts_managed_oauth_providers_without_static_key() {
         for (provider_type, api_format) in [
             ("github_copilot", "openai_chat"),

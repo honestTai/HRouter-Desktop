@@ -464,3 +464,216 @@ describe("HRouter editable model mappings", () => {
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
   });
 });
+
+describe("HRouter Claude Desktop visible routes", () => {
+  const oldProvider: Provider = {
+    id: "desktop-hrouter",
+    name: "HRouter",
+    settingsConfig: {
+      env: {
+        ANTHROPIC_AUTH_TOKEN: "test-key",
+        ANTHROPIC_MODEL: "claude-haiku-5-5",
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: "claude-haiku-5-5",
+        ANTHROPIC_DEFAULT_SONNET_MODEL: "claude-sonnet-5-5",
+        ANTHROPIC_DEFAULT_OPUS_MODEL: "claude-opus-4-6",
+      },
+    },
+    meta: {
+      providerType: "hrouter",
+      claudeDesktopMode: "proxy",
+      claudeDesktopModelRoutes: {
+        "claude-haiku-4-5": {
+          model: "claude-haiku-5-5",
+          labelOverride: "My Haiku",
+          supports1m: true,
+        },
+        "claude-opus-5": { model: "claude-opus-4-6", labelOverride: "My Opus" },
+      },
+    },
+  };
+  beforeEach(() => {
+    vi.mocked(fetchModelsForConfig)
+      .mockReset()
+      .mockResolvedValue([
+        { id: "claude-haiku-5-5", ownedBy: "anthropic" },
+        { id: "claude-sonnet-5", ownedBy: "anthropic" },
+        { id: "claude-sonnet-5-5", ownedBy: "anthropic" },
+        { id: "claude-opus-4-6", ownedBy: "anthropic" },
+        { id: "claude-opus-5-5", ownedBy: "anthropic" },
+      ]);
+  });
+  const renderDesktop = (provider: Provider | undefined = oldProvider) => {
+    const submit = vi.fn();
+    render(
+      <HRouterProviderForm
+        appId="claude-desktop"
+        initialProvider={provider}
+        onSubmit={submit}
+        onCancel={vi.fn()}
+      />,
+    );
+    return submit;
+  };
+
+  it("shows the saved client ID separately from upstream, preserves it on fetch and save", async () => {
+    const submit = renderDesktop();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "按已导入列表重新推荐" }),
+      ).toBeEnabled(),
+    );
+    expect(screen.getAllByLabelText("客户端模型 ID")[0]).toHaveValue(
+      "claude-haiku-4-5",
+    );
+    expect(screen.getAllByLabelText("上游模型 ID")[0]).toHaveValue(
+      "claude-haiku-5-5",
+    );
+    expect(screen.getAllByText(/映射不一致：/)).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "已识别" }));
+    await waitFor(() => expect(fetchModelsForConfig).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "保存 HRouter" }),
+      ).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "保存 HRouter" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    expect(submit.mock.calls[0][0].meta.claudeDesktopModelRoutes).toEqual(
+      oldProvider.meta!.claudeDesktopModelRoutes,
+    );
+  });
+
+  it("exposes a saved default missing from the old route map instead of silently replacing it", async () => {
+    const submit = renderDesktop({
+      ...oldProvider,
+      settingsConfig: {
+        env: {
+          ...oldProvider.settingsConfig.env,
+          ANTHROPIC_MODEL: "claude-fable-5-1",
+        },
+      },
+    });
+    expect(screen.getByText(/未包含在当前映射中/)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "保存 HRouter" }));
+    expect(submit).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "添加默认模型映射" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存 HRouter" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const { meta, settingsConfig } = submit.mock.calls[0][0];
+    expect(meta.claudeDesktopModelRoutes["claude-fable-5-1"].model).toBe(
+      "claude-fable-5-1",
+    );
+    expect(JSON.parse(settingsConfig).env.ANTHROPIC_MODEL).toBe(
+      "claude-fable-5-1",
+    );
+  });
+
+  it("repairs an old hidden ID explicitly without changing upstream, label or context", async () => {
+    const submit = renderDesktop();
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "使用同名客户端 ID" })[0],
+    );
+    fireEvent.click(screen.getByRole("button", { name: "保存 HRouter" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const routes = submit.mock.calls[0][0].meta.claudeDesktopModelRoutes;
+    expect(routes["claude-haiku-5-5"]).toEqual(
+      oldProvider.meta!.claudeDesktopModelRoutes!["claude-haiku-4-5"],
+    );
+    expect(routes).not.toHaveProperty("claude-haiku-4-5");
+  });
+
+  it("recommends newer available upstreams and matching client IDs only on explicit reset", async () => {
+    const submit = renderDesktop();
+    const recommend = screen.getByRole("button", {
+      name: "按已导入列表重新推荐",
+    });
+    await waitFor(() => expect(recommend).toBeEnabled());
+    fireEvent.click(recommend);
+    fireEvent.click(screen.getByRole("button", { name: "保存 HRouter" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const { meta, settingsConfig } = submit.mock.calls[0][0];
+    expect(Object.keys(meta.claudeDesktopModelRoutes)).toEqual([
+      "claude-sonnet-5-5",
+      "claude-opus-5-5",
+      "claude-haiku-5-5",
+    ]);
+    const env = JSON.parse(settingsConfig).env;
+    expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe("claude-opus-5-5");
+    expect(env.ANTHROPIC_MODEL).toBe("claude-sonnet-5-5");
+  });
+
+  it("saves manual route edits and upstream changes without restoring fixed role IDs", async () => {
+    const submit = renderDesktop();
+    fireEvent.change(screen.getAllByLabelText("客户端模型 ID")[0], {
+      target: { value: "claude-haiku-5-custom" },
+    });
+    fireEvent.change(screen.getAllByLabelText("上游模型 ID")[0], {
+      target: { value: "manual-haiku" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存 HRouter" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const { meta, settingsConfig } = submit.mock.calls[0][0];
+    expect(meta.claudeDesktopModelRoutes["claude-haiku-5-custom"].model).toBe(
+      "manual-haiku",
+    );
+    expect(JSON.parse(settingsConfig).env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe(
+      "manual-haiku",
+    );
+    expect(JSON.parse(settingsConfig).env.ANTHROPIC_MODEL).toBe("manual-haiku");
+  });
+
+  it("validates manual empty, invalid and duplicate IDs before save", async () => {
+    const submit = renderDesktop();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "按已导入列表重新推荐" }),
+      ).toBeEnabled(),
+    );
+    const route = screen.getAllByLabelText("客户端模型 ID")[0];
+    for (const value of ["", "gpt-6", "claude-opus-5"]) {
+      fireEvent.change(route, { target: { value } });
+      fireEvent.click(screen.getByRole("button", { name: "保存 HRouter" }));
+      expect(submit).not.toHaveBeenCalled();
+    }
+    fireEvent.change(route, { target: { value: "claude-haiku-5-5" } });
+    fireEvent.click(screen.getByRole("button", { name: "添加模型映射" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存 HRouter" }));
+    expect(submit).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "删除映射 3" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存 HRouter" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+  });
+
+  it("generates same-name routes on first import and automatically follows native upstream changes", async () => {
+    const submit = vi.fn();
+    render(
+      <HRouterProviderForm
+        appId="claude-desktop"
+        onSubmit={submit}
+        onCancel={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("HRouter Key"), {
+      target: { value: "test-key" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "识别 Key" }));
+    await waitFor(() =>
+      expect(screen.getAllByLabelText("客户端模型 ID")).toHaveLength(3),
+    );
+    fireEvent.change(screen.getAllByLabelText("上游模型 ID")[0], {
+      target: { value: "claude-sonnet-5-10" },
+    });
+    expect(screen.getAllByLabelText("客户端模型 ID")[0]).toHaveValue(
+      "claude-sonnet-5-10",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "添加 HRouter" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const { meta, settingsConfig } = submit.mock.calls[0][0];
+    expect(meta.claudeDesktopModelRoutes["claude-sonnet-5-10"].model).toBe(
+      "claude-sonnet-5-10",
+    );
+    expect(JSON.parse(settingsConfig).env.ANTHROPIC_MODEL).toBe(
+      "claude-sonnet-5-10",
+    );
+  });
+});
