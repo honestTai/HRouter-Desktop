@@ -4,7 +4,7 @@
 
 The English-first README uses **13 selected native macOS captures** taken on **October 3, 2026** by operating the installed `/Applications/HRouter.app`. They are actual application windows, not browser mockups or fabricated data. The source captures remain outside the repository.
 
-The local capture build contains the simplified workbench but still has a `0.3.1` bundle version. It is not the notarized v0.4.0 release. English UI was selected for the captures; some HRouter-specific labels remain Chinese. The original Simplified Chinese language and Codex agent selection were restored afterward.
+The local capture build contains the simplified workbench but still has a `0.3.1` bundle version. It is not a capture of the current notarized release (v0.4.2). English UI was selected for the captures; some HRouter-specific labels remain Chinese. The original Simplified Chinese language and Codex agent selection were restored afterward.
 
 | File                        | Visible interface                               | Privacy / capture note                                                                                                    |
 | --------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |

@@ -16,26 +16,98 @@
 
 ### 少折腾配置，多专注编程。
 
-**一个桌面工具，管理你的 AI 编程 Agent、供应商与模型线路。**<br>
-接入服务，检查配置，选好备用线路，回到开发本身。
+**面向 Claude Code、Codex 等 AI 编程 Agent 的本地桌面工作台。**<br>
+基于 [CC Switch](https://github.com/farion1231/cc-switch)。可选接入 [HRouter](https://hrouter.net/)：一把 OpenAI 兼容 API Key，调用该 Key 实际可用的 Claude、GPT、Gemini 等模型。
 
 [![发布版本](https://img.shields.io/github/v/release/honestTai/HRouter-Desktop?color=16a085&label=release)](https://github.com/honestTai/HRouter-Desktop/releases/latest)
+[![下载 macOS](https://img.shields.io/badge/Download-macOS%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.4.2/HRouter_0.4.2_aarch64.dmg)
+[![下载 Windows](https://img.shields.io/badge/Download-Windows%20x64-0078D4?logo=windows&logoColor=white)](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.4.2/HRouter_0.4.2_x64-setup.exe)
 [![支持平台](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows-5263d6)](#下载)
 [![许可证](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 [English](README.md) | **简体中文**
 
-[下载](#下载) · [为什么选择 HRouter Desktop](#为什么选择-hrouter-desktop) · [界面预览](#界面预览) · [相比 CC Switch 的改动](#相比-cc-switch-的改动) · [开始使用](#开始使用)
+[下载 v0.4.2](#下载) · [用 HRouter 快速开始](#hrouter-quick-start) · [Claude Code 与 Codex](#same-key-claude-code-codex) · [为什么选择 HRouter Desktop](#为什么选择-hrouter-desktop) · [界面预览](#界面预览) · [相比 CC Switch 的改动](#相比-cc-switch-的改动)
 
 </div>
 
 ![HRouter Desktop：以 Agent 为中心的配置工作台](assets/screenshots/workbench-en.png)
 
+Claude Code、Codex、Gemini CLI、Grok Build、OpenCode，再加上另外 6 个 Agent，放在同一个本地应用里：供应商、API Key、模型映射、备用线路和用量。[更多界面](#界面预览)。
+
+## 下载
+
+**当前版本：[v0.4.2](https://github.com/honestTai/HRouter-Desktop/releases/tag/v0.4.2)**（2026-10-09）。
+
+| 平台        | 安装包                                                                                                                          | 架构                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **macOS**   | [HRouter_0.4.2_aarch64.dmg](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.4.2/HRouter_0.4.2_aarch64.dmg)     | Apple Silicon（M 系列）· macOS 12+ |
+| **Windows** | [HRouter_0.4.2_x64-setup.exe](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.4.2/HRouter_0.4.2_x64-setup.exe) | x64                              |
+
+不支持 Intel Mac。已发布的自动更新覆盖已签名、已公证的 macOS Apple Silicon 和 Windows x64。安装后可在应用内检查更新。[发布说明](https://github.com/honestTai/HRouter-Desktop/releases/tag/v0.4.2) · [全部版本](https://github.com/honestTai/HRouter-Desktop/releases)。
+
+[更新记录](CHANGELOG.md) · [代码签名政策](CODE_SIGNING_POLICY.md)
+
+<a id="hrouter-quick-start"></a>
+
+## 用 HRouter 快速开始
+
+[HRouter](https://hrouter.net/) 是面向 Claude Code、Codex 等编程工具的 API 中转（API relay）。在网站充值、创建一把 API Key，并选择分组。分组决定这把 Key 能调用哪些 Claude、GPT、Gemini 等模型，以及对应价格。桌面端不内置账户、充值或订单页面。接入其他供应商不需要 HRouter 账户。
+
+1. **在网站创建 Key。** 登录 [hrouter.net](https://hrouter.net/)，查看模型与分组，再从 **API 密钥** 创建 Key，并选择与目标工具匹配的分组。余额、订阅权益和 Key 分组是不同概念，充值不会自动开放全部分组。操作顺序见 [HRouter 文档](https://www.hrouter.net/docs/index)。
+2. **安装 [v0.4.2](#下载)。** 打开工作台并选择 Agent。通常从 Claude Code 或 Codex 开始。
+3. **在应用里添加 Key。** 选择 **添加 HRouter Key**，粘贴 Key，点击 **识别 Key**。应用会读取这把 Key 实际能调用的模型。Key 只保存在本机配置中。
+4. **检查、保存、启用。** 确认模型映射后再启用供应商。客户端若已打开，按需刷新或重启。
+
+官方供应商、自建端点，或其他 OpenAI 兼容的 LLM 网关，都使用同一个工作台。HRouter 快捷接入是可选项。
+
+<a id="same-key-claude-code-codex"></a>
+
+## 同一把 Key，接入 Claude Code 与 Codex
+
+也可以自己把 CLI 指到 HRouter。下面的 Base URL 来自 [HRouter 文档](https://www.hrouter.net/docs/index)。`/home`、`/keys` 这类网页路径不是 API 地址。
+
+| 客户端                                    | Base URL                 | 教程                                                            |
+| ----------------------------------------- | ------------------------ | --------------------------------------------------------------- |
+| Claude Code（Anthropic Messages）         | `https://hrouter.net`    | [Claude Code 教程](https://www.hrouter.net/docs/claude-code)    |
+| Codex 以及其他 OpenAI 兼容客户端          | `https://hrouter.net/v1` | [Codex 教程](https://www.hrouter.net/docs/codex)                |
+
+Claude Code 会自己拼接 `/v1/messages`。把 Base URL 写成 `https://hrouter.net/v1` 会返回 404。
+
+macOS / Linux 写在 `~/.claude/settings.json`，Windows 写在 `%USERPROFILE%\.claude\settings.json`：
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://hrouter.net",
+    "ANTHROPIC_AUTH_TOKEN": "sk-xxxxx"
+  }
+}
+```
+
+把 `sk-xxxxx` 换成你自己的 Key。如果你的 Claude Code 版本读取的是 `ANTHROPIC_API_KEY`，填同一把 Key 即可。
+
+Codex 使用 OpenAI Responses API。在 `~/.codex/config.toml`（Windows：`%USERPROFILE%\.codex\config.toml`）写入：
+
+```toml
+model_provider = "hrouter"
+
+[model_providers.hrouter]
+name = "OpenAI"
+base_url = "https://hrouter.net/v1"
+requires_openai_auth = true
+wire_api = "responses"
+```
+
+Key 写在 `~/.codex/auth.json`（Windows 为同目录下的 `auth.json`），字段名是 `OPENAI_API_KEY`。文档要求 `name` 必须精确为 `"OpenAI"`，Codex 远程压缩才会生效，并且 `wire_api` 设为 `"responses"`。模型 ID 会变化，请从这把 Key 的 `https://hrouter.net/v1/models` 结果里选择。上下文窗口预设和完整文件见 [Codex 教程](https://www.hrouter.net/docs/codex)。
+
+在 HRouter Desktop 里点击 **识别 Key**，会为当前 Agent 写入这套配置。手动修改和桌面端应指向同一个 Base URL。
+
 ## 为什么选择 HRouter Desktop？
 
 不同的 Agent，不同的配置文件，不同的供应商。切换编程环境，不应该意味着把这些东西重新拼一遍。
 
-**HRouter Desktop 把接入流程集中到一处：**供应商、API Key、模型映射、配置保护、备用线路和用量。它基于 CC Switch，提供以 Agent 为中心的界面，让你围绕自己选择的服务开展工作。
+**HRouter Desktop 把接入流程集中到一处：**供应商、API Key、模型映射、配置保护、备用线路和用量。它基于 CC Switch，可以作为 CC Switch alternative：用 Agent 优先的界面管理你选择的服务，包括 OpenAI 兼容的 API 中转（API relay）或其他 LLM 网关（LLM gateway）。
 
 - **11 个 Agent，一个工作台。** 在 Claude Code、Codex、Gemini CLI 等工具间切换，不必为每个工具重新熟悉一套配置界面。
 - **先看变更，再切配置。** 主动开启 Claude / Codex 配置保护，保留自定义字段、预览变更，并留存本地切换快照。
@@ -43,32 +115,6 @@
 - **常用配置，存成方案。** 将供应商、MCP 和 Skills 的选择保存为接入方案，应用之前先检查。
 - **看清工具怎么用、用了多少。** 查看请求、Token、缓存和费用估算，用浮动窗口随时了解当前 Agent 用量。
 - **服务由你选。** 官方供应商、自建端点、兼容中转都能接入；使用桌面工具不需要 HRouter 账户。
-
-## 下载
-
-| 平台        | 安装包                                                                                            | 架构                                  |
-| ----------- | ------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| **macOS**   | [前往 Releases 下载](https://github.com/honestTai/HRouter-Desktop/releases/latest) · `.dmg`       | 仅 Apple Silicon（M 系列）· macOS 12+ |
-| **Windows** | [前往 Releases 下载](https://github.com/honestTai/HRouter-Desktop/releases/latest) · `-setup.exe` | x64                                   |
-
-> **v0.4.0 已发布。**可通过上方链接下载最新版本，或在应用内检查更新。macOS 安装包仅支持 Apple Silicon（M 系列），不支持 Intel Mac。
-
-[更新记录](CHANGELOG.md) · [代码签名政策](CODE_SIGNING_POLICY.md)
-
-## 用 HRouter 快速接入
-
-<table>
-<tr>
-<td width="110" align="center"><a href="https://hrouter.net/"><img src="src-tauri/icons/128x128.png" width="72" alt="HRouter"></a></td>
-<td>
-<strong>一个 HRouter Key，让你的 Agent 少一步配置。</strong><br><br>
-已有 HRouter API Key？选择 Agent，发现 Key 可用的模型，再检查生成的配置——在工作台里完成接入。<br><br>
-<a href="https://hrouter.net/"><strong>了解 HRouter →</strong></a> · 服务账户在网站管理，编程工具在桌面接入。
-</td>
-</tr>
-</table>
-
-HRouter 快捷接入是可选项，其他兼容供应商使用同一个工作台。可用模型和价格取决于 Key 权限与服务本身。桌面端不内置 HRouter 账户、充值或订单管理页面。
 
 ## 功能介绍
 
