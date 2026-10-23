@@ -2,7 +2,7 @@
 
 **English** · [简体中文](README_ZH.md)
 
-[HRouter](https://hrouter.net/home) · [All public projects](https://github.com/honestTai) · [Star & Fork trends](#project-activity)
+[All public projects](https://github.com/honestTai) · [Star & Fork trends](#project-activity)
 
 </div>
 
@@ -17,7 +17,7 @@
 ### Less configuration. More coding.
 
 **A local desktop workbench for Claude Code, Codex, and your other AI coding agents.**<br>
-Built on [CC Switch](https://github.com/farion1231/cc-switch). Optional [HRouter](https://hrouter.net/) setup uses one OpenAI-compatible API key for Claude, GPT, Gemini, and the other models that key can call.
+Built on [CC Switch](https://github.com/farion1231/cc-switch).
 
 [![Release](https://img.shields.io/github/v/release/honestTai/HRouter-Desktop?color=16a085&label=release)](https://github.com/honestTai/HRouter-Desktop/releases/latest)
 [![Download macOS](https://img.shields.io/badge/Download-macOS%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.4.2/HRouter_0.4.2_aarch64.dmg)
@@ -27,7 +27,7 @@ Built on [CC Switch](https://github.com/farion1231/cc-switch). Optional [HRouter
 
 **English** | [简体中文](README_ZH.md)
 
-[Download v0.4.2](#download) · [Quick start with HRouter](#quick-start-with-hrouter) · [Claude Code and Codex](#use-the-same-key-in-claude-code-and-codex) · [Why HRouter Desktop](#why-hrouter-desktop) · [Screenshots](#screenshots) · [Compared with CC Switch](#compared-with-cc-switch)
+[Download v0.4.2](#download) · [Quick start](#quick-start) · [Why HRouter Desktop](#why-hrouter-desktop) · [Screenshots](#screenshots) · [Compared with CC Switch](#compared-with-cc-switch)
 
 </div>
 
@@ -48,76 +48,33 @@ Intel Macs are not a supported install target. The published updater covers sign
 
 [Changelog](CHANGELOG.md) · [Code-signing policy](CODE_SIGNING_POLICY.md)
 
-## Quick start with HRouter
+## Quick start
 
-[HRouter](https://hrouter.net/) is an API relay for coding tools such as Claude Code and Codex. You top up on the website, create one API key, and choose a group. That group decides which Claude, GPT, Gemini, and other models the key can call, and what they cost. The desktop app does not include account, top-up, or order pages. No HRouter account is required to use other providers.
+1. **Install [v0.4.2](#download).** Open the workbench and select an agent. Claude Code and Codex are the usual starting points.
+2. **Add a provider.** Choose an official preset, or add a custom endpoint and API key. The app can inspect the provider's model catalog so you can review the models it can actually call. Keys are stored only in the local configuration.
+3. **Review, save, and enable.** Check the model mapping, then enable the provider. Refresh or restart the client if it was already open.
 
-1. **Create a key on the website.** Sign in at [hrouter.net](https://hrouter.net/). Check models and groups, then create a key from **API 密钥** and pick a group that matches the tool you want. Balance, subscription benefits, and key groups are separate: topping up does not grant every group. The order of steps is in the [HRouter docs](https://www.hrouter.net/docs/index).
-2. **Install [v0.4.2](#download).** Open the workbench and select an agent. Claude Code and Codex are the usual starting points.
-3. **Add the key in the app.** Choose **Add HRouter key**, paste the key, and click **识别 Key**. The app reads the models that key can actually call. That button label stays Chinese when the interface is set to English. The key is stored only in the local configuration.
-4. **Review, save, and enable.** Check the model mapping, then enable the provider. Refresh or restart the client if it was already open.
-
-Official providers, a self-hosted endpoint, or another OpenAI-compatible LLM gateway use the same workbench. HRouter quick setup is optional.
-
-## Use the same key in Claude Code and Codex
-
-You can also point the CLIs at HRouter yourself. These base URLs are from the [HRouter docs](https://www.hrouter.net/docs/index). Website paths such as `/home` and `/keys` are not API addresses.
-
-| Client                                         | Base URL                  | Guide                                                                 |
-| ---------------------------------------------- | ------------------------- | --------------------------------------------------------------------- |
-| Claude Code (Anthropic Messages)               | `https://hrouter.net`     | [Claude Code tutorial](https://www.hrouter.net/docs/claude-code)      |
-| Codex and other OpenAI-compatible clients      | `https://hrouter.net/v1`  | [Codex tutorial](https://www.hrouter.net/docs/codex)                  |
-
-Claude Code appends `/v1/messages` itself. Setting its base URL to `https://hrouter.net/v1` returns 404.
-
-`~/.claude/settings.json` on macOS and Linux, or `%USERPROFILE%\.claude\settings.json` on Windows:
-
-```json
-{
-  "env": {
-    "ANTHROPIC_BASE_URL": "https://hrouter.net",
-    "ANTHROPIC_AUTH_TOKEN": "sk-xxxxx"
-  }
-}
-```
-
-Replace `sk-xxxxx` with your key. If your Claude Code build reads `ANTHROPIC_API_KEY` instead, use the same key there.
-
-Codex uses the OpenAI Responses API. The provider block in `~/.codex/config.toml` (Windows: `%USERPROFILE%\.codex\config.toml`):
-
-```toml
-model_provider = "hrouter"
-
-[model_providers.hrouter]
-name = "OpenAI"
-base_url = "https://hrouter.net/v1"
-requires_openai_auth = true
-wire_api = "responses"
-```
-
-Put the key in `~/.codex/auth.json` as `OPENAI_API_KEY`. The docs require `name = "OpenAI"` exactly, so Codex remote compaction can run, and `wire_api = "responses"`. Model ids change; pick one your key returns from `https://hrouter.net/v1/models`. Context-window presets and the rest of the file are in the [Codex tutorial](https://www.hrouter.net/docs/codex).
-
-**识别 Key** in HRouter Desktop writes this configuration for the selected agent. Keep manual edits and the desktop app pointed at the same base URL.
+Official providers, a self-hosted endpoint, or another OpenAI-compatible LLM gateway all use the same workbench.
 
 ## Why HRouter Desktop?
 
 Different agents. Different config files. Different providers. Switching your coding setup should not mean piecing all of them together again.
 
-**HRouter Desktop puts the connection workflow in one place:** providers, API keys, model mappings, configuration protection, backup routes, and usage. Built on CC Switch, it is a desktop CC Switch alternative: an agent-first interface for the services you choose, including an OpenAI-compatible API relay or another LLM gateway.
+**HRouter Desktop puts the connection workflow in one place:** providers, API keys, model mappings, configuration protection, backup routes, and usage. Built on CC Switch, it is a desktop CC Switch alternative: an agent-first interface for the services you choose, including official providers and OpenAI-compatible LLM gateways.
 
 - **11 agents, one workbench.** Move between Claude Code, Codex, Gemini CLI, and more without learning a different configuration UI for each.
 - **Switch with a preview, not a guess.** Opt into Claude / Codex configuration protection to preserve custom fields, preview changes, and keep local switch snapshots.
 - **Give your models a backup plan.** Choose primary and backup providers, define exact-model routes, and use automatic failover through supported local routing.
 - **Keep repeatable setups.** Save provider, MCP, and Skill selections as access profiles; review them before applying.
 - **See how your tools are being used.** Inspect requests, tokens, cache usage, and estimated costs, with an agent-scoped floating usage window.
-- **Use the service you want.** Official providers, self-hosted endpoints, and compatible gateways are welcome. No HRouter account is required to use the desktop app.
+- **Use the service you want.** Official providers, self-hosted endpoints, and compatible gateways are welcome.
 
 ## Features
 
 ### Connect and check
 
 - **Provider library:** official presets and custom endpoints, multiple saved providers per agent, editable keys and model mappings.
-- **HRouter quick setup:** key-based model discovery and agent-specific configuration, without a platform login.
+- **Quick provider setup:** key-based model discovery and agent-specific configuration, without a platform login.
 - **Connection checks:** inspect the model catalog, then optionally test text responses, streaming, tool calls, and tool-result continuation. Real-request checks support Claude / Codex API-key providers and require acknowledgement of possible charges.
 
 ### Protect and reuse
@@ -129,7 +86,7 @@ Different agents. Different config files. Different providers. Switching your co
 
 ### Route and observe
 
-- **Primary and backup routes:** ordered failover queues and exact-model route chains through the local proxy. You choose the providers; HRouter is not automatically added.
+- **Primary and backup routes:** ordered failover queues and exact-model route chains through the local proxy. You choose the providers; nothing is added automatically.
 - **Usage analytics:** request logs, token and cache breakdowns, trends, provider/model summaries, and local cost estimates.
 - **Provider usage:** query configured provider usage interfaces; inspect multi-key quotas with explicit rules for combining independent balances.
 - **Desktop visibility:** a floating agent usage window and macOS widget integration.
@@ -149,11 +106,11 @@ Each agent has its own adapter. Routing, configuration protection, authenticatio
 
 ## Screenshots
 
-Real macOS application captures with private configuration labels redacted. Some HRouter-specific controls still display Chinese when the interface is set to English. [Capture details and full image index](assets/screenshots/README.md).
+Real macOS application captures with private configuration labels redacted. Some controls still display Chinese when the interface is set to English. [Capture details and full image index](assets/screenshots/README.md).
 
-|                     **Providers in one place**                     |                     **HRouter key quick setup**                      |
+|                     **Providers in one place**                     |                     **Provider quick setup**                      |
 | :----------------------------------------------------------------: | :------------------------------------------------------------------: |
-| ![Provider configuration](assets/screenshots/configuration-en.png) | ![Empty HRouter key setup form](assets/screenshots/key-setup-en.png) |
+| ![Provider configuration](assets/screenshots/configuration-en.png) | ![Empty provider key setup form](assets/screenshots/key-setup-en.png) |
 |        Keep saved services and the active provider visible.        |          Discover models and review mappings before saving.          |
 
 |              **Reusable access profiles**              |                 **Explicit backup routes**                  |
@@ -186,7 +143,7 @@ Real macOS application captures with private configuration labels redacted. Some
 | **Model-aware routing**              | Extensions to inherited routing: exact-model primary/backup chains, temporary manual preferences, and controlled multi-key quota aggregation.     |
 | **Compatibility and continuity**     | Protocol-aware connection checks, targeted proxy transport fixes, and Codex legacy-provider compatibility without rewriting conversation history. |
 | **Usage correctness**                | Targeted fixes for Codex fork usage, Claude cache-TTL estimates, and OpenCode rollup/deduplication.                                               |
-| **HRouter and desktop integration**  | Optional HRouter key setup, DeepSeek Harness / WorkBuddy integration work, and agent-scoped desktop usage tools.                                  |
+| **Desktop integration**              | DeepSeek Harness / WorkBuddy integration work, and agent-scoped desktop usage tools.                                                              |
 | **A focused desktop**                | v0.4.0 removes the account, payment, order, and cloud-billing modules from earlier **HRouter** versions—not from CC Switch.                       |
 
 This is a summary of changes maintained in this fork, not a claim that current upstream lacks every listed capability. The projects evolve independently. For implementation details and validation limits, see the [workbench guide](docs/access-workbench.md), [fix checklist](docs/issue-remediation.md), and [upstream contribution records](docs/upstream-contributions.md).
@@ -194,7 +151,7 @@ This is a summary of changes maintained in this fork, not a claim that current u
 ## Get started
 
 1. **Install and choose an agent.** Open the workbench and select the coding tool you want to configure.
-2. **Connect a service.** Add a provider preset or a custom endpoint and key. For HRouter, select **Add HRouter key** and review the discovered models.
+2. **Connect a service.** Add a provider preset or a custom endpoint and key, and review the discovered models.
 3. **Review, save, and enable.** Check the model mapping and configuration, then enable the provider. Refresh or restart the target client if required.
 
 That's the basic setup. Add protection, profiles, or backup routes when you need them; opt into a billable connection test only after checking the catalog.

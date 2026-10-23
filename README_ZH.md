@@ -2,7 +2,7 @@
 
 [English](README.md) · **简体中文**
 
-[HRouter](https://hrouter.net/home) · [All public projects](https://github.com/honestTai) · [Star & Fork trends](#project-activity)
+[All public projects](https://github.com/honestTai) · [Star & Fork trends](#project-activity)
 
 </div>
 
@@ -17,7 +17,7 @@
 ### 少折腾配置，多专注编程。
 
 **面向 Claude Code、Codex 等 AI 编程 Agent 的本地桌面工作台。**<br>
-基于 [CC Switch](https://github.com/farion1231/cc-switch)。可选接入 [HRouter](https://hrouter.net/)：一把 OpenAI 兼容 API Key，调用该 Key 实际可用的 Claude、GPT、Gemini 等模型。
+基于 [CC Switch](https://github.com/farion1231/cc-switch)。
 
 [![发布版本](https://img.shields.io/github/v/release/honestTai/HRouter-Desktop?color=16a085&label=release)](https://github.com/honestTai/HRouter-Desktop/releases/latest)
 [![下载 macOS](https://img.shields.io/badge/Download-macOS%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://github.com/honestTai/HRouter-Desktop/releases/download/v0.4.2/HRouter_0.4.2_aarch64.dmg)
@@ -27,7 +27,7 @@
 
 [English](README.md) | **简体中文**
 
-[下载 v0.4.2](#下载) · [用 HRouter 快速开始](#hrouter-quick-start) · [Claude Code 与 Codex](#same-key-claude-code-codex) · [为什么选择 HRouter Desktop](#为什么选择-hrouter-desktop) · [界面预览](#界面预览) · [相比 CC Switch 的改动](#相比-cc-switch-的改动)
+[下载 v0.4.2](#下载) · [快速开始](#quick-start) · [为什么选择 HRouter Desktop](#为什么选择-hrouter-desktop) · [界面预览](#界面预览) · [相比 CC Switch 的改动](#相比-cc-switch-的改动)
 
 </div>
 
@@ -48,80 +48,35 @@ Claude Code、Codex、Gemini CLI、Grok Build、OpenCode，再加上另外 6 个
 
 [更新记录](CHANGELOG.md) · [代码签名政策](CODE_SIGNING_POLICY.md)
 
-<a id="hrouter-quick-start"></a>
+<a id="quick-start"></a>
 
-## 用 HRouter 快速开始
+## 快速开始
 
-[HRouter](https://hrouter.net/) 是面向 Claude Code、Codex 等编程工具的 API 中转（API relay）。在网站充值、创建一把 API Key，并选择分组。分组决定这把 Key 能调用哪些 Claude、GPT、Gemini 等模型，以及对应价格。桌面端不内置账户、充值或订单页面。接入其他供应商不需要 HRouter 账户。
+1. **安装 [v0.4.2](#下载)。** 打开工作台并选择 Agent。通常从 Claude Code 或 Codex 开始。
+2. **添加供应商。** 选择官方预设，或填写自定义端点与 API Key。应用可以检查供应商的模型目录，确认这把 Key 实际能调用的模型。Key 只保存在本机配置中。
+3. **检查、保存、启用。** 确认模型映射后再启用供应商。客户端若已打开，按需刷新或重启。
 
-1. **在网站创建 Key。** 登录 [hrouter.net](https://hrouter.net/)，查看模型与分组，再从 **API 密钥** 创建 Key，并选择与目标工具匹配的分组。余额、订阅权益和 Key 分组是不同概念，充值不会自动开放全部分组。操作顺序见 [HRouter 文档](https://www.hrouter.net/docs/index)。
-2. **安装 [v0.4.2](#下载)。** 打开工作台并选择 Agent。通常从 Claude Code 或 Codex 开始。
-3. **在应用里添加 Key。** 选择 **添加 HRouter Key**，粘贴 Key，点击 **识别 Key**。应用会读取这把 Key 实际能调用的模型。Key 只保存在本机配置中。
-4. **检查、保存、启用。** 确认模型映射后再启用供应商。客户端若已打开，按需刷新或重启。
-
-官方供应商、自建端点，或其他 OpenAI 兼容的 LLM 网关，都使用同一个工作台。HRouter 快捷接入是可选项。
-
-<a id="same-key-claude-code-codex"></a>
-
-## 同一把 Key，接入 Claude Code 与 Codex
-
-也可以自己把 CLI 指到 HRouter。下面的 Base URL 来自 [HRouter 文档](https://www.hrouter.net/docs/index)。`/home`、`/keys` 这类网页路径不是 API 地址。
-
-| 客户端                                    | Base URL                 | 教程                                                            |
-| ----------------------------------------- | ------------------------ | --------------------------------------------------------------- |
-| Claude Code（Anthropic Messages）         | `https://hrouter.net`    | [Claude Code 教程](https://www.hrouter.net/docs/claude-code)    |
-| Codex 以及其他 OpenAI 兼容客户端          | `https://hrouter.net/v1` | [Codex 教程](https://www.hrouter.net/docs/codex)                |
-
-Claude Code 会自己拼接 `/v1/messages`。把 Base URL 写成 `https://hrouter.net/v1` 会返回 404。
-
-macOS / Linux 写在 `~/.claude/settings.json`，Windows 写在 `%USERPROFILE%\.claude\settings.json`：
-
-```json
-{
-  "env": {
-    "ANTHROPIC_BASE_URL": "https://hrouter.net",
-    "ANTHROPIC_AUTH_TOKEN": "sk-xxxxx"
-  }
-}
-```
-
-把 `sk-xxxxx` 换成你自己的 Key。如果你的 Claude Code 版本读取的是 `ANTHROPIC_API_KEY`，填同一把 Key 即可。
-
-Codex 使用 OpenAI Responses API。在 `~/.codex/config.toml`（Windows：`%USERPROFILE%\.codex\config.toml`）写入：
-
-```toml
-model_provider = "hrouter"
-
-[model_providers.hrouter]
-name = "OpenAI"
-base_url = "https://hrouter.net/v1"
-requires_openai_auth = true
-wire_api = "responses"
-```
-
-Key 写在 `~/.codex/auth.json`（Windows 为同目录下的 `auth.json`），字段名是 `OPENAI_API_KEY`。文档要求 `name` 必须精确为 `"OpenAI"`，Codex 远程压缩才会生效，并且 `wire_api` 设为 `"responses"`。模型 ID 会变化，请从这把 Key 的 `https://hrouter.net/v1/models` 结果里选择。上下文窗口预设和完整文件见 [Codex 教程](https://www.hrouter.net/docs/codex)。
-
-在 HRouter Desktop 里点击 **识别 Key**，会为当前 Agent 写入这套配置。手动修改和桌面端应指向同一个 Base URL。
+官方供应商、自建端点，或其他 OpenAI 兼容的 LLM 网关，都使用同一个工作台。
 
 ## 为什么选择 HRouter Desktop？
 
 不同的 Agent，不同的配置文件，不同的供应商。切换编程环境，不应该意味着把这些东西重新拼一遍。
 
-**HRouter Desktop 把接入流程集中到一处：**供应商、API Key、模型映射、配置保护、备用线路和用量。它基于 CC Switch，可以作为 CC Switch alternative：用 Agent 优先的界面管理你选择的服务，包括 OpenAI 兼容的 API 中转（API relay）或其他 LLM 网关（LLM gateway）。
+**HRouter Desktop 把接入流程集中到一处：**供应商、API Key、模型映射、配置保护、备用线路和用量。它基于 CC Switch，可以作为 CC Switch alternative：用 Agent 优先的界面管理你选择的服务，包括官方供应商和 OpenAI 兼容的 LLM 网关（LLM gateway）。
 
 - **11 个 Agent，一个工作台。** 在 Claude Code、Codex、Gemini CLI 等工具间切换，不必为每个工具重新熟悉一套配置界面。
 - **先看变更，再切配置。** 主动开启 Claude / Codex 配置保护，保留自定义字段、预览变更，并留存本地切换快照。
 - **为模型准备备用线路。** 选择主备供应商、定义精确模型路由，在支持的本地代理模式下自动故障转移。
 - **常用配置，存成方案。** 将供应商、MCP 和 Skills 的选择保存为接入方案，应用之前先检查。
 - **看清工具怎么用、用了多少。** 查看请求、Token、缓存和费用估算，用浮动窗口随时了解当前 Agent 用量。
-- **服务由你选。** 官方供应商、自建端点、兼容中转都能接入；使用桌面工具不需要 HRouter 账户。
+- **服务由你选。** 官方供应商、自建端点、兼容网关都能接入。
 
 ## 功能介绍
 
 ### 接入与验证
 
 - **供应商配置库：**支持官方预设、自定义端点，以及每个 Agent 的多套供应商配置；Key 和模型映射可编辑。
-- **HRouter 快捷配置：**通过 Key 发现模型，生成 Agent 专属配置，无需登录平台账户。
+- **供应商快捷配置：**通过 Key 发现模型，生成 Agent 专属配置，无需登录平台账户。
 - **接入体检：**先检查模型目录，再按需验证普通响应、流式、工具调用及工具结果续接。真实请求体检支持 Claude / Codex API Key 供应商，执行前需确认可能产生费用。
 
 ### 保护与复用
@@ -133,7 +88,7 @@ Key 写在 `~/.codex/auth.json`（Windows 为同目录下的 `auth.json`），�
 
 ### 线路与用量
 
-- **主备线路：**通过本地代理使用有序故障转移队列和精确模型线路链。供应商由你选择，不会自动加入 HRouter。
+- **主备线路：**通过本地代理使用有序故障转移队列和精确模型线路链。供应商由你选择，不会自动加入任何服务。
 - **用量统计：**查看请求日志、Token 与缓存明细、趋势、供应商/模型汇总，以及本地费用估算。
 - **供应商用量：**查询已配置的用量接口；查看多 Key 额度，并按明确规则合计互相独立的余额。
 - **桌面可见：**Agent 浮动用量窗口与 macOS 小组件集成。
@@ -153,11 +108,11 @@ Key 写在 `~/.codex/auth.json`（Windows 为同目录下的 `auth.json`），�
 
 ## 界面预览
 
-以下为真实 macOS 应用截图，私人配置名称已遮盖。切换为英文界面后，部分 HRouter 专属控件仍显示中文。[截图说明与完整图片索引](assets/screenshots/README.md)。
+以下为真实 macOS 应用截图，私人配置名称已遮盖。切换为英文界面后，部分控件仍显示中文。[截图说明与完整图片索引](assets/screenshots/README.md)。
 
-|                  **供应商，集中管理**                  |                       **HRouter Key，快捷接入**                       |
+|                  **供应商，集中管理**                  |                       **供应商 Key，快捷接入**                       |
 | :----------------------------------------------------: | :-------------------------------------------------------------------: |
-| ![供应商配置](assets/screenshots/configuration-en.png) | ![未填写凭据的 HRouter Key 表单](assets/screenshots/key-setup-en.png) |
+| ![供应商配置](assets/screenshots/configuration-en.png) | ![未填写凭据的供应商 Key 表单](assets/screenshots/key-setup-en.png) |
 |           已保存的服务与当前供应商一目了然。           |                     保存前先发现模型、检查映射。                      |
 
 |            **常用接入，保存为方案**             |                **备用线路，顺序明确**                 |
@@ -190,7 +145,7 @@ Key 写在 `~/.codex/auth.json`（Windows 为同目录下的 `auth.json`），�
 | **按模型组织线路**     | 在继承的代理基础上扩展精确模型主备链、临时手动优先和受控的多 Key 额度合计。                   |
 | **兼容性与会话连续性** | 按协议体检、针对性代理传输修复，以及不改写对话历史的 Codex 旧 provider 兼容。                 |
 | **用量准确性**         | 针对 Codex fork 用量、Claude 缓存 TTL 估算、OpenCode 汇总去重的修复。                         |
-| **HRouter 与桌面集成** | 可选的 HRouter Key 配置、DeepSeek Harness / WorkBuddy 接入工作，以及 Agent 维度桌面用量工具。 |
+| **桌面集成** | DeepSeek Harness / WorkBuddy 接入工作，以及 Agent 维度桌面用量工具。 |
 | **专注工具本身**       | v0.4.0 移除的是旧版 **HRouter** 的账户、支付、订单和云端账单模块，而非 CC Switch 的模块。     |
 
 这里总结的是本分支持续维护的改动，不代表当前上游缺少表中所有能力。两个项目独立演进。实现细节与验证边界见[工作台说明](docs/access-workbench.md)、[修复清单](docs/issue-remediation.md)和[上游贡献记录](docs/upstream-contributions.md)。
@@ -198,7 +153,7 @@ Key 写在 `~/.codex/auth.json`（Windows 为同目录下的 `auth.json`），�
 ## 开始使用
 
 1. **安装并选择 Agent。** 打开工作台，选择要配置的编程工具。
-2. **接入服务。** 添加供应商预设，或填写自定义端点与 Key。HRouter 用户选择 **添加 HRouter Key**，检查发现的模型。
+2. **接入服务。** 添加供应商预设，或填写自定义端点与 Key，检查发现的模型。
 3. **检查、保存、启用。** 确认模型映射与配置，再启用供应商。按需刷新或重启目标客户端。
 
 基本接入就完成了。需要时再添加配置保护、接入方案或备用线路；先检查模型目录，再主动选择可能计费的真实请求体检。
