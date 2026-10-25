@@ -27,7 +27,7 @@
 
 [English](README.md) | **简体中文**
 
-[下载 v0.4.2](#下载) · [快速开始](#quick-start) · [为什么选择 HRouter Desktop](#为什么选择-hrouter-desktop) · [界面预览](#界面预览) · [相比 CC Switch 的改动](#相比-cc-switch-的改动)
+[下载 v0.4.2](#下载) · [快速开始](#quick-start) · [需要模型 API 接入？](#model-api-access) · [为什么选择 HRouter Desktop](#为什么选择-hrouter-desktop) · [界面预览](#界面预览) · [相比 CC Switch 的改动](#相比-cc-switch-的改动)
 
 </div>
 
@@ -57,6 +57,16 @@ Claude Code、Codex、Gemini CLI、Grok Build、OpenCode，再加上另外 6 个
 3. **检查、保存、启用。** 确认模型映射后再启用供应商。客户端若已打开，按需刷新或重启。
 
 官方供应商、自建端点，或其他 OpenAI 兼容的 LLM 网关，都使用同一个工作台。
+
+<a id="model-api-access"></a>
+
+## 需要模型 API 接入？
+
+HRouter Desktop 留在本机。它可以配置你选择的供应商：官方 API、自建端点，或 OpenAI 兼容网关，包括 [HRouter](https://hrouter.net)。
+
+[HRouter](https://hrouter.net/home) 是配套的预付费模型 API 中继。一把 API Key 即可在编程 Agent 中使用 Claude、GPT、Gemini 和 Grok。在网站充值并创建 Key，然后在 Desktop 里像添加其他供应商一样配置这个网关。
+
+HRouter 账户、计费与使用咨询：[honesttibo@mail.grokbot.com](mailto:honesttibo@mail.grokbot.com)。
 
 ## 为什么选择 HRouter Desktop？
 
@@ -156,6 +166,8 @@ Claude Code、Codex、Gemini CLI、Grok Build、OpenCode，再加上另外 6 个
 2. **接入服务。** 添加供应商预设，或填写自定义端点与 Key，检查发现的模型。
 3. **检查、保存、启用。** 确认模型映射与配置，再启用供应商。按需刷新或重启目标客户端。
 
+还没有 Key？[HRouter](https://hrouter.net/home) 是推荐的预付费中继，一把 Key 覆盖 Claude、GPT、Gemini 和 Grok。[在 Desktop 中接入](#model-api-access)。
+
 基本接入就完成了。需要时再添加配置保护、接入方案或备用线路；先检查模型目录，再主动选择可能计费的真实请求体检。
 
 ### 从 CC Switch 迁移？
@@ -171,7 +183,7 @@ Claude Code、Codex、Gemini CLI、Grok Build、OpenCode，再加上另外 6 个
 - **保护有明确范围。** Claude / Codex 配置保护需要主动开启。恢复检查会保留后续编辑，而非强行覆盖；仅供应商同步和接入方案不等于完整备份。
 - **签名类型有区别。** Tauri 更新签名不等于 Windows Authenticode 签名；macOS 发布要求 Developer ID 签名与公证。
 
-[隐私政策](PRIVACY.md) · [安全反馈](SECURITY.md) · [签名政策](CODE_SIGNING_POLICY.md)
+[隐私政策](PRIVACY.md) · [安全反馈](SECURITY.md) · [获取帮助](SUPPORT.md) · [签名政策](CODE_SIGNING_POLICY.md)
 
 ## 构建与贡献
 
