@@ -27,7 +27,7 @@ Built on [CC Switch](https://github.com/farion1231/cc-switch).
 
 **English** | [简体中文](README_ZH.md)
 
-[Download v0.4.2](#download) · [Quick start](#quick-start) · [Why HRouter Desktop](#why-hrouter-desktop) · [Screenshots](#screenshots) · [Compared with CC Switch](#compared-with-cc-switch)
+[Download v0.4.2](#download) · [Quick start](#quick-start) · [Need model API access?](#need-model-api-access) · [Why HRouter Desktop](#why-hrouter-desktop) · [Screenshots](#screenshots) · [Compared with CC Switch](#compared-with-cc-switch)
 
 </div>
 
@@ -55,6 +55,14 @@ Intel Macs are not a supported install target. The published updater covers sign
 3. **Review, save, and enable.** Check the model mapping, then enable the provider. Refresh or restart the client if it was already open.
 
 Official providers, a self-hosted endpoint, or another OpenAI-compatible LLM gateway all use the same workbench.
+
+## Need model API access?
+
+HRouter Desktop stays on your machine. It configures the providers you choose: official APIs, a self-hosted endpoint, or an OpenAI-compatible gateway, including [HRouter](https://hrouter.net).
+
+[HRouter](https://hrouter.net/home) is the companion relay for prepaid model access. One API key covers Claude, GPT, Gemini, and Grok for your coding agents. Add balance and create a key on the site, then add that provider in Desktop the same way as any other endpoint.
+
+HRouter account, billing, and consultation: [honesttibo@mail.grokbot.com](mailto:honesttibo@mail.grokbot.com).
 
 ## Why HRouter Desktop?
 
@@ -154,6 +162,8 @@ This is a summary of changes maintained in this fork, not a claim that current u
 2. **Connect a service.** Add a provider preset or a custom endpoint and key, and review the discovered models.
 3. **Review, save, and enable.** Check the model mapping and configuration, then enable the provider. Refresh or restart the target client if required.
 
+Still need a key? [HRouter](https://hrouter.net/home) is the recommended prepaid relay: one key for Claude, GPT, Gemini, and Grok. [Add it in Desktop](#need-model-api-access).
+
 That's the basic setup. Add protection, profiles, or backup routes when you need them; opt into a billable connection test only after checking the catalog.
 
 ### Moving from CC Switch?
@@ -169,7 +179,7 @@ This imports providers—not a whole account. Managed OAuth sessions, prompts, S
 - **Protection has a scope.** It is opt-in for Claude / Codex. Restore checks preserve later edits rather than forcing an overwrite; provider-only sync and profiles are not full backups.
 - **Signing types differ.** Tauri updater signatures are not Windows Authenticode signatures. macOS publication requires Developer ID signing and notarization.
 
-[Privacy](PRIVACY.md) · [Security](SECURITY.md) · [Signing](CODE_SIGNING_POLICY.md)
+[Privacy](PRIVACY.md) · [Security](SECURITY.md) · [Support](SUPPORT.md) · [Signing](CODE_SIGNING_POLICY.md)
 
 ## Build and contribute
 
