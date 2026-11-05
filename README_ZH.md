@@ -13,6 +13,12 @@
 
 </div>
 
+## ❤️ 赞助商
+
+| 赞助商 | 简介 |
+| :--- | :--- |
+| [![HRouter](docs/assets/hrouter-sponsor.svg)](https://hrouter.net/home) | **[HRouter](https://hrouter.net/home)**：面向 AI 编程与应用开发的模型接入、API Key 管理与用量统计，也由作者运营。 |
+
 ## 快速开始
 
 **当前版本：[v0.4.2](https://github.com/honestTai/HRouter-Desktop/releases/tag/v0.4.2)**（2026-10-09）。
