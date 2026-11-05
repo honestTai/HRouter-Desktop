@@ -13,6 +13,12 @@
 
 </div>
 
+## ❤️ Sponsor
+
+| Sponsor | What it is |
+| :--- | :--- |
+| [![HRouter](docs/assets/hrouter-sponsor.svg)](https://hrouter.net/home) | **[HRouter](https://hrouter.net/home)**: model access, API key management, and usage tracking for AI coding and application development. Also operated by the maintainer. |
+
 ## Quick start
 
 **Current release: [v0.4.2](https://github.com/honestTai/HRouter-Desktop/releases/tag/v0.4.2)** (2026-10-09).
